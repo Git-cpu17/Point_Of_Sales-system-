@@ -1,47 +1,62 @@
 from flask import Flask, render_template, request, redirect, url_for
+from config import Config
+from models import db, Administrator, Employee, Customer, Department, Product, Transaction
 
 app = Flask(__name__)
+app.config.from_object(Config)
+db.init_app(app)
 
-# Home page before login
+# Reflect tables if they already exist in Azure MySQL
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception as e:
+        print("Database connection issue:", e)
+
+# -----------------------------
+# Routes
+# -----------------------------
 @app.route('/')
 def home():
     return render_template('regular_store_dashboard.html')
 
-# Login page
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         user_id = request.form['user_id']
         password = request.form['password']
 
-        # Example login logic (you can connect this to DB later)
-        if user_id == 'admin' and password == 'admin123':
+        admin = Administrator.query.filter_by(username=user_id, password=password).first()
+        emp = Employee.query.filter_by(username=user_id, password=password).first()
+
+        if admin:
             return redirect(url_for('admin_dashboard'))
-        elif user_id == 'employee' and password == 'emp123':
+        elif emp:
             return redirect(url_for('employee_dashboard'))
-        elif user_id == 'customer' and password == 'cust123':
-            return redirect(url_for('customer_dashboard'))
-        elif user_id == 'department' and password == 'dept123':
-            return redirect(url_for('department_dashboard'))
         else:
             return render_template('login.html', error='Invalid ID or Password')
     return render_template('login.html')
 
 @app.route('/admin')
 def admin_dashboard():
-    return render_template('admin_dashboard.html')
+    admins = Administrator.query.all()
+    employees = Employee.query.all()
+    return render_template('admin_dashboard.html', admins=admins, employees=employees)
 
 @app.route('/employee')
 def employee_dashboard():
-    return render_template('employee_dashboard.html')
+    employees = Employee.query.all()
+    return render_template('employee_dashboard.html', employees=employees)
 
 @app.route('/customer')
 def customer_dashboard():
-    return render_template('customer_dashboard.html')
+    customers = Customer.query.all()
+    return render_template('customer_dashboard.html', customers=customers)
 
 @app.route('/department')
 def department_dashboard():
-    return render_template('department_dashboard.html')
+    departments = Department.query.all()
+    return render_template('department_dashboard.html', departments=departments)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=8000, debug=True)

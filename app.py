@@ -3,8 +3,15 @@ from config import Config
 from models import db, Administrator, Employee, Customer, Department, Product, Transaction
 
 app = Flask(__name__)
-app.config.from_object(Config)
-db.init_app(app)
+CORS(app)  # Allows frontend from GitHub Pages to call this API
+
+# Connect to Azure MySQL
+db = mysql.connector.connect(
+    host="posapp.mysql.database.azure.com",
+    user="CloudSA0d30306e",
+    password="Azure123456*",
+    database="PosApp"
+)
 
 # Reflect tables if they already exist in Azure MySQL
 with app.app_context():
@@ -13,12 +20,40 @@ with app.app_context():
     except Exception as e:
         print("Database connection issue:", e)
 
+
 # -----------------------------
 # Routes
 # -----------------------------
+
 @app.route('/')
 def home():
-    return render_template('regular_store_dashboard.html')
+    return render_template('index.html')
+return jsonify({"message": "Flask API is running on Azure!"})
+
+#---
+#debug
+  
+
+@app.route("/api/products", methods=["GET"])
+def get_products():
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM products")
+    rows = cursor.fetchall()
+    return jsonify(rows)
+
+@app.route("/api/add", methods=["POST"])
+def add_product():
+    data = request.json
+    cursor = db.cursor()
+    query = "INSERT INTO products (name, price) VALUES (%s, %s)"
+    cursor.execute(query, (data['name'], data['price']))
+    db.commit()
+    return jsonify({"message": "Product added successfully"}), 201
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+#------
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

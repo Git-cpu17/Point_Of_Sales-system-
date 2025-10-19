@@ -26,7 +26,7 @@ jobs:
 
      # ✅ Install dependencies directly (optional if Oryx handles it)
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r "(root)/requirements.txt"
 
       # 📦 Upload everything except unnecessary files
       - name: Upload artifact for deployment jobs
@@ -69,4 +69,5 @@ jobs:
           slot-name: 'Production'
 
           
+
 

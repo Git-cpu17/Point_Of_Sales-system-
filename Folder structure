@@ -2,7 +2,7 @@ project/
 │
 ├── app.py
 ├── templates/
-│   ├── regular_store_dashboard.html
+│   ├── index.html
 │   ├── login.html
 │   ├── admin_dashboard.html
 │   ├── employee_dashboard.html

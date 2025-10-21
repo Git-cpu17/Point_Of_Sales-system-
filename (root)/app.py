@@ -27,7 +27,18 @@ with app.app_context():
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    cursor = db.cursor(dictionary=True)
+
+    # Fetch products
+    cursor.execute("SELECT * FROM product")
+    products = cursor.fetchall()
+
+    # Fetch departments
+    cursor.execute("SELECT * FROM department")
+    department = cursor.fetchall()
+
+    return render_template('index.html', products=products, departments=departments)
+    
 return jsonify({"message": "Flask API is running on Azure!"})
 
 #---
@@ -63,11 +74,13 @@ def login():
 
         admin = Administrator.query.filter_by(username=user_id, password=password).first()
         emp = Employee.query.filter_by(username=user_id, password=password).first()
-
+        cust= Customer.query.filter_by(email=user_id,password=password).first()
         if admin:
             return redirect(url_for('admin_dashboard'))
         elif emp:
             return redirect(url_for('employee_dashboard'))
+        elif cust:
+            return redirect(url_for('customer_dashboard'))
         else:
             return render_template('login.html', error='Invalid ID or Password')
     return render_template('login.html')

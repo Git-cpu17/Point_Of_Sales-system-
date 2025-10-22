@@ -123,15 +123,18 @@ function renderTransactions(data) {
   });
 }
 
-document.getElementById('filterForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const filters = {
-    employee: document.getElementById('employeeFilter').value,
-    payment_method: document.getElementById('paymentFilter').value,
-    sort_by: document.getElementById('sortBy').value
-  };
-  loadTransactions(filters);
-});
+const filterForm = document.getElementById('filterForm');
+if (filterForm) {
+  filterForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const filters = {
+      employee: document.getElementById('employeeFilter').value,
+      payment_method: document.getElementById('paymentFilter').value,
+      sort_by: document.getElementById('sortBy').value
+    };
+    loadTransactions(filters);
+  });
+}
 
 function editProduct(id) {
   const newQty = prompt("Enter new quantity:");
@@ -158,5 +161,12 @@ function removeProduct(id) {
   }).then(loadProducts);
 }
 sessionStorage.setItem('role', data.role);
+
+document.addEventListener('DOMContentLoaded', () => {
+  const path = window.location.pathname;
+  if (path.includes('login.html')) setupLoginForm();
+  if (path.includes('transactions.html')) setupTransactionFilters();
+});
+
 
 

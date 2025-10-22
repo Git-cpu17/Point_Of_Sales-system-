@@ -50,7 +50,7 @@ def status():
 @app.route("/api/products", methods=["GET"])
 def get_products():
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM product")
+    cursor.execute("SELECT product_id, name, description, price, quantity_in_stock, barcode, department_id FROM product WHERE hidden = FALSE")
     rows = cursor.fetchall()
     return jsonify(rows)
 
@@ -58,8 +58,18 @@ def get_products():
 def add_product():
     data = request.json
     cursor = db.cursor()
-    query = "INSERT INTO products (name, price) VALUES (%s, %s)"
-    cursor.execute(query, (data['name'], data['price']))
+    query = """
+        INSERT INTO product (name, description, price, barcode, quantity_in_stock, department_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """
+    cursor.execute(query, (
+        data['name'],
+        data.get('description', ''),
+        data['price'],
+        data.get('barcode', ''),
+        data.get('quantity_in_stock', 0),
+        data.get('department_id')
+    ))
     db.commit()
     return jsonify({"message": "Product added successfully"}), 201
 
@@ -106,6 +116,25 @@ def customer_dashboard():
 def department_dashboard():
     departments = Department.query.all()
     return render_template('department_dashboard.html', departments=departments)
+@app.route('/transactions')
+def get_transactions():
+    query = Transaction.query.join(Employee).join(Customer)
+
+    if request.args.get('employee'):
+        query = query.filter(Employee.name.ilike(f"%{request.args['employee']}%"))
+    if request.args.get('payment_method'):
+        query = query.filter(Transaction.payment_method == request.args['payment_method'])
+    if request.args.get('sort_by'):
+        sort_field = request.args['sort_by']
+        if sort_field == 'date':
+            query = query.order_by(Transaction.transaction_date.desc())
+        elif sort_field == 'amount':
+            query = query.order_by(Transaction.total_amount.desc())
+
+    transactions = query.all()
+    return jsonify([tx.to_dict() for tx in transactions])
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000, debug=True)
+    

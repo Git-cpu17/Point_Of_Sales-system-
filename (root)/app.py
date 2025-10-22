@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 from config import Config
 from models import db, Administrator, Employee, Customer, Department, Product, Transaction
+import mysql.connector
 
 app = Flask(__name__)
 CORS(app, origins=["https://git-cpu17.github.io"])  # Allows frontend from GitHub Pages to call this API
@@ -38,8 +39,9 @@ def home():
     department = cursor.fetchall()
 
     return render_template('index.html', products=products, departments=departments)
-    
-return jsonify({"message": "Flask API is running on Azure!"})
+@app.route("/api/status", methods=["GET"])
+def status():    
+    return jsonify({"message": "Flask API is running on Azure!"})
 
 #---
 #debug
@@ -48,7 +50,7 @@ return jsonify({"message": "Flask API is running on Azure!"})
 @app.route("/api/products", methods=["GET"])
 def get_products():
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM products")
+    cursor.execute("SELECT * FROM product")
     rows = cursor.fetchall()
     return jsonify(rows)
 
@@ -61,8 +63,7 @@ def add_product():
     db.commit()
     return jsonify({"message": "Product added successfully"}), 201
 
-if __name__ == "__main__":
-    app.run(debug=True)
+
 
 #------
 

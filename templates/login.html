@@ -26,12 +26,12 @@
             var userId = document.getElementById('user_id').value;
             var password = document.getElementById('password').value;
 
-            fetch('/login', {
+            fetch('https://posapp-fcghfrh4cfc5h0dh.centralus-01.azurewebsites.net/login',{
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ user_id, password })
+                body: JSON.stringify({ userId, password })
             })
             .then(response => response.json())
             .then(data => {

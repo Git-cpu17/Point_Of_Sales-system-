@@ -51,30 +51,46 @@ function setupLoginForm() {
   });
 }
 
-// 📦 Product Fetcher
-function fetchProducts() {
-  const productContainer = document.getElementById('productList');
-  if (!productContainer) return;
-
-  fetch(`${API_BASE}/products`)
-    .then(res => {
-      if (!res.ok) throw new Error('Network response was not ok');
-      return res.json();
-    })
+// 📦 Load Product 
+function loadProducts() {
+  fetch(`${BACKEND_URL}/products`)
+    .then(res => res.json())
     .then(products => {
-      productContainer.innerHTML = products.map(p => `
-        <div class="product">
+      const container = document.getElementById('productGrid');
+      container.innerHTML = '';
+      products.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
           <h3>${p.name}</h3>
           <p>${p.description}</p>
           <strong>$${p.price}</strong>
-        </div>
-      `).join('');
-    })
-    .catch(err => {
-      console.error('Product fetch error:', err);
-      productContainer.innerHTML = '<p>Failed to load products.</p>';
+          <p>Stock: ${p.quantity_in_stock}</p>
+          ${renderRoleButtons(p)}
+        `;
+        container.appendChild(card);
+      });
     });
 }
+
+function renderRoleButtons(product) {
+  const role = sessionStorage.getItem('role');
+  if (role === 'admin') {
+    return `
+      <button onclick="editProduct(${product.product_id})">Edit</button>
+      <button onclick="hideProduct(${product.product_id})">Hide</button>
+      <button onclick="removeProduct(${product.product_id})">Remove</button>
+    `;
+  } else if (role === 'employee') {
+    return `
+      <button onclick="editProduct(${product.product_id})">Edit</button>
+      <button onclick="hideProduct(${product.product_id})">Hide</button>
+    `;
+  } else {
+    return `<button onclick="addToCart(${product.product_id})">Add to Cart</button>`;
+  }
+}
+
 
 // 🚀 Page-Specific Initialization
 document.addEventListener('DOMContentLoaded', () => {
@@ -82,3 +98,65 @@ document.addEventListener('DOMContentLoaded', () => {
   if (path.includes('login.html')) setupLoginForm();
   if (path.includes('products.html')) fetchProducts();
 });
+
+function loadTransactions(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  fetch(`${BACKEND_URL}/transactions?${params}`)
+    .then(res => res.json())
+    .then(renderTransactions);
+}
+
+function renderTransactions(data) {
+  const table = document.getElementById('transactionTable');
+  table.innerHTML = '';
+  data.forEach(tx => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${tx.transaction_id}</td>
+      <td>${tx.transaction_date}</td>
+      <td>${tx.total_amount}</td>
+      <td>${tx.employee_name}</td>
+      <td>${tx.customer_name}</td>
+      <td>${tx.payment_method}</td>
+    `;
+    table.appendChild(row);
+  });
+}
+
+document.getElementById('filterForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const filters = {
+    employee: document.getElementById('employeeFilter').value,
+    payment_method: document.getElementById('paymentFilter').value,
+    sort_by: document.getElementById('sortBy').value
+  };
+  loadTransactions(filters);
+});
+
+function editProduct(id) {
+  const newQty = prompt("Enter new quantity:");
+  fetch(`${BACKEND_URL}/product/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: id, quantity: newQty })
+  }).then(loadProducts);
+}
+
+function hideProduct(id) {
+  fetch(`${BACKEND_URL}/product/hide`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: id })
+  }).then(loadProducts);
+}
+
+function removeProduct(id) {
+  fetch(`${BACKEND_URL}/product/remove`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: id })
+  }).then(loadProducts);
+}
+sessionStorage.setItem('role', data.role);
+
+

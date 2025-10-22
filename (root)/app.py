@@ -3,7 +3,7 @@ from config import Config
 from models import db, Administrator, Employee, Customer, Department, Product, Transaction
 
 app = Flask(__name__)
-CORS(app)  # Allows frontend from GitHub Pages to call this API
+CORS(app, origins=["https://git-cpu17.github.io"])  # Allows frontend from GitHub Pages to call this API
 
 # Connect to Azure MySQL
 db = mysql.connector.connect(

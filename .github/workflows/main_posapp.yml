@@ -27,13 +27,7 @@ jobs:
         run: |
           pwd
           ls -la
-          path: |
-          .
-          !**/__pycache__/
-          !**/*.pyc
-          !.venv/
-          !antenv/
-
+         
      # ✅ Install dependencies directly (optional if Oryx handles it)
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -80,6 +74,7 @@ jobs:
           slot-name: 'Production'
 
           
+
 
 
 

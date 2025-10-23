@@ -1,6 +1,6 @@
 // Replace with your Azure Flask backend URL
 const API_BASE = "https://posapp-fcghfrh4cfc5h0dh.centralus-01.azurewebsites.net/";
-
+let data;
 async function loadProducts() {
   try {
     const response = await fetch(`${API_BASE}/products`);
@@ -37,18 +37,19 @@ function setupLoginForm() {
       body: JSON.stringify({ user_id, password })
     })
     .then(res => res.json())
-    .then(data => {
-      if (data.success) {
+    .then(resData => {
+      data=resData;
+     if (data.success) {
+        sessionStorage.setItem('role', data.role); // ✅ Now this works
         window.location.href = data.redirectUrl;
       } else {
-        alert(data.message);
-      }
-    })
-    .catch(err => {
-      console.error('Login error:', err);
-      alert('Login failed. Please try again.');
-    });
-  });
+          alert(data.message);
+        }
+      })
+      .catch(err => {
+          console.error('Login error:', err);
+          alert('Login failed. Please try again.');
+            });
 }
 
 // 📦 Load Product 

@@ -38,15 +38,15 @@ function setupLoginForm() {
     })
     .then(res => res.json())
     .then(resData => {
-      data=resData;
-     if (data.success) {
-        sessionStorage.setItem('role', data.role); // ✅ Now this works
-        window.location.href = data.redirectUrl;
-      } else {
+        data=resData;
+        if (data.success) {
+          sessionStorage.setItem('role', data.role); // ✅ Now this works
+          window.location.href = data.redirectUrl;
+        } else {
           alert(data.message);
         }
       })
-      .catch(err => {
+    .catch(err => {
           console.error('Login error:', err);
           alert('Login failed. Please try again.');
             });
@@ -161,7 +161,7 @@ function removeProduct(id) {
     body: JSON.stringify({ product_id: id })
   }).then(loadProducts);
 }
-sessionStorage.setItem('role', data.role);
+
 
 document.addEventListener('DOMContentLoaded', () => {
   const path = window.location.pathname;

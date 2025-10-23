@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for
 from config import Config
-from models import db, Administrator, Employee, Customer, Department, Product, Transaction
+import os
 import mysql.connector
 
 app = Flask(__name__)
@@ -25,22 +25,19 @@ with app.app_context():
 # -----------------------------
 # Routes
 # -----------------------------
-
 @app.route('/')
 def home():
     cursor = db.cursor(dictionary=True)
-
-    # Fetch products
     cursor.execute("SELECT * FROM product")
     products = cursor.fetchall()
 
-    # Fetch departments
     cursor.execute("SELECT * FROM department")
-    department = cursor.fetchall()
+    departments = cursor.fetchall()
 
     return render_template('index.html', products=products, departments=departments)
+
 @app.route("/api/status", methods=["GET"])
-def status():    
+def status():
     return jsonify({"message": "Flask API is running on Azure!"})
 
 #---
@@ -82,10 +79,17 @@ def login():
     if request.method == 'POST':
         user_id = request.form['user_id']
         password = request.form['password']
+        cursor = db.cursor(dictionary=True)
 
-        admin = Administrator.query.filter_by(username=user_id, password=password).first()
-        emp = Employee.query.filter_by(username=user_id, password=password).first()
-        cust= Customer.query.filter_by(email=user_id,password=password).first()
+        cursor.execute("SELECT * FROM administrator WHERE username = %s AND password = %s", (user_id, password))
+        admin = cursor.fetchone()
+
+        cursor.execute("SELECT * FROM employee WHERE username = %s AND password = %s", (user_id, password))
+        emp = cursor.fetchone()
+
+        cursor.execute("SELECT * FROM customer WHERE email = %s AND password = %s", (user_id, password))
+        cust = cursor.fetchone()
+
         if admin:
             return redirect(url_for('admin_dashboard'))
         elif emp:
@@ -95,13 +99,16 @@ def login():
         else:
             return render_template('login.html', error='Invalid ID or Password')
     return render_template('login.html')
-
 @app.route('/admin')
 def admin_dashboard():
-    admins = Administrator.query.all()
-    employees = Employee.query.all()
-    return render_template('admin_dashboard.html', admins=admins, employees=employees)
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM administrator")
+    admins = cursor.fetchall()
 
+    cursor.execute("SELECT * FROM employee")
+    employees = cursor.fetchall()
+
+    return render_template('admin_dashboard.html', admins=admins, employees=employees)
 @app.route('/employee')
 def employee_dashboard():
     employees = Employee.query.all()
@@ -109,27 +116,46 @@ def employee_dashboard():
 
 @app.route('/customer')
 def customer_dashboard():
-    customers = Customer.query.all()
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM customer")
+    customers = cursor.fetchall()
     return render_template('customer_dashboard.html', customers=customers)
-
 @app.route('/department')
 def department_dashboard():
-    departments = Department.query.all()
-    return render_template('department_dashboard.html', departments=departments)
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM employee")
+    employees = cursor.fetchall()
+    return render_template('employee_dashboard.html', employees=employees)
 @app.route('/transactions')
 def get_transactions():
-    query = Transaction.query.join(Employee).join(Customer)
+    cursor = db.cursor(dictionary=True)
+    base_query = """
+        SELECT t.*, e.name AS employee_name, c.name AS customer_name
+        FROM transaction t
+        JOIN employee e ON t.employee_id = e.employee_id
+        JOIN customer c ON t.customer_id = c.customer_id
+    """
+    filters = []
+    params = []
 
     if request.args.get('employee'):
-        query = query.filter(Employee.name.ilike(f"%{request.args['employee']}%"))
+        filters.append("e.name LIKE %s")
+        params.append(f"%{request.args['employee']}%")
     if request.args.get('payment_method'):
-        query = query.filter(Transaction.payment_method == request.args['payment_method'])
-    if request.args.get('sort_by'):
-        sort_field = request.args['sort_by']
-        if sort_field == 'date':
-            query = query.order_by(Transaction.transaction_date.desc())
-        elif sort_field == 'amount':
-            query = query.order_by(Transaction.total_amount.desc())
+        filters.append("t.payment_method = %s")
+        params.append(request.args['payment_method'])
+
+    if filters:
+        base_query += " WHERE " + " AND ".join(filters)
+
+    if request.args.get('sort_by') == 'date':
+        base_query += " ORDER BY t.transaction_date DESC"
+    elif request.args.get('sort_by') == 'amount':
+        base_query += " ORDER BY t.total_amount DESC"
+
+    cursor.execute(base_query, params)
+    transactions = cursor.fetchall()
+    return jsonify(transactions)
 
     transactions = query.all()
     return jsonify([tx.to_dict() for tx in transactions])

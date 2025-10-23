@@ -53,7 +53,7 @@ function setupLoginForm() {
 
 // 📦 Load Product 
 function loadProducts() {
-  fetch(`${API_BASE}/products`)
+  fetch(`${API_BASE}products`)
     .then(res => res.json())
     .then(products => {
       const container = document.getElementById('productGrid');
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function loadTransactions(filters = {}) {
   const params = new URLSearchParams(filters).toString();
-  fetch(`${API_BASE}/transactions?${params}`)
+  fetch(`${API_BASE}transactions?${params}`)
     .then(res => res.json())
     .then(renderTransactions);
 }
@@ -138,7 +138,7 @@ if (filterForm) {
 
 function editProduct(id) {
   const newQty = prompt("Enter new quantity:");
-  fetch(`${API_BASE}/product/update`, {
+  fetch(`${API_BASE}product/update`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ product_id: id, quantity: newQty })
@@ -146,7 +146,7 @@ function editProduct(id) {
 }
 
 function hideProduct(id) {
-  fetch(`${API_BASE}/product/hide`, {
+  fetch(`${API_BASE}product/hide`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ product_id: id })
@@ -154,7 +154,7 @@ function hideProduct(id) {
 }
 
 function removeProduct(id) {
-  fetch(`${API_BASE}/product/remove`, {
+  fetch(`${API_BASE}product/remove`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ product_id: id })

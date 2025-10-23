@@ -51,7 +51,7 @@ function setupLoginForm() {
           alert('Login failed. Please try again.');
             });
   }
-                        }
+}
 // 📦 Load Product 
 function loadProducts() {
   fetch(`${API_BASE}products`)

@@ -18,7 +18,7 @@ async function loadProducts() {
   } catch (error) {
     console.error("Error loading products:", error);
   }
-});
+}
 
 document.addEventListener("DOMContentLoaded", loadProducts);
 function setupLoginForm() {

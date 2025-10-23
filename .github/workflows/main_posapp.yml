@@ -30,7 +30,7 @@ jobs:
          
      # ✅ Install dependencies directly (optional if Oryx handles it)
       - name: Install dependencies
-        run: pip install -r python-app/requirements.txt
+        run: pip install -r requirements.txt
 
 
       # 📦 Upload everything except unnecessary files
@@ -58,7 +58,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
-      
+          path: .
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -74,6 +74,7 @@ jobs:
           slot-name: 'Production'
 
           
+
 
 
 

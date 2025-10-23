@@ -23,6 +23,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Show current directory and files
+        run: |
+          pwd
+          ls -la
+          path: |
+          .
+          !**/__pycache__/
+          !**/*.pyc
+          !.venv/
+          !antenv/
 
      # ✅ Install dependencies directly (optional if Oryx handles it)
       - name: Install dependencies
@@ -70,6 +80,7 @@ jobs:
           slot-name: 'Production'
 
           
+
 
 
 

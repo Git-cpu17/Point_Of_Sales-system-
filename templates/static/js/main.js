@@ -50,8 +50,8 @@ function setupLoginForm() {
           console.error('Login error:', err);
           alert('Login failed. Please try again.');
             });
-}
-
+  }
+                        }
 // 📦 Load Product 
 function loadProducts() {
   fetch(`${API_BASE}products`)

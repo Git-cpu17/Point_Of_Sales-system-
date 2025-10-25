@@ -24,10 +24,10 @@ if not all([DB_HOST, DB_USER, DB_PASSWORD, DB_NAME]):
 # -----------------------------
 def get_db_connection():
     try:
-        print("Attempting to connect to Azure SQL Database...")
+        print(f"Attempting to connect to DB at {DB_HOST}...")
         conn_str = (
             "Driver={ODBC Driver 18 for SQL Server};"
-            f"Server=tcp:{DB_HOST},1433;"
+            f"Server=tcp:{DB_HOST},1433;"  # Ensure your DB_HOST is correct
             f"Database={DB_NAME};"
             f"Uid={DB_USER};"
             f"Pwd={DB_PASSWORD};"
@@ -39,8 +39,8 @@ def get_db_connection():
         print("Connection successful!")
         return conn
     except Exception as e:
-        print("Error while connecting to SQL Server:", e)
-        raise e
+        print(f"Error while connecting to SQL Server: {str(e)}")
+        return None
 
 # Helper to convert cursor results to list of dicts
 def rows_to_dict_list(cursor):

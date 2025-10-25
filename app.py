@@ -6,14 +6,18 @@ from functools import wraps
 
 app = Flask(__name__)
 
-# Allow only your GitHub Pages origin
-CORS(app, resources={r"/*": {"origins": "https://git-cpu17.github.io"}})
+# Allow requests from any origin
+CORS(app)
 
-# Database credentials
-DB_HOST = os.environ.get('DB_HOST', 'posapplication.database.windows.net')
-DB_USER = os.environ.get('DB_USER', 'CloudSA0d30306e')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'Azure123456*')
-DB_NAME = os.environ.get('DB_NAME', 'PosApp')
+# Database credentials (read only from environment variables)
+DB_HOST = os.environ.get('DB_HOST')
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+DB_NAME = os.environ.get('DB_NAME')
+
+# Optional: fail early if any are missing
+if not all([DB_HOST, DB_USER, DB_PASSWORD, DB_NAME]):
+    raise RuntimeError("Database credentials are not fully set in environment variables.")
 
 # -----------------------------
 # Database connection

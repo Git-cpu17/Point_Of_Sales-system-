@@ -6,14 +6,70 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <div class="container">
-    <h1>Welcome to the Regular Store</h1>
-    <p>Access different departments or log in / register below.</p>
-
-    <div class="buttons">
-      <a href="{{ url_for('login') }}" class="btn login-btn">Login</a>
-      <a href="{{ url_for('register') }}" class="btn register-btn">Register</a>
+  <!-- Top navigation -->
+  <nav class="site-nav">
+    <div class="nav-left">
+      <a href="{{ url_for('home') }}" class="logo">PosApp</a>
     </div>
-  </div>
+
+    <div class="nav-right">
+      <div class="search-wrap">
+        <input id="searchInput" type="search" placeholder="Search products..." aria-label="Search products">
+      </div>
+
+      <a href="{{ url_for('login') }}" class="nav-link">Login</a>
+
+      <a href="{{ url_for('bag') }}" class="nav-link bag-link">
+        <span class="bag-icon" aria-hidden="true">🛍️</span>
+        Bag
+        <span id="bagCount" class="badge">0</span>
+      </a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+      <h1>Welcome to the Regular Store</h1>
+      <p>Access different departments or log in / register below.</p>
+
+      <div class="buttons">
+        <a href="{{ url_for('login') }}" class="btn login-btn">Login</a>
+        <a href="{{ url_for('register') }}" class="btn register-btn">Register</a>
+      </div>
+
+      <!-- Product grid -->
+      <section id="productsSection">
+        <h2>Products</h2>
+        <div id="productGrid" class="product-grid">
+          {% if products %}
+            {% for p in products %}
+              <div class="product-card" data-product-id="{{ p.product_id }}" data-name="{{ p.name }}" data-description="{{ p.description }}" data-price="{{ p.price }}">
+                <div class="product-header">
+                  <h3>{{ p.name }}</h3>
+                </div>
+                <p class="product-desc">{{ p.description or '' }}</p>
+                <div class="product-meta">
+                  <strong class="price">${{ '%.2f'|format(p.price) }}</strong>
+                  <span class="stock">Stock: {{ p.quantity_in_stock }}</span>
+                </div>
+                <div class="product-actions">
+                  <button class="btn add-btn" type="button" onclick="addToCart({{ p.product_id }})">Add to Bag</button>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p>No products found.</p>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Provide products array to client-side JS for search/cart convenience -->
+  <script>
+    window.PRODUCTS = {{ products|tojson }};
+  </script>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

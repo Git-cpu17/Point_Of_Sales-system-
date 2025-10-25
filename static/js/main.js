@@ -188,8 +188,18 @@ function addToCart(id) {
 
 // --- Page specific initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-  const path = window.location.pathname;
-  if (path.includes('login.html')) setupLoginForm();
-  if (path.includes('products.html')) fetchProducts();
-  if (path.includes('transactions.html')) setupTransactionFilters();
+  // If login form is present on the page, initialize login handling
+  if (document.getElementById('loginForm')) {
+    setupLoginForm();
+  }
+  // If products page elements exist, init product loading
+  if (document.getElementById('productGrid')) {
+    fetchProducts();
+  }
+  // If transaction filter form exists, setup filters
+  if (document.getElementById('filterForm')) {
+    setupTransactionFilters();
+    // Optionally load transactions initially
+    loadTransactions();
+  }
 });

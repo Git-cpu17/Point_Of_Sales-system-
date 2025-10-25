@@ -123,9 +123,10 @@ def add_product(cursor, conn):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        data = request.get_json() or {}
-        user_id = data.get('user_id')
-        password = data.get('password')
+        # Try JSON first, fall back to form data
+        data = request.get_json(silent=True) or request.form or {}
+        user_id = data.get('user_id') or data.get('username') or ''
+        password = data.get('password') or ''
 
         if not user_id or not password:
             return jsonify({"success": False, "message": "Missing credentials"}), 400

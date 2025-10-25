@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - POS System</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <form id="registerForm">
+    <h1>Create Account</h1>
+    <p class="subtitle">Fill in the information below</p>
+
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="text" id="username" placeholder="Username" required>
+    </div>
+
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="text" id="name" placeholder="Full Name" required>
+    </div>
+
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="text" id="phone" placeholder="Phone Number">
+    </div>
+
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="email" id="email" placeholder="Email" required>
+    </div>
+
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="password" id="password" placeholder="Password" required>
+    </div>
+
+    <button type="submit">Register</button>
+
+    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a>.</p>
+  </form>
+
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        username: document.getElementById('username').value,
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      };
+
+      const response = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const result = await response.json();
+      alert(result.message);
+      if (result.success) {
+        window.location.href = '{{ url_for("login") }}';
+      }
+    });
+  </script>
+</body>
+</html>

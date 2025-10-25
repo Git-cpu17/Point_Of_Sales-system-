@@ -1,45 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Login Page</title>
-    <link rel="stylesheet" href="static/css/style.css">
-    <script src="static/js/main.js"></script>
-
+  <meta charset="UTF-8">
+  <title>Login Page</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <h2>Login</h2>
-        <form method="POST" id="loginForm">
-        <label>User ID:</label><br>
-        <input type="text" name="user_id" id="user_id" required><br><br>
-        <label>Password:</label><br>
-        <input type="password" name="password" id="password" autocomplete="current-password" required><br><br>
-        <button type="submit">Login</button>
-    </form>
-       <!-- <script>
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+  <form method="POST" id="loginForm">
+    <h1>Welcome Back</h1>
+    <p class="subtitle">Please login to your account</p>
 
-            var userId = document.getElementById('user_id').value;
-            var password = document.getElementById('password').value;
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="text" name="user_id" id="user_id" placeholder="User ID" required>
+    </div>
 
-            fetch('https://posapp-fcghfrh4cfc5h0dh.centralus-01.azurewebsites.net/login',{
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ userId, password })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.href = data.redirectUrl;
-                } else {
-                    alert(data.message);
-                }
-            });
-        });
-    </script> -->
+    <div class="input-group">
+      <span class="input-icon"></span>
+      <input type="password" name="password" id="password" placeholder="Password" autocomplete="current-password" required>
+    </div>
 
+    <button type="submit">Login</button>
+
+    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a>.</p>
+  </form>
 </body>
 </html>

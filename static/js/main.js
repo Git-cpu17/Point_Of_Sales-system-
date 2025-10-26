@@ -1,6 +1,264 @@
 // Replace with your Azure Flask backend URL (no trailing slash)
 const API_BASE = "https://posapp-fcghfrh4cfc5h0dh.centralus-01.azurewebsites.net";
 
+// Client-side search + bag (cart) implementation.
+// This script augments server-rendered pages and also supports fetching products via API if needed.
+
+// Name of the localStorage key for cart
+const CART_KEY = 'pos_cart';
+
+// Basic HTML-escape helper
+function escapeHtml(str) {
+  if (!str && str !== 0) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// --- PRODUCTS source helper ---
+// Prefer server-provided window.PRODUCTS (set by index.html). Fallback to API fetch.
+async function ensureProducts() {
+  if (window.PRODUCTS && Array.isArray(window.PRODUCTS)) return window.PRODUCTS;
+  try {
+    const res = await fetch(`${API_BASE}/products`);
+    if (!res.ok) throw new Error('Failed to fetch products');
+    const products = await res.json();
+    window.PRODUCTS = products;
+    return products;
+  } catch (err) {
+    console.error('Could not ensure products:', err);
+    return [];
+  }
+}
+
+function getProductById(id) {
+  const products = window.PRODUCTS || [];
+  return products.find(p => Number(p.product_id) === Number(id)) || null;
+}
+
+// --------------------
+// Cart helpers
+// --------------------
+function readCart() {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error('Error reading cart:', e);
+    return [];
+  }
+}
+
+function writeCart(cart) {
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    updateCartBadge();
+  } catch (e) {
+    console.error('Error writing cart:', e);
+  }
+}
+
+function updateCartBadge() {
+  const badge = document.getElementById('bagCount');
+  if (!badge) return;
+  const cart = readCart();
+  const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0);
+  badge.textContent = totalQty;
+}
+
+// Add product to cart (by product_id)
+function addToCart(productId) {
+  ensureProducts().then(() => {
+    const product = getProductById(productId);
+    if (!product) {
+      alert('Product not found.');
+      return;
+    }
+
+    const cart = readCart();
+    const idx = cart.findIndex(it => Number(it.product_id) === Number(productId));
+    if (idx >= 0) {
+      cart[idx].quantity = (cart[idx].quantity || 0) + 1;
+    } else {
+      cart.push({
+        product_id: product.product_id,
+        name: product.name,
+        price: Number(product.price) || 0,
+        quantity: 1
+      });
+    }
+    writeCart(cart);
+    // small confirmation
+    flashAddedToCart(product.name);
+  });
+}
+
+function flashAddedToCart(name) {
+  // lightweight UX feedback
+  const el = document.createElement('div');
+  el.className = 'cart-toast';
+  el.textContent = `${name} added to bag`;
+  Object.assign(el.style, {
+    position: 'fixed',
+    right: '18px',
+    bottom: '18px',
+    background: '#2b7a3a',
+    color: '#fff',
+    padding: '10px 14px',
+    borderRadius: '8px',
+    zIndex: 120
+  });
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+}
+
+function removeFromCart(productId) {
+  const cart = readCart().filter(it => Number(it.product_id) !== Number(productId));
+  writeCart(cart);
+  renderCartPage();
+}
+
+function updateQuantity(productId, qty) {
+  const cart = readCart();
+  const idx = cart.findIndex(it => Number(it.product_id) === Number(productId));
+  if (idx >= 0) {
+    cart[idx].quantity = Math.max(0, Number(qty) || 0);
+    if (cart[idx].quantity === 0) {
+      cart.splice(idx, 1);
+    }
+    writeCart(cart);
+    renderCartPage();
+  }
+}
+
+function clearCart() {
+  writeCart([]);
+  renderCartPage();
+}
+
+function checkout() {
+  const cart = readCart();
+  if (!cart.length) {
+    alert('Your bag is empty.');
+    return;
+  }
+  // Placeholder: in a real app you'd POST to /checkout or similar
+  alert('Checkout placeholder — implement backend route to complete purchase.');
+  // For demo, clear cart after checkout
+  writeCart([]);
+  renderCartPage();
+}
+
+// --------------------
+// Render cart page
+// --------------------
+function renderCartPage() {
+  const container = document.getElementById('cartContainer');
+  if (!container) return;
+  const cart = readCart();
+
+  if (!cart.length) {
+    container.innerHTML = `<div class="cart-container"><p>Your bag is empty. <a href="/">Continue shopping</a></p></div>`;
+    updateCartBadge();
+    return;
+  }
+
+  let html = `<table class="cart-table"><thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody>`;
+  let total = 0;
+
+  cart.forEach(item => {
+    const subtotal = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+    total += subtotal;
+    html += `<tr data-product-id="${escapeHtml(item.product_id)}">
+      <td class="cart-item-name">${escapeHtml(item.name)}</td>
+      <td>$${(Number(item.price) || 0).toFixed(2)}</td>
+      <td><input class="qty-input" type="number" min="0" value="${escapeHtml(item.quantity)}" data-product-id="${escapeHtml(item.product_id)}"></td>
+      <td>$${subtotal.toFixed(2)}</td>
+      <td><button class="btn secondary remove-btn" data-product-id="${escapeHtml(item.product_id)}">Remove</button></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  html += `<div class="cart-summary"><strong>Total: $${total.toFixed(2)}</strong></div>`;
+  container.innerHTML = html;
+
+  // attach event handlers
+  container.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const pid = e.currentTarget.getAttribute('data-product-id');
+      removeFromCart(pid);
+    });
+  });
+  container.querySelectorAll('.qty-input').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const pid = e.currentTarget.getAttribute('data-product-id');
+      const qty = Number(e.currentTarget.value) || 0;
+      updateQuantity(pid, qty);
+    });
+  });
+
+  updateCartBadge();
+}
+
+// --------------------
+// Search implementation
+// --------------------
+function setupSearchInput() {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+
+  input.addEventListener('input', (e) => {
+    const q = (e.target.value || '').trim().toLowerCase();
+    filterProductGrid(q);
+  });
+}
+
+function filterProductGrid(query) {
+  const grid = document.getElementById('productGrid');
+  if (!grid) return;
+
+  const cards = Array.from(grid.querySelectorAll('.product-card'));
+  if (!query) {
+    cards.forEach(c => c.style.display = '');
+    return;
+  }
+  cards.forEach(c => {
+    const name = (c.getAttribute('data-name') || '').toLowerCase();
+    const desc = (c.getAttribute('data-description') || '').toLowerCase();
+    const matches = name.includes(query) || desc.includes(query);
+    c.style.display = matches ? '' : 'none';
+  });
+}
+
+// --------------------
+// Initialization
+// --------------------
+document.addEventListener('DOMContentLoaded', () => {
+  // Search input setup
+  setupSearchInput();
+
+  // Ensure PRODUCTS is ready (in case we need to look up for addToCart)
+  ensureProducts().catch(() => { /* ignore */ });
+
+  // If on the bag page, render cart
+  if (document.getElementById('cartContainer')) {
+    renderCartPage();
+
+    // wire up checkout/clear buttons
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    if (checkoutBtn) checkoutBtn.addEventListener('click', checkout);
+    const clearBtn = document.getElementById('clearCartBtn');
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      if (confirm('Clear all items from bag?')) clearCart();
+    });
+  }
+
+  // update bag count shown in header
+  updateCartBadge();
+});
 let data;
 
 // --- Login form setup ---

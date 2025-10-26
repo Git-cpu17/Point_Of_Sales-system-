@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your Bag - PosApp</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-left">
+      <a href="{{ url_for('home') }}" class="logo">PosApp</a>
+    </div>
+
+    <div class="nav-right">
+      <div class="search-wrap">
+        <input id="searchInput" type="search" placeholder="Search products..." aria-label="Search products">
+      </div>
+
+      <a href="{{ url_for('login') }}" class="nav-link">Login</a>
+      <a href="{{ url_for('bag') }}" class="nav-link bag-link">
+        <span class="bag-icon" aria-hidden="true">🛍️</span>
+        Bag
+        <span id="bagCount" class="badge">0</span>
+      </a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h1>Your Bag</h1>
+    <div id="cartContainer" class="cart-container">
+      <!-- Cart items will be rendered by JS -->
+    </div>
+
+    <div class="cart-actions">
+      <button id="checkoutBtn" class="btn" type="button">Checkout</button>
+      <button id="clearCartBtn" class="btn secondary" type="button">Clear Bag</button>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

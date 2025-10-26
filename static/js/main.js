@@ -1,13 +1,13 @@
-// Replace with your Azure Flask backend URL (no trailing slash)
-const API_BASE = "https://posapp-fcghfrh4cfc5h0dh.centralus-01.azurewebsites.net";
+// Enhanced grocery store JavaScript with better UX
 
-// Client-side search + bag (cart) implementation.
-// This script augments server-rendered pages and also supports fetching products via API if needed.
+// API base URL - update this with your Azure deployment URL
+const API_BASE = window.location.origin; // Use relative URLs for flexibility
 
-// Name of the localStorage key for cart
-const CART_KEY = 'pos_cart';
+// Cart configuration
+const CART_KEY = 'freshmart_cart';
+const FAVORITES_KEY = 'freshmart_favorites';
 
-// Basic HTML-escape helper
+// Utility functions
 function escapeHtml(str) {
   if (!str && str !== 0) return '';
   return String(str)
@@ -18,8 +18,14 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// --- PRODUCTS source helper ---
-// Prefer server-provided window.PRODUCTS (set by index.html). Fallback to API fetch.
+function formatCurrency(amount) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(amount);
+}
+
+// Products management
 async function ensureProducts() {
   if (window.PRODUCTS && Array.isArray(window.PRODUCTS)) return window.PRODUCTS;
   try {
@@ -29,7 +35,7 @@ async function ensureProducts() {
     window.PRODUCTS = products;
     return products;
   } catch (err) {
-    console.error('Could not ensure products:', err);
+    console.error('Could not load products:', err);
     return [];
   }
 }
@@ -39,9 +45,7 @@ function getProductById(id) {
   return products.find(p => Number(p.product_id) === Number(id)) || null;
 }
 
-// --------------------
-// Cart helpers
-// --------------------
+// Cart operations
 function readCart() {
   try {
     const raw = localStorage.getItem(CART_KEY);
@@ -56,30 +60,45 @@ function writeCart(cart) {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
     updateCartBadge();
+    updateCartTotal();
   } catch (e) {
     console.error('Error writing cart:', e);
   }
 }
 
 function updateCartBadge() {
-  const badge = document.getElementById('bagCount');
-  if (!badge) return;
+  const badges = document.querySelectorAll('#bagCount, .badge');
   const cart = readCart();
   const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0);
-  badge.textContent = totalQty;
+  badges.forEach(badge => {
+    if (badge) badge.textContent = totalQty;
+  });
 }
 
-// Add product to cart (by product_id)
+function updateCartTotal() {
+  const cart = readCart();
+  const total = cart.reduce((sum, item) => {
+    return sum + ((item.price || 0) * (item.quantity || 0));
+  }, 0);
+  
+  const totalElements = document.querySelectorAll('.cart-total');
+  totalElements.forEach(el => {
+    if (el) el.textContent = formatCurrency(total);
+  });
+}
+
+// Enhanced add to cart with animation
 function addToCart(productId) {
   ensureProducts().then(() => {
     const product = getProductById(productId);
     if (!product) {
-      alert('Product not found.');
+      showNotification('Product not found', 'error');
       return;
     }
 
     const cart = readCart();
     const idx = cart.findIndex(it => Number(it.product_id) === Number(productId));
+    
     if (idx >= 0) {
       cart[idx].quantity = (cart[idx].quantity || 0) + 1;
     } else {
@@ -90,40 +109,35 @@ function addToCart(productId) {
         quantity: 1
       });
     }
+    
     writeCart(cart);
-    // small confirmation
-    flashAddedToCart(product.name);
+    
+    // Animate the add button
+    const btn = document.querySelector(`[data-product-id="${productId}"] .add-btn`);
+    if (btn) {
+      btn.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        btn.style.transform = '';
+      }, 200);
+    }
+    
+    showNotification(`${product.name} added to cart!`, 'success');
   });
 }
 
-function flashAddedToCart(name) {
-  // lightweight UX feedback
-  const el = document.createElement('div');
-  el.className = 'cart-toast';
-  el.textContent = `${name} added to bag`;
-  Object.assign(el.style, {
-    position: 'fixed',
-    right: '18px',
-    bottom: '18px',
-    background: '#2b7a3a',
-    color: '#fff',
-    padding: '10px 14px',
-    borderRadius: '8px',
-    zIndex: 120
-  });
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1800);
-}
-
+// Remove from cart
 function removeFromCart(productId) {
   const cart = readCart().filter(it => Number(it.product_id) !== Number(productId));
   writeCart(cart);
   renderCartPage();
+  showNotification('Item removed from cart', 'info');
 }
 
+// Update quantity
 function updateQuantity(productId, qty) {
   const cart = readCart();
   const idx = cart.findIndex(it => Number(it.product_id) === Number(productId));
+  
   if (idx >= 0) {
     cart[idx].quantity = Math.max(0, Number(qty) || 0);
     if (cart[idx].quantity === 0) {
@@ -134,64 +148,133 @@ function updateQuantity(productId, qty) {
   }
 }
 
+// Clear cart
 function clearCart() {
-  writeCart([]);
-  renderCartPage();
+  if (confirm('Are you sure you want to clear your entire cart?')) {
+    writeCart([]);
+    renderCartPage();
+    showNotification('Cart cleared', 'info');
+  }
 }
 
-function checkout() {
+// Checkout
+async function checkout() {
   const cart = readCart();
   if (!cart.length) {
-    alert('Your bag is empty.');
+    showNotification('Your cart is empty', 'warning');
     return;
   }
-  // Placeholder: in a real app you'd POST to /checkout or similar
-  alert('Checkout placeholder — implement backend route to complete purchase.');
-  // For demo, clear cart after checkout
-  writeCart([]);
-  renderCartPage();
+  
+  // Calculate total
+  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  
+  // Simple checkout modal
+  const message = `Order Summary:\n\n` +
+    cart.map(item => `${item.name} x${item.quantity} - ${formatCurrency(item.price * item.quantity)}`).join('\n') +
+    `\n\nTotal: ${formatCurrency(total)}\n\nProceed with checkout?`;
+  
+  if (confirm(message)) {
+    showNotification('Processing your order...', 'success');
+    // In real app, send to backend
+    setTimeout(() => {
+      writeCart([]);
+      renderCartPage();
+      showNotification('Order placed successfully! 🎉', 'success');
+    }, 2000);
+  }
 }
 
-// --------------------
 // Render cart page
-// --------------------
 function renderCartPage() {
   const container = document.getElementById('cartContainer');
   if (!container) return;
+  
   const cart = readCart();
 
   if (!cart.length) {
-    container.innerHTML = `<div class="cart-container"><p>Your bag is empty. <a href="/">Continue shopping</a></p></div>`;
+    container.innerHTML = `
+      <div style="text-align: center; padding: 3rem;">
+        <div style="font-size: 4rem; opacity: 0.5; margin-bottom: 1rem;">🛒</div>
+        <h3 style="color: var(--text-light); margin-bottom: 1rem;">Your cart is empty</h3>
+        <p style="color: var(--text-light); margin-bottom: 2rem;">Add some fresh groceries to get started!</p>
+        <a href="/" class="btn primary" style="display: inline-flex;">Start Shopping</a>
+      </div>
+    `;
     updateCartBadge();
     return;
   }
 
-  let html = `<table class="cart-table"><thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Subtotal</th><th></th></tr></thead><tbody>`;
+  let html = `
+    <table class="cart-table">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Price</th>
+          <th>Quantity</th>
+          <th>Subtotal</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  
   let total = 0;
 
   cart.forEach(item => {
     const subtotal = (Number(item.price) || 0) * (Number(item.quantity) || 0);
     total += subtotal;
-    html += `<tr data-product-id="${escapeHtml(item.product_id)}">
-      <td class="cart-item-name">${escapeHtml(item.name)}</td>
-      <td>$${(Number(item.price) || 0).toFixed(2)}</td>
-      <td><input class="qty-input" type="number" min="0" value="${escapeHtml(item.quantity)}" data-product-id="${escapeHtml(item.product_id)}"></td>
-      <td>$${subtotal.toFixed(2)}</td>
-      <td><button class="btn secondary remove-btn" data-product-id="${escapeHtml(item.product_id)}">Remove</button></td>
-    </tr>`;
+    
+    html += `
+      <tr>
+        <td>
+          <div class="cart-item-name">${escapeHtml(item.name)}</div>
+        </td>
+        <td>${formatCurrency(item.price)}</td>
+        <td>
+          <input class="qty-input" type="number" min="1" max="99" 
+                 value="${escapeHtml(item.quantity)}" 
+                 data-product-id="${escapeHtml(item.product_id)}">
+        </td>
+        <td><strong>${formatCurrency(subtotal)}</strong></td>
+        <td>
+          <button class="remove-btn" data-product-id="${escapeHtml(item.product_id)}">
+            Remove
+          </button>
+        </td>
+      </tr>
+    `;
   });
 
-  html += `</tbody></table>`;
-  html += `<div class="cart-summary"><strong>Total: $${total.toFixed(2)}</strong></div>`;
+  html += `
+      </tbody>
+    </table>
+    
+    <div class="cart-summary">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>Subtotal:</span>
+        <strong>${formatCurrency(total)}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--primary-green);">
+        <span>Delivery:</span>
+        <strong>${total >= 50 ? 'FREE' : formatCurrency(5.99)}</strong>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; font-size: 1.2rem;">
+        <span>Total:</span>
+        <strong class="cart-total">${formatCurrency(total >= 50 ? total : total + 5.99)}</strong>
+      </div>
+    </div>
+  `;
+  
   container.innerHTML = html;
 
-  // attach event handlers
+  // Attach event listeners
   container.querySelectorAll('.remove-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const pid = e.currentTarget.getAttribute('data-product-id');
       removeFromCart(pid);
     });
   });
+  
   container.querySelectorAll('.qty-input').forEach(input => {
     input.addEventListener('change', (e) => {
       const pid = e.currentTarget.getAttribute('data-product-id');
@@ -203,261 +286,246 @@ function renderCartPage() {
   updateCartBadge();
 }
 
-// --------------------
-// Search implementation
-// --------------------
+// Enhanced notification system
+function showNotification(message, type = 'info') {
+  const existing = document.querySelector('.notification');
+  if (existing) existing.remove();
+  
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      ${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}
+      <span>${escapeHtml(message)}</span>
+    </div>
+  `;
+  
+  Object.assign(notification.style, {
+    position: 'fixed',
+    top: '20px',
+    right: '20px',
+    background: type === 'success' ? 'var(--primary-green)' : 
+                type === 'error' ? '#dc3545' : 
+                type === 'warning' ? 'var(--warm-yellow)' : 'var(--text-dark)',
+    color: 'white',
+    padding: '1rem 1.5rem',
+    borderRadius: '10px',
+    boxShadow: 'var(--shadow-lg)',
+    zIndex: 1000,
+    animation: 'slideIn 0.3s ease',
+    maxWidth: '300px'
+  });
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// Search functionality
 function setupSearchInput() {
   const input = document.getElementById('searchInput');
   if (!input) return;
 
+  let debounceTimer;
   input.addEventListener('input', (e) => {
-    const q = (e.target.value || '').trim().toLowerCase();
-    filterProductGrid(q);
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const query = (e.target.value || '').trim().toLowerCase();
+      filterProducts(query);
+    }, 300);
   });
 }
 
-function filterProductGrid(query) {
+function filterProducts(query) {
   const grid = document.getElementById('productGrid');
   if (!grid) return;
 
   const cards = Array.from(grid.querySelectorAll('.product-card'));
+  
   if (!query) {
-    cards.forEach(c => c.style.display = '');
+    cards.forEach(c => {
+      c.style.display = '';
+      c.style.animation = 'fadeIn 0.3s ease';
+    });
     return;
   }
-  cards.forEach(c => {
-    const name = (c.getAttribute('data-name') || '').toLowerCase();
-    const desc = (c.getAttribute('data-description') || '').toLowerCase();
+  
+  cards.forEach(card => {
+    const name = (card.getAttribute('data-name') || '').toLowerCase();
+    const desc = (card.getAttribute('data-description') || '').toLowerCase();
     const matches = name.includes(query) || desc.includes(query);
-    c.style.display = matches ? '' : 'none';
+    
+    if (matches) {
+      card.style.display = '';
+      card.style.animation = 'fadeIn 0.3s ease';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+  
+  // Show message if no results
+  const visibleCards = cards.filter(c => c.style.display !== 'none');
+  let noResults = document.querySelector('.no-results-message');
+  
+  if (visibleCards.length === 0) {
+    if (!noResults) {
+      noResults = document.createElement('div');
+      noResults.className = 'no-results-message';
+      noResults.style.cssText = 'grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-light);';
+      noResults.innerHTML = `
+        <div style="font-size: 3rem; opacity: 0.5; margin-bottom: 1rem;">🔍</div>
+        <h3>No products found</h3>
+        <p>Try searching with different keywords</p>
+      `;
+      grid.appendChild(noResults);
+    }
+  } else if (noResults) {
+    noResults.remove();
+  }
+}
+
+// Category filter
+function setupCategoryFilters() {
+  const categoryCards = document.querySelectorAll('.category-card');
+  
+  categoryCards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      const category = e.currentTarget.getAttribute('data-category');
+      
+      // Toggle active state
+      categoryCards.forEach(c => c.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      
+      // Filter products (in real app, would filter by actual category)
+      showNotification(`Filtering by ${category}`, 'info');
+    });
   });
 }
 
-// --------------------
-// Initialization
-// --------------------
-document.addEventListener('DOMContentLoaded', () => {
-  // Search input setup
-  setupSearchInput();
-
-  // Ensure PRODUCTS is ready (in case we need to look up for addToCart)
-  ensureProducts().catch(() => { /* ignore */ });
-
-  // If on the bag page, render cart
-  if (document.getElementById('cartContainer')) {
-    renderCartPage();
-
-    // wire up checkout/clear buttons
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    if (checkoutBtn) checkoutBtn.addEventListener('click', checkout);
-    const clearBtn = document.getElementById('clearCartBtn');
-    if (clearBtn) clearBtn.addEventListener('click', () => {
-      if (confirm('Clear all items from bag?')) clearCart();
-    });
-  }
-
-  // update bag count shown in header
-  updateCartBadge();
-});
-let data;
-
-// --- Login form setup ---
+// Login form handler
 function setupLoginForm() {
   const form = document.getElementById('loginForm');
   if (!form) return;
 
-  form.addEventListener('submit', function (e) {
+  form.addEventListener('submit', async function(e) {
     e.preventDefault();
+    
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Signing in...';
+    submitBtn.disabled = true;
 
-    const user_id_elem = document.getElementById('user_id');
-    const password_elem = document.getElementById('password');
-    if (!user_id_elem || !password_elem) return;
+    const user_id = document.getElementById('user_id').value;
+    const password = document.getElementById('password').value;
 
-    const user_id = user_id_elem.value;
-    const password = password_elem.value;
-
-    fetch(`${API_BASE}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id, password })
-    })
-    .then(res => res.json())
-    .then(resData => {
-        data = resData;
-        if (data && data.success) {
-          sessionStorage.setItem('role', data.role || '');
-          // redirectUrl should be an absolute or relative path returned by the backend
-          if (data.redirectUrl) {
-            window.location.href = data.redirectUrl;
-          } else {
-            // fallback
-            window.location.href = '/';
-          }
-        } else {
-          alert((data && data.message) ? data.message : 'Login failed');
-        }
-      })
-    .catch(err => {
-          console.error('Login error:', err);
-          alert('Login failed. Please try again.');
-    });
-  });
-}
-
-// --- Products: fetch and render ---
-function fetchProducts() {
-  fetch(`${API_BASE}/products`)
-    .then(res => {
-      if (!res.ok) throw new Error('Network response was not ok');
-      return res.json();
-    })
-    .then(products => {
-      const container = document.getElementById('productGrid');
-      if (!container) return;
-      container.innerHTML = '';
-      products.forEach(p => {
-        const card = document.createElement('div');
-        card.className = 'product-card';
-        card.innerHTML = `
-          <h3>${escapeHtml(p.name)}</h3>
-          <p>${escapeHtml(p.description || '')}</p>
-          <strong>$${p.price}</strong>
-          <p>Stock: ${p.quantity_in_stock}</p>
-          ${renderRoleButtons(p)}
-        `;
-        container.appendChild(card);
+    try {
+      const response = await fetch(`${API_BASE}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, password })
       });
-    })
-    .catch(err => {
-      console.error('Error loading products:', err);
-    });
-}
-
-// small helper to avoid simple XSS when injecting text
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function renderRoleButtons(product) {
-  const role = sessionStorage.getItem('role');
-  if (role === 'admin') {
-    return `
-      <button onclick="editProduct(${product.product_id})">Edit</button>
-      <button onclick="hideProduct(${product.product_id})">Hide</button>
-      <button onclick="removeProduct(${product.product_id})">Remove</button>
-    `;
-  } else if (role === 'employee') {
-    return `
-      <button onclick="editProduct(${product.product_id})">Edit</button>
-      <button onclick="hideProduct(${product.product_id})">Hide</button>
-    `;
-  } else {
-    return `<button onclick="addToCart(${product.product_id})">Add to Cart</button>`;
-  }
-}
-
-// --- Transactions ---
-function loadTransactions(filters = {}) {
-  const params = new URLSearchParams(filters).toString();
-  fetch(`${API_BASE}/transactions?${params}`)
-    .then(res => {
-      if (!res.ok) throw new Error('Network response was not ok');
-      return res.json();
-    })
-    .then(renderTransactions)
-    .catch(err => {
-      console.error('Error loading transactions:', err);
-    });
-}
-
-function renderTransactions(data) {
-  const table = document.getElementById('transactionTable');
-  if (!table) return;
-  table.innerHTML = '';
-  data.forEach(tx => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${escapeHtml(tx.transaction_id)}</td>
-      <td>${escapeHtml(tx.transaction_date)}</td>
-      <td>${escapeHtml(tx.total_amount)}</td>
-      <td>${escapeHtml(tx.employee_name)}</td>
-      <td>${escapeHtml(tx.customer_name)}</td>
-      <td>${escapeHtml(tx.payment_method)}</td>
-    `;
-    table.appendChild(row);
+      
+      const data = await response.json();
+      
+      if (data && data.success) {
+        sessionStorage.setItem('role', data.role || '');
+        showNotification('Login successful! Redirecting...', 'success');
+        setTimeout(() => {
+          window.location.href = data.redirectUrl || '/';
+        }, 1000);
+      } else {
+        showNotification(data.message || 'Invalid credentials', 'error');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      showNotification('Connection error. Please try again.', 'error');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
   });
 }
 
-// attach filter form if present
-function setupTransactionFilters() {
-  const filterForm = document.getElementById('filterForm');
-  if (!filterForm) return;
-  filterForm.addEventListener('submit', e => {
-    e.preventDefault();
-    const filters = {
-      employee: (document.getElementById('employeeFilter') || {}).value || '',
-      payment_method: (document.getElementById('paymentFilter') || {}).value || '',
-      sort_by: (document.getElementById('sortBy') || {}).value || ''
-    };
-    loadTransactions(filters);
-  });
+// Add CSS animations
+function addAnimationStyles() {
+  if (document.getElementById('custom-animations')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'custom-animations';
+  style.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideOut {
+      to { transform: translateX(400px); opacity: 0; }
+    }
+    
+    .category-card.active {
+      background: var(--primary-green);
+      color: white;
+    }
+    
+    .notification {
+      transition: all 0.3s ease;
+    }
+  `;
+  document.head.appendChild(style);
 }
 
-// --- Product actions ---
-function editProduct(id) {
-  const newQty = prompt("Enter new quantity:");
-  if (newQty === null) return;
-  fetch(`${API_BASE}/product/update`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ product_id: id, quantity: newQty })
-  }).then(() => fetchProducts())
-    .catch(err => console.error('Edit product error:', err));
-}
-
-function hideProduct(id) {
-  fetch(`${API_BASE}/product/hide`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ product_id: id })
-  }).then(() => fetchProducts())
-    .catch(err => console.error('Hide product error:', err));
-}
-
-function removeProduct(id) {
-  fetch(`${API_BASE}/product/remove`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ product_id: id })
-  }).then(() => fetchProducts())
-    .catch(err => console.error('Remove product error:', err));
-}
-
-function addToCart(id) {
-  // Implement addToCart according to your backend/cart logic
-  console.log('addToCart', id);
-}
-
-// --- Page specific initialization ---
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  // If login form is present on the page, initialize login handling
+  // Add animation styles
+  addAnimationStyles();
+  
+  // Setup search
+  setupSearchInput();
+  
+  // Setup category filters
+  setupCategoryFilters();
+  
+  // Ensure products are loaded
+  ensureProducts().catch(() => {});
+  
+  // Setup cart page if on cart page
+  if (document.getElementById('cartContainer')) {
+    renderCartPage();
+    
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    if (checkoutBtn) checkoutBtn.addEventListener('click', checkout);
+    
+    const clearBtn = document.getElementById('clearCartBtn');
+    if (clearBtn) clearBtn.addEventListener('click', clearCart);
+  }
+  
+  // Setup login form
   if (document.getElementById('loginForm')) {
     setupLoginForm();
   }
-  // If products page elements exist, init product loading
-  if (document.getElementById('productGrid')) {
-    fetchProducts();
-  }
-  // If transaction filter form exists, setup filters
-  if (document.getElementById('filterForm')) {
-    setupTransactionFilters();
-    // Optionally load transactions initially
-    loadTransactions();
-  }
+  
+  // Update cart badge on load
+  updateCartBadge();
+  
+  // Add smooth scroll
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function(e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
 });
+
+// Export functions for global use
+window.addToCart = addToCart;
+window.removeFromCart = removeFromCart;
+window.updateQuantity = updateQuantity;
+window.clearCart = clearCart;
+window.checkout = checkout;

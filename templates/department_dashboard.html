@@ -2,12 +2,458 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Department Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Department Dashboard - FreshMart</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <style>
+    .dashboard-container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+    
+    .department-header {
+      background: linear-gradient(135deg, #9C27B0, #673AB7);
+      color: white;
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+    }
+    
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .metric-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary-green);
+    }
+    
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+    
+    .metric-change {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    
+    .change-positive {
+      background: var(--light-green);
+      color: var(--primary-green);
+    }
+    
+    .change-negative {
+      background: #ffebee;
+      color: #c62828;
+    }
+    
+    .department-tabs {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 0;
+    }
+    
+    .tab-btn {
+      padding: 1rem 2rem;
+      background: transparent;
+      border: none;
+      color: var(--text-dark);
+      font-weight: 600;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    
+    .tab-btn.active {
+      color: var(--primary-green);
+    }
+    
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--primary-green);
+    }
+    
+    .inventory-table {
+      width: 100%;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    .inventory-table th {
+      background: var(--bg-light);
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-dark);
+    }
+    
+    .inventory-table td {
+      padding: 1rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .stock-level {
+      display: inline-block;
+      width: 100px;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-right: 0.5rem;
+    }
+    
+    .stock-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.3s ease;
+    }
+    
+    .stock-high {
+      background: var(--primary-green);
+    }
+    
+    .stock-medium {
+      background: var(--warm-yellow);
+    }
+    
+    .stock-low {
+      background: #dc3545;
+    }
+    
+    .department-selector {
+      background: white;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .dept-select {
+      padding: 0.5rem 1rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      min-width: 200px;
+    }
+    
+    .chart-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 2rem;
+      height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-light);
+    }
+    
+    .alert-box {
+      background: #fff3e0;
+      border-left: 4px solid var(--warm-yellow);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .supplier-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    
+    .supplier-card {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+    
+    .supplier-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+    
+    .supplier-name {
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .supplier-info {
+      color: var(--text-light);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+  </style>
 </head>
 <body>
-  <h1>Department Dashboard</h1>
-  <p>Welcome to the Department Portal. Manage department resources and staff.</p>
+  <!-- Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart Departments</a>
+
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
+        <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Admin</a>
+        <a href="#" class="nav-link">Reports</a>
+        <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="dashboard-container">
+      <!-- Department Header -->
+      <div class="department-header">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">Department Management</h1>
+        <p style="opacity: 0.9;">Monitor inventory, sales, and performance across all departments</p>
+      </div>
+
+      <!-- Department Selector -->
+      <div class="department-selector">
+        <label for="deptSelect" style="font-weight: 600;">Select Department:</label>
+        <select id="deptSelect" class="dept-select">
+          <option value="all">All Departments</option>
+          <option value="produce">Produce</option>
+          <option value="meat">Meat & Seafood</option>
+          <option value="dairy">Dairy & Eggs</option>
+          <option value="bakery">Bakery</option>
+          <option value="frozen">Frozen Foods</option>
+          <option value="pantry">Pantry</option>
+        </select>
+        <button class="btn primary">Apply Filter</button>
+      </div>
+
+      <!-- Metrics Overview -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-change change-positive">↑ 12%</span>
+          <div class="metric-value">$45,678</div>
+          <div class="metric-label">Today's Revenue</div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-change change-positive">↑ 5%</span>
+          <div class="metric-value">1,234</div>
+          <div class="metric-label">Units Sold</div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-change change-negative">↓ 3%</span>
+          <div class="metric-value">89%</div>
+          <div class="metric-label">Stock Level</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-value">4.7</div>
+          <div class="metric-label">Customer Rating</div>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="alert-box">
+        <div>
+          <strong>⚠️ Low Stock Alert:</strong> 5 items in Produce department need immediate restocking
+        </div>
+        <button class="btn primary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">View Items</button>
+      </div>
+
+      <!-- Department Tabs -->
+      <div class="department-tabs">
+        <button class="tab-btn active">Inventory</button>
+        <button class="tab-btn">Sales Analytics</button>
+        <button class="tab-btn">Suppliers</button>
+        <button class="tab-btn">Staff Schedule</button>
+        <button class="tab-btn">Performance</button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-buttons">
+        <button class="btn primary">
+          <span>➕ Add Product</span>
+        </button>
+        <button class="btn secondary">
+          <span>📦 Restock Items</span>
+        </button>
+        <button class="btn secondary">
+          <span>📊 Generate Report</span>
+        </button>
+        <button class="btn secondary">
+          <span>🔄 Update Prices</span>
+        </button>
+      </div>
+
+      <!-- Inventory Table -->
+      <table class="inventory-table">
+        <thead>
+          <tr>
+            <th>Product ID</th>
+            <th>Product Name</th>
+            <th>Department</th>
+            <th>Stock Level</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for dept in departments %}
+          <tr>
+            <td>#{{ loop.index + 1000 }}</td>
+            <td><strong>Sample Product {{ loop.index }}</strong></td>
+            <td>{{ dept.name }}</td>
+            <td>
+              <div style="display: flex; align-items: center;">
+                <div class="stock-level">
+                  <div class="stock-fill stock-high" style="width: {{ [90, 75, 60, 40, 85][loop.index0 % 5] }}%;"></div>
+                </div>
+                <span>{{ [90, 75, 60, 40, 85][loop.index0 % 5] }}%</span>
+              </div>
+            </td>
+            <td>${{ [4.99, 3.49, 7.99, 2.99, 5.49][loop.index0 % 5] }}</td>
+            <td>
+              <span style="color: var(--primary-green);">● Active</span>
+            </td>
+            <td>
+              <button class="btn secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Edit</button>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-light);">
+              No inventory data available
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Sales Chart Placeholder -->
+      <div class="chart-container" style="margin-top: 2rem;">
+        <div style="text-align: center;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+          <p>Sales Analytics Chart</p>
+          <small>Integration with chart library required</small>
+        </div>
+      </div>
+
+      <!-- Top Performing Products -->
+      <div style="background: white; padding: 2rem; border-radius: 12px; box-shadow: var(--shadow-sm); margin-top: 2rem;">
+        <h3 style="margin-bottom: 1.5rem;">Top Performing Products</h3>
+        <div style="display: grid; gap: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--bg-light); border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <span style="font-size: 2rem;">🥬</span>
+              <div>
+                <strong>Organic Spinach</strong>
+                <p style="color: var(--text-light); font-size: 0.9rem;">234 units sold today</p>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="color: var(--primary-green); font-weight: 600;">$1,234.56</div>
+              <small style="color: var(--text-light);">Revenue</small>
+            </div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--bg-light); border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <span style="font-size: 2rem;">🍎</span>
+              <div>
+                <strong>Fresh Apples</strong>
+                <p style="color: var(--text-light); font-size: 0.9rem;">189 units sold today</p>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="color: var(--primary-green); font-weight: 600;">$945.00</div>
+              <small style="color: var(--text-light);">Revenue</small>
+            </div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--bg-light); border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <span style="font-size: 2rem;">🥖</span>
+              <div>
+                <strong>Artisan Bread</strong>
+                <p style="color: var(--text-light); font-size: 0.9rem;">156 units sold today</p>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="color: var(--primary-green); font-weight: 600;">$780.00</div>
+              <small style="color: var(--text-light);">Revenue</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+      });
+    });
+
+    // Department filter
+    document.getElementById('deptSelect').addEventListener('change', (e) => {
+      console.log('Filter by department:', e.target.value);
+    });
+  </script>
 </body>
 </html>

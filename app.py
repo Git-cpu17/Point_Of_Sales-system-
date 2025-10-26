@@ -5,17 +5,14 @@ import pyodbc
 from functools import wraps
 
 app = Flask(__name__)
-
-# Allow requests from any origin
 CORS(app)
 
-# Database credentials (read only from environment variables)
+# Database credentials
 DB_HOST = os.environ.get('DB_HOST')
 DB_USER = os.environ.get('DB_USER')
 DB_PASSWORD = os.environ.get('DB_PASSWORD')
 DB_NAME = os.environ.get('DB_NAME')
 
-# Optional: fail early if any are missing
 if not all([DB_HOST, DB_USER, DB_PASSWORD, DB_NAME]):
     raise RuntimeError("Database credentials are not fully set in environment variables.")
 
@@ -27,7 +24,7 @@ def get_db_connection():
         print(f"Attempting to connect to DB at {DB_HOST}...")
         conn_str = (
             "Driver={ODBC Driver 18 for SQL Server};"
-            f"Server=tcp:{DB_HOST},1433;"  # Ensure your DB_HOST is correct
+            f"Server=tcp:{DB_HOST},1433;"
             f"Database={DB_NAME};"
             f"Uid={DB_USER};"
             f"Pwd={DB_PASSWORD};"
@@ -42,14 +39,10 @@ def get_db_connection():
         print(f"Error while connecting to SQL Server: {str(e)}")
         return None
 
-# Helper to convert cursor results to list of dicts
 def rows_to_dict_list(cursor):
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-# -----------------------------
-# Decorator to manage DB connections
-# -----------------------------
 def with_db(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -75,37 +68,34 @@ def with_db(f):
 @app.route('/')
 @with_db
 def home(cursor, conn):
-    cursor.execute("SELECT * FROM product")
+    cursor.execute("SELECT * FROM Product")
     products = rows_to_dict_list(cursor)
 
-    cursor.execute("SELECT * FROM department")
+    cursor.execute("SELECT * FROM Department")
     departments = rows_to_dict_list(cursor)
 
     return render_template('index.html', products=products, departments=departments)
-
 
 @app.route("/api/status", methods=["GET"])
 def status():
     return jsonify({"message": "Flask API is running and connected to Azure SQL!"})
 
-
 @app.route("/products", methods=["GET"])
 @with_db
 def get_products(cursor, conn):
     cursor.execute("""
-        SELECT product_id, name, description, price, quantity_in_stock, barcode, department_id
-        FROM product WHERE hidden = 0
+        SELECT ProductID, Name, Description, Price, QuantityInStock, Barcode, DepartmentID
+        FROM Product
     """)
     rows = rows_to_dict_list(cursor)
     return jsonify(rows)
-
 
 @app.route("/add", methods=["POST"])
 @with_db
 def add_product(cursor, conn):
     data = request.get_json() or {}
     query = """
-        INSERT INTO product (name, description, price, barcode, quantity_in_stock, department_id)
+        INSERT INTO Product (Name, Description, Price, Barcode, QuantityInStock, DepartmentID)
         VALUES (?, ?, ?, ?, ?, ?)
     """
     cursor.execute(query, (
@@ -119,11 +109,9 @@ def add_product(cursor, conn):
     conn.commit()
     return jsonify({"message": "Product added successfully"}), 201
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Try JSON first, fall back to form data
         data = request.get_json(silent=True) or request.form or {}
         user_id = data.get('user_id') or data.get('username') or ''
         password = data.get('password') or ''
@@ -133,13 +121,13 @@ def login():
 
         @with_db
         def check_credentials(cursor, conn):
-            cursor.execute("SELECT * FROM administrator WHERE username = ? AND password = ?", (user_id, password))
+            cursor.execute("SELECT * FROM Administrator WHERE Username = ? AND Password = ?", (user_id, password))
             admin = cursor.fetchone()
 
-            cursor.execute("SELECT * FROM employee WHERE username = ? AND password = ?", (user_id, password))
+            cursor.execute("SELECT * FROM Employee WHERE Username = ? AND Password = ?", (user_id, password))
             emp = cursor.fetchone()
 
-            cursor.execute("SELECT * FROM customer WHERE username = ? AND password = ?", (user_id, password))
+            cursor.execute("SELECT * FROM Customer WHERE username = ? AND password = ?", (user_id, password))
             cust = cursor.fetchone()
 
             if admin:
@@ -154,7 +142,6 @@ def login():
         return check_credentials()
 
     return render_template('login.html')
-
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -171,19 +158,16 @@ def register():
 
         @with_db
         def do_register(cursor, conn):
-            # Check email
-            cursor.execute("SELECT * FROM customer WHERE email = ?", (email,))
+            cursor.execute("SELECT * FROM Customer WHERE Email = ?", (email,))
             if cursor.fetchone():
                 return jsonify({"success": False, "message": "Email already registered"}), 409
 
-            # Check username
-            cursor.execute("SELECT * FROM customer WHERE username = ?", (username,))
+            cursor.execute("SELECT * FROM Customer WHERE username = ?", (username,))
             if cursor.fetchone():
                 return jsonify({"success": False, "message": "Username already taken"}), 409
 
-            # Insert new record
             insert_query = """
-                INSERT INTO customer (username, name, phone, email, password)
+                INSERT INTO Customer (username, Name, Phone, Email, password)
                 VALUES (?, ?, ?, ?, ?)
             """
             cursor.execute(insert_query, (username, name, phone, email, password))
@@ -194,80 +178,80 @@ def register():
 
     return render_template('register.html')
 
-
 @app.route('/admin')
 @with_db
 def admin_dashboard(cursor, conn):
-    cursor.execute("SELECT * FROM administrator")
+    cursor.execute("SELECT * FROM Administrator")
     admins = rows_to_dict_list(cursor)
 
-    cursor.execute("SELECT * FROM employee")
+    cursor.execute("SELECT * FROM Employee")
     employees = rows_to_dict_list(cursor)
 
     return render_template('admin_dashboard.html', admins=admins, employees=employees)
 
-
 @app.route('/employee')
 @with_db
 def employee_dashboard(cursor, conn):
-    cursor.execute("SELECT * FROM employee")
+    cursor.execute("SELECT * FROM Employee")
     employees = rows_to_dict_list(cursor)
     return render_template('employee_dashboard.html', employees=employees)
-
 
 @app.route('/customer')
 @with_db
 def customer_dashboard(cursor, conn):
-    cursor.execute("SELECT * FROM customer")
-    customers = rows_to_dict_list(cursor)
-    return render_template('customer_dashboard.html', customers=customers)
-
+    try:
+        query = "SELECT * FROM Customer"
+        print("Running query:", query)
+        cursor.execute(query)
+        customers = rows_to_dict_list(cursor)
+        print("Fetched customers:", customers)
+        return render_template('customer_dashboard.html', customer=customers)
+    except Exception as e:
+        print("Error fetching customers:", e)
+        raise
 
 @app.route('/department')
 @with_db
-def department_dashboard(cursor, conn):
-    cursor.execute("SELECT * FROM department")
+def department(cursor, conn):
+    cursor.execute("SELECT * FROM Department")
     departments = rows_to_dict_list(cursor)
     return render_template('department_dashboard.html', departments=departments)
-
 
 @app.route('/transactions')
 @with_db
 def get_transactions(cursor, conn):
     base_query = """
-        SELECT t.*, e.name AS employee_name, c.name AS customer_name
-        FROM transaction t
-        JOIN employee e ON t.employee_id = e.employee_id
-        JOIN customer c ON t.customer_id = c.customer_id
+        SELECT t.TransactionID, t.TransactionDate, t.TotalAmount, t.EmployeeID, t.CustomerID, t.PaymentMethod,
+               e.Name AS EmployeeName, c.Name AS CustomerName
+        FROM SalesTransaction t
+        JOIN Employee e ON t.EmployeeID = e.EmployeeID
+        JOIN Customer c ON t.CustomerID = c.CustomerID
     """
     filters = []
     params = []
 
     if request.args.get('employee'):
-        filters.append("e.name LIKE ?")
+        filters.append("e.Name LIKE ?")
         params.append(f"%{request.args['employee']}%")
     if request.args.get('payment_method'):
-        filters.append("t.payment_method = ?")
+        filters.append("t.PaymentMethod = ?")
         params.append(request.args['payment_method'])
 
     if filters:
         base_query += " WHERE " + " AND ".join(filters)
 
     if request.args.get('sort_by') == 'date':
-        base_query += " ORDER BY t.transaction_date DESC"
+        base_query += " ORDER BY t.TransactionDate DESC"
     elif request.args.get('sort_by') == 'amount':
-        base_query += " ORDER BY t.total_amount DESC"
+        base_query += " ORDER BY t.TotalAmount DESC"
 
     cursor.execute(base_query, params)
     transactions = rows_to_dict_list(cursor)
     return jsonify(transactions)
 
-# New: render bag page (shows cart from client-side localStorage)
-@app.route('/bag')
-def bag_page():
-    # We don't need DB access here; the cart is client-side localStorage
+@app.route('/bag', endpoint='bag_page')
+def bag():
     return render_template('bag.html')
-
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

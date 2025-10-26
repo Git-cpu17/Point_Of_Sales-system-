@@ -2,70 +2,196 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Regular Store Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Your Online Grocery Store</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <!-- Top navigation -->
+  <!-- Enhanced Navigation -->
   <nav class="site-nav">
-    <div class="nav-left">
-      <a href="{{ url_for('home') }}" class="logo">PosApp</a>
-    </div>
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
 
-    <div class="nav-right">
-      <div class="search-wrap">
-        <input id="searchInput" type="search" placeholder="Search products..." aria-label="Search products">
+      <div class="nav-right">
+        <div class="search-wrap">
+          <input id="searchInput" type="search" placeholder="Search for products..." aria-label="Search products">
+        </div>
+
+        <a href="{{ url_for('department') }}" class="nav-link">Departments</a>
+        <a href="{{ url_for('login') }}" class="nav-link">Account</a>
+        
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">0</span>
+        </a>
       </div>
-
-      <a href="{{ url_for('login') }}" class="nav-link">Login</a>
-
-      <a href="{{ url_for('bag') }}" class="nav-link bag-link">
-        <span class="bag-icon" aria-hidden="true">🛍️</span>
-        Bag
-        <span id="bagCount" class="badge">0</span>
-      </a>
     </div>
   </nav>
 
   <main>
     <div class="home-container">
-      <h1>Welcome to the Regular Store</h1>
-      <p>Access different departments or log in / register below.</p>
+      <!-- Hero Banner -->
+      <section class="hero-banner">
+        <div class="hero-content">
+          <h1>Fresh Groceries Delivered Daily</h1>
+          <p>Get farm-fresh produce, quality meats, and pantry essentials delivered right to your door</p>
+          <div class="promo-badges">
+            <div class="promo-badge">
+              <span>🚚</span>
+              <span>Free Delivery on $50+</span>
+            </div>
+            <div class="promo-badge">
+              <span>🌱</span>
+              <span>100% Organic Options</span>
+            </div>
+            <div class="promo-badge">
+              <span>⏰</span>
+              <span>Same Day Delivery</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div class="buttons">
-        <a href="{{ url_for('login') }}" class="btn login-btn">Login</a>
-        <a href="{{ url_for('register') }}" class="btn register-btn">Register</a>
-      </div>
+      <!-- Categories Section -->
+      <section class="categories-section container">
+        <div class="section-header">
+          <h2 class="section-title">Shop by Category</h2>
+        </div>
+        <div class="categories-grid">
+          <div class="category-card" data-category="produce">
+            <div class="category-icon">🥬</div>
+            <div class="category-name">Fresh Produce</div>
+          </div>
+          <div class="category-card" data-category="meat">
+            <div class="category-icon">🥩</div>
+            <div class="category-name">Meat & Seafood</div>
+          </div>
+          <div class="category-card" data-category="dairy">
+            <div class="category-icon">🥛</div>
+            <div class="category-name">Dairy & Eggs</div>
+          </div>
+          <div class="category-card" data-category="bakery">
+            <div class="category-icon">🥖</div>
+            <div class="category-name">Bakery</div>
+          </div>
+          <div class="category-card" data-category="frozen">
+            <div class="category-icon">🧊</div>
+            <div class="category-name">Frozen Foods</div>
+          </div>
+          <div class="category-card" data-category="pantry">
+            <div class="category-icon">🥫</div>
+            <div class="category-name">Pantry</div>
+          </div>
+          <div class="category-card" data-category="beverages">
+            <div class="category-icon">🥤</div>
+            <div class="category-name">Beverages</div>
+          </div>
+          <div class="category-card" data-category="snacks">
+            <div class="category-icon">🍿</div>
+            <div class="category-name">Snacks</div>
+          </div>
+        </div>
+      </section>
 
-      <!-- Product grid -->
-      <section id="productsSection">
-        <h2>Products</h2>
+      <!-- Products Section -->
+      <section id="productsSection" class="container">
+        <div class="section-header">
+          <h2 class="section-title">Featured Products</h2>
+        </div>
         <div id="productGrid" class="product-grid">
           {% if products %}
             {% for p in products %}
+              {% set stock_class = 'in-stock' if p.quantity_in_stock > 10 else 'low-stock' %}
+              {% set product_emoji = ['🍎', '🥕', '🥦', '🍊', '🥑', '🍇', '🥬', '🫐'][loop.index0 % 8] %}
               <div class="product-card" data-product-id="{{ p.product_id }}" data-name="{{ p.name }}" data-description="{{ p.description }}" data-price="{{ p.price }}">
-                <div class="product-header">
-                  <h3>{{ p.name }}</h3>
+                <div class="product-image">
+                  {{ product_emoji }}
+                  {% if loop.index % 4 == 0 %}
+                  <span class="sale-badge">SALE</span>
+                  {% endif %}
                 </div>
-                <p class="product-desc">{{ p.description or '' }}</p>
-                <div class="product-meta">
-                  <strong class="price">${{ '%.2f'|format(p.price) }}</strong>
-                  <span class="stock">Stock: {{ p.quantity_in_stock }}</span>
-                </div>
-                <div class="product-actions">
-                  <button class="btn add-btn" type="button" onclick="addToCart({{ p.product_id }})">Add to Bag</button>
+                <div class="product-details">
+                  <div class="product-header">
+                    <h3>{{ p.name }}</h3>
+                  </div>
+                  <p class="product-desc">{{ p.description or 'Fresh and high quality product' }}</p>
+                  <div class="product-meta">
+                    <div>
+                      <span class="price">${{ '%.2f'|format(p.price) }}</span>
+                      <div class="unit-price">per unit</div>
+                    </div>
+                    <span class="stock {{ stock_class }}">
+                      {% if p.quantity_in_stock > 10 %}
+                        ✓ In Stock
+                      {% else %}
+                        Only {{ p.quantity_in_stock }} left
+                      {% endif %}
+                    </span>
+                  </div>
+                  <button class="add-btn" type="button" onclick="addToCart({{ p.product_id }})">
+                    <span>🛒</span>
+                    <span>Add to Cart</span>
+                  </button>
                 </div>
               </div>
             {% endfor %}
           {% else %}
-            <p>No products found.</p>
+            <p style="grid-column: 1/-1; text-align: center; color: var(--text-light);">
+              No products available at the moment. Please check back later!
+            </p>
           {% endif %}
         </div>
       </section>
     </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>About FreshMart</h3>
+          <ul>
+            <li><a href="#">About Us</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Press</a></li>
+            <li><a href="#">Sustainability</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Customer Service</h3>
+          <ul>
+            <li><a href="#">Contact Us</a></li>
+            <li><a href="#">FAQs</a></li>
+            <li><a href="#">Shipping Info</a></li>
+            <li><a href="#">Returns</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Quick Links</h3>
+          <ul>
+            <li><a href="#">Weekly Deals</a></li>
+            <li><a href="#">Gift Cards</a></li>
+            <li><a href="#">Recipes</a></li>
+            <li><a href="#">Store Locator</a></li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h3>Connect</h3>
+          <ul>
+            <li><a href="#">Facebook</a></li>
+            <li><a href="#">Twitter</a></li>
+            <li><a href="#">Instagram</a></li>
+            <li><a href="#">Newsletter</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 FreshMart. All rights reserved. | Privacy Policy | Terms of Service</p>
+      </div>
+    </footer>
   </main>
 
-  <!-- Provide products array to client-side JS for search/cart convenience -->
+  <!-- Provide products array to client-side JS -->
   <script>
     window.PRODUCTS = {{ products|tojson }};
   </script>

@@ -262,6 +262,12 @@ def get_transactions(cursor, conn):
     transactions = rows_to_dict_list(cursor)
     return jsonify(transactions)
 
+# New: render bag page (shows cart from client-side localStorage)
+@app.route('/bag')
+def bag_page():
+    # We don't need DB access here; the cart is client-side localStorage
+    return render_template('bag.html')
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

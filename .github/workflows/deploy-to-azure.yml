@@ -37,5 +37,5 @@ jobs:
           app-name: PosApp
           publish-profile: '<PASTE_YOUR_PUBLISH_PROFILE_XML_HERE>'
           package: .
-          startup-command: "gunicorn --bind=0.0.0.0:\$PORT --timeout 600 app:app"
+          startup-command: 'gunicorn --bind=0.0.0.0:$PORT --timeout 600 app:app'
           configuration-file: ''

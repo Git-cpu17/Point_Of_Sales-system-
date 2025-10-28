@@ -102,9 +102,9 @@
         <div id="productGrid" class="product-grid">
           {% if products %}
             {% for p in products %}
-              {% set stock_class = 'in-stock' if p.quantity_in_stock > 10 else 'low-stock' %}
+              {% set stock_class = 'in-stock' if p.QuantityInStock > 10 else 'low-stock' %}
               {% set product_emoji = ['🍎', '🥕', '🥦', '🍊', '🥑', '🍇', '🥬', '🫐'][loop.index0 % 8] %}
-              <div class="product-card" data-product-id="{{ p.product_id }}" data-name="{{ p.name }}" data-description="{{ p.description }}" data-price="{{ p.price }}">
+              <div class="product-card" data-product-id="{{ p.ProductID }}" data-name="{{ p.Name }}" data-description="{{ p.Description }}" data-price="{{ p.Price }}">
                 <div class="product-image">
                   {{ product_emoji }}
                   {% if loop.index % 4 == 0 %}
@@ -113,23 +113,23 @@
                 </div>
                 <div class="product-details">
                   <div class="product-header">
-                    <h3>{{ p.name }}</h3>
+                    <h3>{{ p.Name }}</h3>
                   </div>
-                  <p class="product-desc">{{ p.description or 'Fresh and high quality product' }}</p>
+                  <p class="product-desc">{{ p.Description or 'Fresh and high quality product' }}</p>
                   <div class="product-meta">
                     <div>
-                      <span class="price">${{ '%.2f'|format(p.price) }}</span>
+                      <span class="price">${{ '%.2f'|format(p.Price) }}</span>
                       <div class="unit-price">per unit</div>
                     </div>
                     <span class="stock {{ stock_class }}">
-                      {% if p.quantity_in_stock > 10 %}
+                      {% if p.QuantityInStock > 10 %}
                         ✓ In Stock
                       {% else %}
-                        Only {{ p.quantity_in_stock }} left
+                        Only {{ p.QuantityInStock }} left
                       {% endif %}
                     </span>
                   </div>
-                  <button class="add-btn" type="button" onclick="addToCart({{ p.product_id }})">
+                  <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})">
                     <span>🛒</span>
                     <span>Add to Cart</span>
                   </button>

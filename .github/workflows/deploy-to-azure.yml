@@ -35,20 +35,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 5️⃣ Run database migrations
-      - name: Run Flask database migrations
-        env:
-          FLASK_APP: app.py
-          FLASK_ENV: production
-          AZURE_MYSQL_URI: ${{ secrets.AZURE_MYSQL_URI }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        run: |
-          flask db upgrade
-
-      # 6️⃣ Deploy to Azure WebApp
+      # 5️⃣ Deploy to Azure WebApp
       - name: Deploy to Azure WebApp
         uses: azure/webapps-deploy@v2
         with:

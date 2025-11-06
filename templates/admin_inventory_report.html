@@ -1,0 +1,173 @@
+{% extends "admin_dashboard.html" %}
+
+{% block content %}
+<main class="dashboard-container container">
+  <h1 class="section-title">Inventory Report</h1>
+
+  <!-- Filter Form -->
+  <form method="POST" id="inventory-filters" class="filter-form">
+    <div class="filter-grid">
+      
+      <!-- Department Dropdown -->
+      <select name="department" class="filter-input">
+        <option value="all">All Departments</option>
+        {% for dept in departments %}
+          <option value="{{ dept.DepartmentID }}" {% if filters.department == dept.DepartmentID %}selected{% endif %}>
+            {{ dept.Name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <!-- Min Price -->
+      <input type="number" name="min_price" placeholder="Min Price" step="0.01" 
+             class="filter-input" value="{{ filters.min_price or '' }}">
+
+      <!-- Max Price -->
+      <input type="number" name="max_price" placeholder="Max Price" step="0.01" 
+             class="filter-input" value="{{ filters.max_price or '' }}">
+
+      <!-- Stock Status -->
+      <select name="stock_status" class="filter-input">
+        <option value="all">All Stock Status</option>
+        <option value="in_stock" {% if filters.stock_status == 'in_stock' %}selected{% endif %}>In Stock</option>
+        <option value="low_stock" {% if filters.stock_status == 'low_stock' %}selected{% endif %}>Low Stock</option>
+      </select>
+
+      <button type="submit" class="btn primary">Apply Filters</button>
+    </div>
+  </form>
+
+  <!-- Inventory Table -->
+  <div class="table-wrapper">
+    <table class="inventory-table">
+      <thead>
+        <tr>
+          <th>Inventory ID</th>
+          <th>Product ID</th>
+          <th>Product Name</th>
+          <th>Quantity Available</th>
+          <th>Price</th>
+          <th>Sale Price</th>
+          <th>Stock Status</th>
+          <th>Last Restock Date</th>
+          <th>Reorder Level</th>
+          <th>Supplier ID</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if inventory %}
+          {% for item in inventory %}
+            <tr>
+              <td>{{ item.InventoryID }}</td>
+              <td>{{ item.ProductID }}</td>
+              <td>{{ item.ProductName }}</td>
+              <td>{{ item.QuantityAvailable }}</td>
+              <td>${{ item.Price }}</td>
+              <td>{% if item.SalePrice %}${{ item.SalePrice }}{% else %}-{% endif %}</td>
+              <td>{{ item.StockStatus|capitalize }}</td>
+              <td>{{ item.LastRestockDate }}</td>
+              <td>{{ item.ReorderLevel }}</td>
+              <td>{{ item.SupplierID }}</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="10" class="no-data">No inventory data available.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<!-- Custom Styles -->
+<style>
+/* Filter Form */
+.filter-form {
+  margin-bottom: 2rem;
+}
+
+.filter-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--primary-green);
+  box-shadow: 0 0 0 3px rgba(74, 155, 62, 0.1);
+}
+
+/* Buttons */
+.btn.primary {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--primary-green);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn.primary:hover {
+  background-color: #4a9b3ecc;
+}
+
+/* Table */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1000px;
+}
+
+.inventory-table th, .inventory-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.inventory-table th {
+  background-color: var(--light-green);
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.inventory-table tbody tr:hover {
+  background-color: #f9f9f9;
+  transform: translateX(2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.no-data {
+  text-align: center;
+  color: var(--text-light);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .filter-grid {
+    flex-direction: column;
+  }
+
+  .inventory-table th,
+  .inventory-table td {
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+}
+</style>
+{% endblock %}

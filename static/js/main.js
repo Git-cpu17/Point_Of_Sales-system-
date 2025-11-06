@@ -3,11 +3,10 @@
 // API base URL - update this with your Azure deployment URL
 const API_BASE = window.location.origin; // Use relative URLs for flexibility
 
-// Cart configuration
-const CART_KEY = 'freshmart_cart';
+// Favorites key (still global)
 const FAVORITES_KEY = 'freshmart_favorites';
 
-// Utility functions
+// -------------------- Utility functions --------------------
 function escapeHtml(str) {
   if (!str && str !== 0) return '';
   return String(str)
@@ -25,7 +24,7 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-// Products management
+// -------------------- Products management --------------------
 async function ensureProducts() {
   if (window.PRODUCTS && Array.isArray(window.PRODUCTS)) return window.PRODUCTS;
   try {
@@ -45,10 +44,15 @@ function getProductById(id) {
   return products.find(p => Number(p.product_id) === Number(id)) || null;
 }
 
-// Cart operations
+// -------------------- Cart operations (per-user) --------------------
+function getCartKey() {
+  if (!window.CURRENT_USER || !window.CURRENT_USER.id) return 'freshmart_cart';
+  return `cart_${window.CURRENT_USER.role}_${window.CURRENT_USER.id}`;
+}
+
 function readCart() {
   try {
-    const raw = localStorage.getItem(CART_KEY);
+    const raw = localStorage.getItem(getCartKey());
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     console.error('Error reading cart:', e);
@@ -58,7 +62,7 @@ function readCart() {
 
 function writeCart(cart) {
   try {
-    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    localStorage.setItem(getCartKey(), JSON.stringify(cart));
     updateCartBadge();
     updateCartTotal();
   } catch (e) {
@@ -77,17 +81,14 @@ function updateCartBadge() {
 
 function updateCartTotal() {
   const cart = readCart();
-  const total = cart.reduce((sum, item) => {
-    return sum + ((item.price || 0) * (item.quantity || 0));
-  }, 0);
-  
+  const total = cart.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
   const totalElements = document.querySelectorAll('.cart-total');
   totalElements.forEach(el => {
     if (el) el.textContent = formatCurrency(total);
   });
 }
 
-// Enhanced add to cart with animation
+// -------------------- Cart manipulation --------------------
 function addToCart(productId) {
   ensureProducts().then(() => {
     const product = getProductById(productId);
@@ -111,21 +112,18 @@ function addToCart(productId) {
     }
     
     writeCart(cart);
-    
-    // Animate the add button
+
+    // Animate button
     const btn = document.querySelector(`[data-product-id="${productId}"] .add-btn`);
     if (btn) {
       btn.style.transform = 'scale(0.95)';
-      setTimeout(() => {
-        btn.style.transform = '';
-      }, 200);
+      setTimeout(() => { btn.style.transform = ''; }, 200);
     }
-    
+
     showNotification(`${product.name} added to cart!`, 'success');
   });
 }
 
-// Remove from cart
 function removeFromCart(productId) {
   const cart = readCart().filter(it => Number(it.product_id) !== Number(productId));
   writeCart(cart);
@@ -133,22 +131,18 @@ function removeFromCart(productId) {
   showNotification('Item removed from cart', 'info');
 }
 
-// Update quantity
 function updateQuantity(productId, qty) {
   const cart = readCart();
   const idx = cart.findIndex(it => Number(it.product_id) === Number(productId));
-  
+
   if (idx >= 0) {
     cart[idx].quantity = Math.max(0, Number(qty) || 0);
-    if (cart[idx].quantity === 0) {
-      cart.splice(idx, 1);
-    }
+    if (cart[idx].quantity === 0) cart.splice(idx, 1);
     writeCart(cart);
     renderCartPage();
   }
 }
 
-// Clear cart
 function clearCart() {
   if (confirm('Are you sure you want to clear your entire cart?')) {
     writeCart([]);
@@ -157,25 +151,21 @@ function clearCart() {
   }
 }
 
-// Checkout
 async function checkout() {
   const cart = readCart();
   if (!cart.length) {
     showNotification('Your cart is empty', 'warning');
     return;
   }
-  
-  // Calculate total
+
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  // Simple checkout modal
+
   const message = `Order Summary:\n\n` +
     cart.map(item => `${item.name} x${item.quantity} - ${formatCurrency(item.price * item.quantity)}`).join('\n') +
     `\n\nTotal: ${formatCurrency(total)}\n\nProceed with checkout?`;
-  
+
   if (confirm(message)) {
     showNotification('Processing your order...', 'success');
-    // In real app, send to backend
     setTimeout(() => {
       writeCart([]);
       renderCartPage();
@@ -184,11 +174,11 @@ async function checkout() {
   }
 }
 
-// Render cart page
+// -------------------- Render cart page --------------------
 function renderCartPage() {
   const container = document.getElementById('cartContainer');
   if (!container) return;
-  
+
   const cart = readCart();
 
   if (!cart.length) {
@@ -217,18 +207,14 @@ function renderCartPage() {
       </thead>
       <tbody>
   `;
-  
-  let total = 0;
 
+  let total = 0;
   cart.forEach(item => {
     const subtotal = (Number(item.price) || 0) * (Number(item.quantity) || 0);
     total += subtotal;
-    
     html += `
       <tr>
-        <td>
-          <div class="cart-item-name">${escapeHtml(item.name)}</div>
-        </td>
+        <td><div class="cart-item-name">${escapeHtml(item.name)}</div></td>
         <td>${formatCurrency(item.price)}</td>
         <td>
           <input class="qty-input" type="number" min="1" max="99" 
@@ -237,9 +223,7 @@ function renderCartPage() {
         </td>
         <td><strong>${formatCurrency(subtotal)}</strong></td>
         <td>
-          <button class="remove-btn" data-product-id="${escapeHtml(item.product_id)}">
-            Remove
-          </button>
+          <button class="remove-btn" data-product-id="${escapeHtml(item.product_id)}">Remove</button>
         </td>
       </tr>
     `;
@@ -264,19 +248,18 @@ function renderCartPage() {
       </div>
     </div>
   `;
-  
+
   container.innerHTML = html;
 
-  // Attach event listeners
   container.querySelectorAll('.remove-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', e => {
       const pid = e.currentTarget.getAttribute('data-product-id');
       removeFromCart(pid);
     });
   });
-  
+
   container.querySelectorAll('.qty-input').forEach(input => {
-    input.addEventListener('change', (e) => {
+    input.addEventListener('change', e => {
       const pid = e.currentTarget.getAttribute('data-product-id');
       const qty = Number(e.currentTarget.value) || 0;
       updateQuantity(pid, qty);
@@ -286,11 +269,11 @@ function renderCartPage() {
   updateCartBadge();
 }
 
-// Enhanced notification system
+// -------------------- Notifications --------------------
 function showNotification(message, type = 'info') {
   const existing = document.querySelector('.notification');
   if (existing) existing.remove();
-  
+
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
   notification.innerHTML = `
@@ -299,7 +282,7 @@ function showNotification(message, type = 'info') {
       <span>${escapeHtml(message)}</span>
     </div>
   `;
-  
+
   Object.assign(notification.style, {
     position: 'fixed',
     top: '20px',
@@ -315,22 +298,22 @@ function showNotification(message, type = 'info') {
     animation: 'slideIn 0.3s ease',
     maxWidth: '300px'
   });
-  
+
   document.body.appendChild(notification);
-  
+
   setTimeout(() => {
     notification.style.animation = 'slideOut 0.3s ease';
     setTimeout(() => notification.remove(), 300);
   }, 3000);
 }
 
-// Search functionality
+// -------------------- Search --------------------
 function setupSearchInput() {
   const input = document.getElementById('searchInput');
   if (!input) return;
 
   let debounceTimer;
-  input.addEventListener('input', (e) => {
+  input.addEventListener('input', e => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       const query = (e.target.value || '').trim().toLowerCase();
@@ -344,32 +327,22 @@ function filterProducts(query) {
   if (!grid) return;
 
   const cards = Array.from(grid.querySelectorAll('.product-card'));
-  
   if (!query) {
-    cards.forEach(c => {
-      c.style.display = '';
-      c.style.animation = 'fadeIn 0.3s ease';
-    });
+    cards.forEach(c => { c.style.display = ''; c.style.animation = 'fadeIn 0.3s ease'; });
     return;
   }
-  
+
   cards.forEach(card => {
     const name = (card.getAttribute('data-name') || '').toLowerCase();
     const desc = (card.getAttribute('data-description') || '').toLowerCase();
     const matches = name.includes(query) || desc.includes(query);
-    
-    if (matches) {
-      card.style.display = '';
-      card.style.animation = 'fadeIn 0.3s ease';
-    } else {
-      card.style.display = 'none';
-    }
+    if (matches) { card.style.display = ''; card.style.animation = 'fadeIn 0.3s ease'; }
+    else { card.style.display = 'none'; }
   });
-  
-  // Show message if no results
+
   const visibleCards = cards.filter(c => c.style.display !== 'none');
   let noResults = document.querySelector('.no-results-message');
-  
+
   if (visibleCards.length === 0) {
     if (!noResults) {
       noResults = document.createElement('div');
@@ -387,32 +360,27 @@ function filterProducts(query) {
   }
 }
 
-// Category filter
+// -------------------- Category filters --------------------
 function setupCategoryFilters() {
   const categoryCards = document.querySelectorAll('.category-card');
-  
   categoryCards.forEach(card => {
-    card.addEventListener('click', (e) => {
+    card.addEventListener('click', e => {
       const category = e.currentTarget.getAttribute('data-category');
-      
-      // Toggle active state
       categoryCards.forEach(c => c.classList.remove('active'));
       e.currentTarget.classList.add('active');
-      
-      // Filter products (in real app, would filter by actual category)
       showNotification(`Filtering by ${category}`, 'info');
     });
   });
 }
 
-// Login form handler
+// -------------------- Login --------------------
 function setupLoginForm() {
   const form = document.getElementById('loginForm');
   if (!form) return;
 
-  form.addEventListener('submit', async function(e) {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    
+
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.textContent;
     submitBtn.textContent = 'Signing in...';
@@ -427,15 +395,12 @@ function setupLoginForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id, password })
       });
-      
+
       const data = await response.json();
-      
       if (data && data.success) {
         sessionStorage.setItem('role', data.role || '');
         showNotification('Login successful! Redirecting...', 'success');
-        setTimeout(() => {
-          window.location.href = data.redirectUrl || '/';
-        }, 1000);
+        setTimeout(() => { window.location.href = data.redirectUrl || '/'; }, 1000);
       } else {
         showNotification(data.message || 'Invalid credentials', 'error');
         submitBtn.textContent = originalText;
@@ -450,80 +415,48 @@ function setupLoginForm() {
   });
 }
 
-// Add CSS animations
+// -------------------- Animations --------------------
 function addAnimationStyles() {
   if (document.getElementById('custom-animations')) return;
-  
   const style = document.createElement('style');
   style.id = 'custom-animations';
   style.textContent = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    @keyframes slideOut {
-      to { transform: translateX(400px); opacity: 0; }
-    }
-    
-    .category-card.active {
-      background: var(--primary-green);
-      color: white;
-    }
-    
-    .notification {
-      transition: all 0.3s ease;
-    }
+    @keyframes fadeIn { from {opacity:0; transform:translateY(10px);} to {opacity:1; transform:translateY(0);} }
+    @keyframes slideOut { to { transform:translateX(400px); opacity:0; } }
+    .category-card.active { background: var(--primary-green); color: white; }
+    .notification { transition: all 0.3s ease; }
   `;
   document.head.appendChild(style);
 }
 
-// Initialize
+// -------------------- Initialize --------------------
 document.addEventListener('DOMContentLoaded', () => {
-  // Add animation styles
   addAnimationStyles();
-  
-  // Setup search
   setupSearchInput();
-  
-  // Setup category filters
   setupCategoryFilters();
-  
-  // Ensure products are loaded
   ensureProducts().catch(() => {});
-  
-  // Setup cart page if on cart page
+
   if (document.getElementById('cartContainer')) {
     renderCartPage();
-    
     const checkoutBtn = document.getElementById('checkoutBtn');
     if (checkoutBtn) checkoutBtn.addEventListener('click', checkout);
-    
     const clearBtn = document.getElementById('clearCartBtn');
     if (clearBtn) clearBtn.addEventListener('click', clearCart);
   }
-  
-  // Setup login form
-  if (document.getElementById('loginForm')) {
-    setupLoginForm();
-  }
-  
-  // Update cart badge on load
+
+  if (document.getElementById('loginForm')) setupLoginForm();
   updateCartBadge();
-  
-  // Add smooth scroll
+
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
       e.preventDefault();
       const target = document.querySelector(this.getAttribute('href'));
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
 });
 
-// Export functions for global use
+// -------------------- Global exports --------------------
 window.addToCart = addToCart;
 window.removeFromCart = removeFromCart;
 window.updateQuantity = updateQuantity;

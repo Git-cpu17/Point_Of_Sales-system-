@@ -137,7 +137,15 @@
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
         <a href="#" class="nav-link">Settings</a>
-        <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
+
+        <!-- Cart link for admin -->
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">0</span>
+        </a>
+
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
       </div>
     </div>
   </nav>
@@ -148,7 +156,7 @@
       <!-- Dashboard Header -->
       <div class="dashboard-header">
         <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">Admin Dashboard</h1>
-        <p style="opacity: 0.9;">Welcome back! Here's your store overview.</p>
+        <p style="opacity: 0.9;">Welcome back, {{ admin_name }}! Here's your store overview.</p>
       </div>
 
       <!-- Statistics Cards -->
@@ -156,29 +164,29 @@
         <div class="stat-card">
           <span class="stat-icon">📦</span>
           <div class="stat-content">
-            <h3>1,234</h3>
+            <h3>{{ total_products }}</h3>
             <p class="stat-label">Total Products</p>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">👥</span>
           <div class="stat-content">
-            <h3>5,678</h3>
+            <h3>{{ total_customers }}</h3>
             <p class="stat-label">Total Customers</p>
           </div>
         </div>
         <div class="stat-card">
           <span class="stat-icon">💰</span>
           <div class="stat-content">
-            <h3>$45,678</h3>
+            <h3>${{ '%.2f'|format(todays_revenue) }}</h3>
             <p class="stat-label">Today's Revenue</p>
           </div>
         </div>
         <div class="stat-card">
-          <span class="stat-icon">📈</span>
+          <span class="stat-icon">🛒</span>
           <div class="stat-content">
-            <h3>+12%</h3>
-            <p class="stat-label">Monthly Growth</p>
+            <h3>{{ orders_today }}</h3>
+            <p class="stat-label">Orders Today</p>
           </div>
         </div>
       </div>
@@ -238,10 +246,10 @@
             {% if employees %}
               {% for emp in employees %}
               <tr>
-                <td>#{{ emp.employee_id }}</td>
-                <td>{{ emp.name }}</td>
-                <td>{{ emp.email }}</td>
-                <td>{{ emp.department_id or 'N/A' }}</td>
+                <td>#{{ emp.EmployeeID }}</td>
+                <td>{{ emp.Name }}</td>
+                <td>{{ emp.Email }}</td>
+                <td>{{ emp.DepartmentID or 'N/A' }}</td>
                 <td><span style="color: var(--primary-green);">● Active</span></td>
                 <td>
                   <button class="btn secondary" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Edit</button>

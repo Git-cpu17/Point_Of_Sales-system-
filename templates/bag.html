@@ -17,13 +17,28 @@
           <input id="searchInput" type="search" placeholder="Search for products..." aria-label="Search products">
         </div>
 
-        <a href="{{ url_for('login') }}" class="nav-link">Account</a>
-        
-        <a href="{{ url_for('bag_page') }}" class="bag-link">
-          <span>🛒</span>
-          <span>Cart</span>
-          <span id="bagCount" class="badge">0</span>
-        </a>
+        {% if user %}
+          <span class="welcome-text">Welcome, {{ user.Name }}</span>
+
+          {% if user.role == 'customer' %}
+            <a href="{{ url_for('customer_dashboard') }}" class="nav-link">Dashboard</a>
+          {% elif user.role == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Dashboard</a>
+          {% elif user.role == 'employee' %}
+            <a href="{{ url_for('employee_dashboard') }}" class="nav-link">Dashboard</a>
+          {% endif %}
+
+          <!-- Show Cart for all logged-in users -->
+          <a href="{{ url_for('bag_page') }}" class="bag-link">
+            <span>🛒</span>
+            <span>Cart</span>
+            <span id="bagCount" class="badge">0</span>
+          </a>
+
+          <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="nav-link">Account</a>
+        {% endif %}
       </div>
     </div>
   </nav>
@@ -31,31 +46,28 @@
   <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
     <div class="cart-container">
       <h1 class="cart-header">🛒 Your Shopping Cart</h1>
-      
       <div id="cartContainer">
         <!-- Cart items will be rendered by JS -->
       </div>
     </div>
 
     <div class="cart-actions" style="max-width: 900px; margin: 0 auto;">
-      <button id="clearCartBtn" class="btn secondary" type="button">
-        <span>🗑️</span>
-        <span>Clear Cart</span>
-      </button>
-      <button id="checkoutBtn" class="btn primary" type="button">
-        <span>💳</span>
-        <span>Proceed to Checkout</span>
-      </button>
+      <button id="clearCartBtn" class="btn secondary" type="button"><span>🗑️</span><span>Clear Cart</span></button>
+      <button id="checkoutBtn" class="btn primary" type="button"><span>💳</span><span>Proceed to Checkout</span></button>
     </div>
 
-    <!-- Continue Shopping Section -->
     <div style="text-align: center; margin-top: 3rem;">
-      <a href="{{ url_for('home') }}" class="btn secondary" style="display: inline-flex;">
-        <span>←</span>
-        <span>Continue Shopping</span>
-      </a>
+      <a href="{{ url_for('home') }}" class="btn secondary" style="display: inline-flex;"><span>←</span><span>Continue Shopping</span></a>
     </div>
   </main>
+
+  <!-- Pass user info to JS for cart identification -->
+  <script>
+    window.CURRENT_USER = {
+      id: {{ session['user_id'] }},
+      role: "{{ user.role if user else '' }}"
+    };
+  </script>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>

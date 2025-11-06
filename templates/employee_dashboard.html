@@ -178,10 +178,19 @@
       <a href="{{ url_for('home') }}" class="logo">FreshMart Employee</a>
 
       <div class="nav-right">
-        <span class="nav-link">Welcome, {{ session.get('username', 'Employee') }}</span>
-        <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
-        <a href="#" class="nav-link">My Profile</a>
-        <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
+        {% if user %}
+          <span class="welcome-text">Welcome, {{ user.Name }}</span>
+          <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
+          <a href="{{ url_for('bag_page') }}" class="bag-link">
+            <span>🛒</span>
+            <span>Cart</span>
+            <span id="bagCount" class="badge">0</span>
+          </a>
+
+          <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="nav-link">Account</a>
+        {% endif %}
       </div>
     </div>
   </nav>
@@ -350,6 +359,14 @@
       </div>
     </div>
   </main>
+
+  <!-- Pass employee info to JS for cart identification -->
+  <script>
+    window.CURRENT_USER = {
+      id: {{ session['user_id'] }},
+      role: "{{ user.role if user else '' }}"
+    };
+  </script>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>

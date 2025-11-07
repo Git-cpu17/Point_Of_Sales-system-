@@ -458,6 +458,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.getElementById('cartContainer')) {
     renderCartPage();
+    document.addEventListener('cart:updated', () => {
+      if (document.getElementById('cartContainer')) renderCartPage();
+    });
     const checkoutBtn = document.getElementById('checkoutBtn');
     if (checkoutBtn) checkoutBtn.addEventListener('click', checkout);
     const clearBtn = document.getElementById('clearCartBtn');

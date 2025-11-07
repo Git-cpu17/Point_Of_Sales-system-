@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <div class="search-wrap">
+          <input id="searchInput" type="search" placeholder="Search for products..." aria-label="Search products">
+        </div>
+
+        <a href="{{ url_for('login') }}" class="nav-link">Account</a>
+        
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">0</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+    <div class="cart-container">
+      <h1 class="cart-header">🛒 Your Shopping Cart</h1>
+      
+      <div id="cartContainer">
+        <!-- Cart items will be rendered by JS -->
+      </div>
+    </div>
+
+    <div class="cart-actions" style="max-width: 900px; margin: 0 auto;">
+      <button id="clearCartBtn" class="btn secondary" type="button">
+        <span>🗑️</span>
+        <span>Clear Cart</span>
+      </button>
+      <button id="checkoutBtn" class="btn primary" type="button">
+        <span>💳</span>
+        <span>Proceed to Checkout</span>
+      </button>
+    </div>
+
+    <!-- Continue Shopping Section -->
+    <div style="text-align: center; margin-top: 3rem;">
+      <a href="{{ url_for('home') }}" class="btn secondary" style="display: inline-flex;">
+        <span>←</span>
+        <span>Continue Shopping</span>
+      </a>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

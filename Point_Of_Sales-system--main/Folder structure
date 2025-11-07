@@ -1,0 +1,15 @@
+project/
+│
+├── app.py
+├── templates/
+│   ├── index.html
+│   ├── login.html
+│   ├── admin_dashboard.html
+│   ├── employee_dashboard.html
+│   ├── customer_dashboard.html
+│   ├── department_dashboard.html
+│
+└── static/
+    ├── css/
+    │   └── style.css
+    └── img/

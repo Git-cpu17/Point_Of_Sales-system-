@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .dashboard-container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+    
+    .dashboard-header {
+      background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+      color: white;
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+    }
+    
+    .dashboard-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .stat-icon {
+      font-size: 2.5rem;
+      opacity: 0.8;
+    }
+    
+    .stat-content h3 {
+      font-size: 2rem;
+      color: var(--primary-green);
+      margin-bottom: 0.25rem;
+    }
+    
+    .stat-label {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+    
+    .admin-section {
+      background: white;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 2rem;
+    }
+    
+    .section-title {
+      font-size: 1.5rem;
+      color: var(--text-dark);
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--light-green);
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .data-table th {
+      background: var(--bg-light);
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-dark);
+      border-bottom: 2px solid var(--light-green);
+    }
+    
+    .data-table td {
+      padding: 1rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .data-table tr:hover {
+      background: var(--bg-light);
+    }
+    
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    
+    .quick-action-btn {
+      padding: 1.5rem;
+      background: var(--white);
+      border: 2px solid var(--primary-green);
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .quick-action-btn:hover {
+      background: var(--primary-green);
+      color: white;
+      transform: translateY(-2px);
+    }
+    
+    .quick-action-btn .icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart Admin</a>
+
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
+        <a href="#" class="nav-link">Settings</a>
+        <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="dashboard-container">
+      <!-- Dashboard Header -->
+      <div class="dashboard-header">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">Admin Dashboard</h1>
+        <p style="opacity: 0.9;">Welcome back! Here's your store overview.</p>
+      </div>
+
+      <!-- Statistics Cards -->
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <span class="stat-icon">📦</span>
+          <div class="stat-content">
+            <h3>1,234</h3>
+            <p class="stat-label">Total Products</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">👥</span>
+          <div class="stat-content">
+            <h3>5,678</h3>
+            <p class="stat-label">Total Customers</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">💰</span>
+          <div class="stat-content">
+            <h3>$45,678</h3>
+            <p class="stat-label">Today's Revenue</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📈</span>
+          <div class="stat-content">
+            <h3>+12%</h3>
+            <p class="stat-label">Monthly Growth</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="admin-section">
+        <h2 class="section-title">Quick Actions</h2>
+        <div class="quick-actions">
+          <div class="quick-action-btn">
+            <span class="icon">➕</span>
+            <span>Add Product</span>
+          </div>
+          <div class="quick-action-btn">
+            <span class="icon">👤</span>
+            <span>Add Employee</span>
+          </div>
+          <div class="quick-action-btn">
+            <span class="icon">📊</span>
+            <span>View Reports</span>
+          </div>
+          <div class="quick-action-btn">
+            <span class="icon">🏷️</span>
+            <span>Manage Promotions</span>
+          </div>
+          <div class="quick-action-btn">
+            <span class="icon">📦</span>
+            <span>Inventory</span>
+          </div>
+          <div class="quick-action-btn">
+            <span class="icon">⚙️</span>
+            <span>Settings</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Employees Table -->
+      <div class="admin-section">
+        <h2 class="section-title">Employee Management</h2>
+        <div class="action-buttons">
+          <button class="btn primary">Add New Employee</button>
+          <button class="btn secondary">Export List</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Department</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if employees %}
+              {% for emp in employees %}
+              <tr>
+                <td>#{{ emp.employee_id }}</td>
+                <td>{{ emp.name }}</td>
+                <td>{{ emp.email }}</td>
+                <td>{{ emp.department_id or 'N/A' }}</td>
+                <td><span style="color: var(--primary-green);">● Active</span></td>
+                <td>
+                  <button class="btn secondary" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Edit</button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-light);">
+                  No employees found
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="admin-section">
+        <h2 class="section-title">Recent Activity</h2>
+        <div style="color: var(--text-light);">
+          <p>📦 New product "Organic Apples" added - 2 hours ago</p>
+          <p style="margin-top: 1rem;">👤 Employee "John Doe" updated - 5 hours ago</p>
+          <p style="margin-top: 1rem;">💰 Order #1234 completed - $156.78 - 1 day ago</p>
+          <p style="margin-top: 1rem;">🏷️ "Summer Sale" promotion activated - 2 days ago</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

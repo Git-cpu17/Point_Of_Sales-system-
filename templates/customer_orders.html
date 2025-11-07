@@ -75,7 +75,7 @@
                   </div>
                   <div class="order-meta">
                     <span class="order-total">${{ '%.2f'|format(o.TotalAmount or 0) }}</span>
-                    <span class="status-badge">{{ o.Status or 'Completed' }}</span>
+                    <span class="status-badge">{{ o.OrderStatus or 'Completed' }}</span>
                   </div>
                 </div>
                 <div class="order-actions">

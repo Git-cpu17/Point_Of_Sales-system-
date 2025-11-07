@@ -24,17 +24,33 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
+function normalizeProduct(p) {
+  return {
+    product_id: p.product_id ?? p.ProductID,
+    name: p.name ?? p.Name,
+    price: Number(p.price ?? p.Price ?? 0),
+    quantity_in_stock: p.quantity_in_stock ?? p.QuantityInStock ?? 0,
+    department_id: p.department_id ?? p.DepartmentID ?? null,
+    barcode: p.barcode ?? p.Barcode ?? ''
+  };
+}
+
 // -------------------- Products management --------------------
 async function ensureProducts() {
-  if (window.PRODUCTS && Array.isArray(window.PRODUCTS)) return window.PRODUCTS;
+  if (window.PRODUCTS && Array.isArray(window.PRODUCTS)) {
+    if (window.PRODUCTS.length && ('ProductID' in window.PRODUCTS[0] || 'Name' in window.PRODUCTS[0])) {
+      window.PRODUCTS = window.PRODUCTS.map(normalizeProduct);
+    }
+    return window.PRODUCTS;
+  }
   try {
     const res = await fetch(`${API_BASE}/products`);
     if (!res.ok) throw new Error('Failed to fetch products');
-    const products = await res.json();
+    const products = (await res.json()).map(normalizeProduct);
     window.PRODUCTS = products;
     return products;
   } catch (err) {
-    console.error('Could not load products:', err);
+    console.error('Error loading products:', err);
     return [];
   }
 }

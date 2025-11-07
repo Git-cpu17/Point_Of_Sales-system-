@@ -14,7 +14,7 @@
 
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
-        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link active">Orders</a>
         <a href="{{ url_for('bag_page') }}" class="bag-link">
           <span>🛒</span>
           <span>Cart</span>
@@ -27,7 +27,6 @@
 
   <main>
     <div class="account-container">
-
       <div class="account-header">
         <div>
           <div class="account-title">Your Orders</div>
@@ -35,53 +34,48 @@
         </div>
         <div class="loyalty-card">
           <div class="loyalty-title">Member</div>
-          <div style="font-size:0.85rem; opacity:.9;">Thanks for shopping with FreshMart</div>
+          <div style="font-size:.85rem;opacity:.9;">Thanks for shopping with FreshMart</div>
         </div>
       </div>
-
+  
       <div class="account-grid">
-
         <div class="sidebar">
-          <a href="{{ url_for('customer_dashboard') }}" class="sidebar-item">
-            <span>📊</span> Dashboard
-          </a>
-          <a href="{{ url_for('customer_orders') }}" class="sidebar-item active">
-            <span>📦</span> Orders
-          </a>
+          <a href="{{ url_for('customer_dashboard') }}" class="sidebar-item"><span>📊</span> Dashboard</a>
+          <a href="{{ url_for('customer_orders') }}" class="sidebar-item active"><span>📦</span> Orders</a>
           <div class="sidebar-item"><span>📝</span> Shopping Lists</div>
           <div class="sidebar-item"><span>🏠</span> Addresses</div>
           <div class="sidebar-item"><span>💳</span> Payment Methods</div>
           <div class="sidebar-item"><span>🎁</span> Rewards</div>
           <div class="sidebar-item"><span>⚙️</span> Settings</div>
         </div>
-
+  
         <div class="content-area">
           <h2 style="margin-bottom:1rem;">Order History</h2>
-
+  
           {% if not orders %}
-            <div class="card" style="padding:1.25rem; text-align:center;">
-              <div style="font-size:2.5rem; opacity:.5; margin-bottom:.5rem;">🧾</div>
-              <p style="color:var(--text-light); margin-bottom:1rem;">You haven't placed any orders yet.</p>
+            <div class="card empty-card">
+              <div class="empty-emoji">🧾</div>
+              <p class="empty-text">You haven't placed any orders yet.</p>
               <a class="btn primary" href="{{ url_for('home') }}">Start Shopping</a>
             </div>
           {% else %}
-            <div class="orders-list" style="display:grid; gap:1rem;">
+            <div class="orders-list">
               {% for o in orders %}
-              <div class="order-card">
-                <div class="order-header">
-                  <div>
-                    <div class="order-title">Order #{{ o.TransactionID }}</div>
-                    <div class="order-subtitle">Placed on {{ o.TransactionDate }}</div>
+                <div class="order-card">
+                  <div class="order-header">
+                    <div>
+                      <div class="order-title">Order #{{ o.TransactionID }}</div>
+                      <div class="order-subtitle">Placed on {{ o.TransactionDate }}</div>
+                    </div>
+                    <div class="order-meta">
+                      <span class="order-total">${{ '%.2f'|format(o.TotalAmount or 0) }}</span>
+                      <span class="status-badge">{{ o.OrderStatus or 'Completed' }}</span>
+                    </div>
                   </div>
-                  <div class="order-meta">
-                    <span class="order-total">${{ '%.2f'|format(o.TotalAmount or 0) }}</span>
-                    <span class="status-badge">{{ o.OrderStatus or 'Completed' }}</span>
+                  <div class="order-actions">
+                    <a class="btn" href="{{ url_for('customer_order_detail', transaction_id=o.TransactionID) }}">View Details</a>
                   </div>
                 </div>
-                <div class="order-actions">
-                  <a class="btn" href="{{ url_for('customer_order_detail', transaction_id=o.TransactionID) }}">View Details</a>
-                </div>
-              </div>
               {% endfor %}
             </div>
           {% endif %}

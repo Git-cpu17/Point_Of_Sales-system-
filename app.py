@@ -265,6 +265,106 @@ def employee_dashboard(cursor, conn):
 
     return render_template('employee_dashboard.html', employees=employees, user=user)
 
+@app.route('/reports', methods=['GET', 'POST'])
+@with_db
+def reports(cursor, conn):
+    role = session.get('role')
+    if role not in ('employee', 'admin'):
+        return redirect(url_for('login'))
+
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = [{'DepartmentID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
+
+    cursor.execute("SELECT EmployeeID, FirstName + ' ' + LastName AS Name FROM Employee ORDER BY Name")
+    employees = [{'EmployeeID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
+
+    filters = {
+        'date_from': request.form.get('date_from', ''),
+        'date_to': request.form.get('date_to', ''),
+        'department_id': request.form.get('department_id', ''),
+        'employee_id': request.form.get('employee_id', ''),
+        'group_by': request.form.get('group_by', 'product'),
+        'min_qty': request.form.get('min_qty', '')
+    }
+
+    results = []
+    running = False
+
+    if request.method == 'POST':
+        running = True
+        params = []
+        where = []
+
+        if filters['date_from']:
+            where.append("st.TransactionDate >= ?")
+            params.append(filters['date_from'])
+        if filters['date_to']:
+            where.append("st.TransactionDate < DATEADD(day, 1, ?)")
+            params.append(filters['date_to'])
+        if filters['department_id']:
+            where.append("p.DepartmentID = ?")
+            params.append(filters['department_id'])
+        if filters['employee_id']:
+            where.append("st.EmployeeID = ?")
+            params.append(filters['employee_id'])
+
+        if filters['group_by'] == 'department':
+            select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
+            group_dim  = "d.DepartmentID, d.Name"
+        elif filters['group_by'] == 'employee':
+            select_dim = "e.EmployeeID AS DimID, (e.FirstName + ' ' + e.LastName) AS DimName"
+            group_dim  = "e.EmployeeID, (e.FirstName + ' ' + e.LastName)"
+        else:
+            select_dim = "p.ProductID AS DimID, p.Name AS DimName"
+            group_dim  = "p.ProductID, p.Name"
+
+        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+
+        sql = f"""
+            SELECT
+                {select_dim},
+                COUNT(DISTINCT st.TransactionID) AS Orders,
+                SUM(tp.Quantity)                  AS Units,
+                SUM(tp.Quantity * p.Price)        AS Revenue
+            FROM SalesTransaction st
+            JOIN TransactionProduct tp ON tp.TransactionID = st.TransactionID
+            JOIN Product p             ON p.ProductID      = tp.ProductID
+            LEFT JOIN Department d     ON d.DepartmentID   = p.DepartmentID
+            LEFT JOIN Employee e       ON e.EmployeeID     = st.EmployeeID
+            {where_sql}
+            GROUP BY {group_dim}
+            HAVING (SUM(tp.Quantity) >= ?) OR (? = '')
+            ORDER BY Revenue DESC
+        """
+
+        try:
+            min_qty_val = int(filters['min_qty']) if filters['min_qty'] else None
+        except:
+            min_qty_val = None
+
+        params_having = [min_qty_val if min_qty_val is not None else 0, filters['min_qty']]
+        cursor.execute(sql, tuple(params + params_having))
+        cols = [c[0] for c in cursor.description]
+        results = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+        if request.form.get('export') == 'csv':
+            import csv, io
+            buf = io.StringIO()
+            w = csv.DictWriter(buf, fieldnames=cols)
+            w.writeheader()
+            w.writerows(results)
+            resp = make_response(buf.getvalue())
+            resp.headers['Content-Type'] = 'text/csv'
+            resp.headers['Content-Disposition'] = 'attachment; filename=report.csv'
+            return resp
+
+    return render_template('reports.html',
+                           departments=departments,
+                           employees=employees,
+                           filters=filters,
+                           results=results,
+                           running=running)
+
 from flask import session, redirect, url_for, render_template
 
 @app.route('/customer')

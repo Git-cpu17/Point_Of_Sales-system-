@@ -63,10 +63,7 @@
 
   <!-- Pass user info to JS for cart identification -->
   <script>
-    window.CURRENT_USER = {
-      id: {{ session['user_id'] }},
-      role: "{{ user.role if user else '' }}"
-    };
+  window.CURRENT_USER = {{ {'id': session.get('user_id'), 'role': (user['role'] if user else '')} | tojson }};
   </script>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>

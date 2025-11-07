@@ -324,12 +324,13 @@ def customer_dashboard(cursor, conn):
 @app.route('/customer/orders')
 @with_db
 def customer_orders(cursor, conn):
-    user_id = session.get('user_id')
-    if not user_id or session.get('role') != 'customer':
+    if 'user_id' not in session or session.get('role') != 'customer':
         return redirect(url_for('login'))
 
+    customer_id = session['user_id']
+
     cursor.execute("""
-        SELECT 
+        SELECT
             st.TransactionID,
             st.TransactionDate,
             COALESCE(st.TotalAmount, 0) AS TotalAmount,
@@ -337,30 +338,40 @@ def customer_orders(cursor, conn):
         FROM SalesTransaction AS st
         WHERE st.CustomerID = ?
         ORDER BY st.TransactionDate DESC
-    """, (user_id,))
-    orders = cursor.fetchall()
-
+    """, (customer_id,))
+    rows = cursor.fetchall()
     cols = [c[0] for c in cursor.description]
-    orders = [dict(zip(cols, row)) for row in orders]
+    orders = [dict(zip(cols, r)) for r in rows]
+
+    for o in orders:
+        if not o['TotalAmount']:
+            cursor.execute("""
+                SELECT SUM(tp.Quantity * p.Price)
+                FROM TransactionProduct tp
+                JOIN Product p ON p.ProductID = tp.ProductID
+                WHERE tp.TransactionID = ?
+            """, (o['TransactionID'],))
+            o['TotalAmount'] = float(cursor.fetchone()[0] or 0)
 
     return render_template('customer_orders.html', orders=orders)
 
 @app.route('/customer/orders/<int:transaction_id>')
 @with_db
 def customer_order_detail(cursor, conn, transaction_id):
-    user_id = session.get('user_id')
-    if not user_id or session.get('role') != 'customer':
+    if 'user_id' not in session or session.get('role') != 'customer':
         return redirect(url_for('login'))
 
+    customer_id = session['user_id']
+
     cursor.execute("""
-        SELECT 
+        SELECT
             st.TransactionID,
             st.TransactionDate,
             COALESCE(st.TotalAmount, 0) AS TotalAmount,
             COALESCE(st.Status, 'Completed') AS Status
-        FROM SalesTransaction AS st
+        FROM SalesTransaction st
         WHERE st.TransactionID = ? AND st.CustomerID = ?
-    """, (transaction_id, user_id))
+    """, (transaction_id, customer_id))
     row = cursor.fetchone()
     if not row:
         return render_template('customer_order_detail.html', order=None, items=[])
@@ -369,20 +380,23 @@ def customer_order_detail(cursor, conn, transaction_id):
     order = dict(zip(cols, row))
 
     cursor.execute("""
-        SELECT 
+        SELECT
             tp.ProductID,
-            COALESCE(p.Name, 'Product') AS Name,
+            p.Name,
             tp.Quantity,
-            tp.UnitPrice,
-            (tp.Quantity * tp.UnitPrice) AS Subtotal
-        FROM TransactionProduct AS tp
-        LEFT JOIN Product AS p ON p.ProductID = tp.ProductID
+            p.Price AS UnitPrice,
+            (tp.Quantity * p.Price) AS Subtotal
+        FROM TransactionProduct tp
+        JOIN Product p ON p.ProductID = tp.ProductID
         WHERE tp.TransactionID = ?
         ORDER BY tp.ProductID
     """, (transaction_id,))
-    items_rows = cursor.fetchall()
+    item_rows = cursor.fetchall()
     cols = [c[0] for c in cursor.description]
-    items = [dict(zip(cols, r)) for r in items_rows]
+    items = [dict(zip(cols, r)) for r in item_rows]
+
+    if not order['TotalAmount']:
+        order['TotalAmount'] = float(sum((it['Subtotal'] or 0) for it in items))
 
     return render_template('customer_order_detail.html', order=order, items=items)
 

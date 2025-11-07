@@ -187,6 +187,10 @@
             <span id="bagCount" class="badge">0</span>
           </a>
 
+        {% if session.get('role') in ['employee','admin'] %}
+          <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
+        {% endif %}
+
           <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}" class="nav-link">Account</a>

@@ -215,7 +215,7 @@
 
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
-        <a href="{{ url_for('customer_dashboard') }}" class="nav-link">Orders</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
         <a href="{{ url_for('bag_page') }}" class="bag-link">
           <span>🛒</span>
           <span>Cart</span>
@@ -257,9 +257,9 @@
           <div class="sidebar-item active">
             <span>📊</span> Dashboard
           </div>
-          <div class="sidebar-item">
+          <a href="{{ url_for('customer_orders') }}" class="sidebar-item">
             <span>📦</span> Orders
-          </div>
+          </a>
           <div class="sidebar-item">
             <span>📋</span> Shopping Lists
           </div>

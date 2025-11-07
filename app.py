@@ -333,20 +333,22 @@ def customer_orders(cursor, conn):
         SELECT
             st.TransactionID,
             st.TransactionDate,
-            COALESCE(st.TotalAmount, 0) AS TotalAmount,
-            COALESCE(st.Status, 'Completed') AS Status
+            COALESCE(st.TotalAmount, 0)   AS TotalAmount,
+            COALESCE(st.OrderStatus, '')  AS OrderStatus,
+            COALESCE(st.PaymentMethod, '') AS PaymentMethod,
+            COALESCE(st.OrderDiscount, 0) AS OrderDiscount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress
         FROM SalesTransaction AS st
         WHERE st.CustomerID = ?
         ORDER BY st.TransactionDate DESC
     """, (customer_id,))
-    rows = cursor.fetchall()
     cols = [c[0] for c in cursor.description]
-    orders = [dict(zip(cols, r)) for r in rows]
+    orders = [dict(zip(cols, r)) for r in cursor.fetchall()]
 
     for o in orders:
         if not o['TotalAmount']:
             cursor.execute("""
-                SELECT SUM(tp.Quantity * p.Price)
+                SELECT SUM(tp.Quantity * COALESCE(tp.UnitPrice, p.Price))
                 FROM TransactionProduct tp
                 JOIN Product p ON p.ProductID = tp.ProductID
                 WHERE tp.TransactionID = ?
@@ -367,8 +369,13 @@ def customer_order_detail(cursor, conn, transaction_id):
         SELECT
             st.TransactionID,
             st.TransactionDate,
-            COALESCE(st.TotalAmount, 0) AS TotalAmount,
-            COALESCE(st.Status, 'Completed') AS Status
+            COALESCE(st.TotalAmount, 0)     AS TotalAmount,
+            COALESCE(st.OrderStatus, '')    AS OrderStatus,
+            COALESCE(st.PaymentMethod, '')  AS PaymentMethod,
+            COALESCE(st.OrderDiscount, 0)   AS OrderDiscount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress,
+            st.EmployeeID,
+            st.CustomerID
         FROM SalesTransaction st
         WHERE st.TransactionID = ? AND st.CustomerID = ?
     """, (transaction_id, customer_id))
@@ -384,22 +391,21 @@ def customer_order_detail(cursor, conn, transaction_id):
             tp.ProductID,
             p.Name,
             tp.Quantity,
-            p.Price AS UnitPrice,
-            (tp.Quantity * p.Price) AS Subtotal
+            COALESCE(tp.UnitPrice, p.Price)            AS UnitPrice,
+            (tp.Quantity * COALESCE(tp.UnitPrice, p.Price)) AS Subtotal
         FROM TransactionProduct tp
         JOIN Product p ON p.ProductID = tp.ProductID
         WHERE tp.TransactionID = ?
         ORDER BY tp.ProductID
     """, (transaction_id,))
-    item_rows = cursor.fetchall()
-    cols = [c[0] for c in cursor.description]
-    items = [dict(zip(cols, r)) for r in item_rows]
+    item_cols = [c[0] for c in cursor.description]
+    items = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
 
     if not order['TotalAmount']:
-        order['TotalAmount'] = float(sum((it['Subtotal'] or 0) for it in items))
+        gross = sum((it['Subtotal'] or 0) for it in items)
+        order['TotalAmount'] = float(gross - (order.get('OrderDiscount') or 0))
 
     return render_template('customer_order_detail.html', order=order, items=items)
-
 @app.route('/department')
 @with_db
 def department(cursor, conn):

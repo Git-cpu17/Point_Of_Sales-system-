@@ -15,6 +15,9 @@
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
         <a href="{{ url_for('customer_orders') }}" class="nav-link active">Orders</a>
+        {% if session.get('role') in ['employee','admin'] %}
+          <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
+        {% endif %}
         <a href="{{ url_for('bag_page') }}" class="bag-link">
           <span>🛒</span>
           <span>Cart</span>

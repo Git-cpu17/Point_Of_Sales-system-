@@ -384,7 +384,7 @@ def customer_order_detail(cursor, conn, transaction_id):
     cols = [c[0] for c in cursor.description]
     items = [dict(zip(cols, r)) for r in items_rows]
 
-    return render_template('customer_order_detail.html', order=order, items=items))
+    return render_template('customer_order_detail.html', order=order, items=items)
 
 @app.route('/department')
 @with_db

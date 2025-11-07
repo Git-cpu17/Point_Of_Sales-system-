@@ -348,7 +348,7 @@ def customer_orders(cursor, conn):
     for o in orders:
         if not o['TotalAmount']:
             cursor.execute("""
-                SELECT SUM(tp.Quantity * COALESCE(tp.UnitPrice, p.Price))
+                SELECT SUM(tp.Quantity * p.Price)
                 FROM TransactionProduct tp
                 JOIN Product p ON p.ProductID = tp.ProductID
                 WHERE tp.TransactionID = ?
@@ -391,8 +391,8 @@ def customer_order_detail(cursor, conn, transaction_id):
             tp.ProductID,
             p.Name,
             tp.Quantity,
-            COALESCE(tp.UnitPrice, p.Price)            AS UnitPrice,
-            (tp.Quantity * COALESCE(tp.UnitPrice, p.Price)) AS Subtotal
+            p.Price                                    AS UnitPrice,
+            (tp.Quantity * p.Price)                         AS Subtotal
         FROM TransactionProduct tp
         JOIN Product p ON p.ProductID = tp.ProductID
         WHERE tp.TransactionID = ?

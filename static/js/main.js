@@ -6,6 +6,9 @@ const API_BASE = window.location.origin; // Use relative URLs for flexibility
 // Favorites key (still global)
 const FAVORITES_KEY = 'freshmart_favorites';
 
+// -------------------- SAFETY: ensure CURRENT_USER exists --------------------
+window.CURRENT_USER = window.CURRENT_USER ?? { id: null, role: '' };
+
 // -------------------- Utility functions --------------------
 function escapeHtml(str) {
   if (!str && str !== 0) return '';
@@ -62,8 +65,8 @@ function getProductById(id) {
 
 // -------------------- Cart operations (per-user) --------------------
 function getCartKey() {
-  if (!window.CURRENT_USER || !window.CURRENT_USER.id) return 'freshmart_cart';
-  return `cart_${window.CURRENT_USER.role}_${window.CURRENT_USER.id}`;
+  const id = (window.CURRENT_USER && window.CURRENT_USER.id != null) ? String(window.CURRENT_USER.id) : 'guest';
+  return `cart:${id}`;
 }
 
 function readCart() {
@@ -81,6 +84,7 @@ function writeCart(cart) {
     localStorage.setItem(getCartKey(), JSON.stringify(cart));
     updateCartBadge();
     updateCartTotal();
+    document.dispatchEvent(new CustomEvent('cart:updated', { detail: { cart } }));
   } catch (e) {
     console.error('Error writing cart:', e);
   }

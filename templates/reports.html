@@ -1,1 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Orders - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
 
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link active">Orders</a>
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">0</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="account-container">
+      <div class="account-header">
+        <div>
+          <div class="account-title">Data Reports</div>
+          <div class="account-subtitle">Filter sales and view aggregates by product, department, or employee</div>
+        </div>
+      </div>
+  
+      <div class="account-grid">
+        <div class="sidebar">
+          <a href="{{ url_for('customer_dashboard') }}" class="sidebar-item"><span>📊</span> Dashboard</a>
+          <a href="{{ url_for('customer_orders') }}" class="sidebar-item"><span>📦</span> Orders</a>
+          <a href="{{ url_for('reports') }}" class="sidebar-item active"><span>📈</span> Reports</a>
+        </div>
+  
+        <div class="content-area">
+          <form method="post" class="card" style="display:grid;gap:.75rem;">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;">
+              <div>
+                <label>Date from</label>
+                <input type="date" name="date_from" value="{{ filters.date_from }}" class="input">
+              </div>
+              <div>
+                <label>Date to</label>
+                <input type="date" name="date_to" value="{{ filters.date_to }}" class="input">
+              </div>
+              <div>
+                <label>Department</label>
+                <select name="department_id" class="input">
+                  <option value="">All</option>
+                  {% for d in departments %}
+                    <option value="{{ d.DepartmentID }}" {% if filters.department_id==d.DepartmentID|string %}selected{% endif %}>{{ d.Name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label>Employee</label>
+                <select name="employee_id" class="input">
+                  <option value="">All</option>
+                  {% for e in employees %}
+                    <option value="{{ e.EmployeeID }}" {% if filters.employee_id==e.EmployeeID|string %}selected{% endif %}>{{ e.Name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+  
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;">
+              <div>
+                <label>Group by</label>
+                <select name="group_by" class="input">
+                  <option value="product"   {% if filters.group_by=='product' %}selected{% endif %}>Product</option>
+                  <option value="department"{% if filters.group_by=='department' %}selected{% endif %}>Department</option>
+                  <option value="employee"  {% if filters.group_by=='employee' %}selected{% endif %}>Employee</option>
+                </select>
+              </div>
+              <div>
+                <label>Min units</label>
+                <input type="number" name="min_qty" min="0" step="1" value="{{ filters.min_qty }}" class="input" placeholder="0">
+              </div>
+              <div style="align-self:end;display:flex;gap:.5rem;justify-content:flex-end;">
+                <button type="submit" class="btn">Run</button>
+                <button type="submit" name="export" value="csv" class="btn">Export CSV</button>
+              </div>
+            </div>
+          </form>
+  
+          {% if running %}
+            {% if results %}
+            <div class="card" style="margin-top:1rem;overflow:auto;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Orders</th>
+                    <th>Units</th>
+                    <th>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in results %}
+                    <tr>
+                      <td>{{ r.DimID }}</td>
+                      <td>{{ r.DimName }}</td>
+                      <td>{{ r.Orders }}</td>
+                      <td>{{ r.Units }}</td>
+                      <td>${{ '%.2f'|format(r.Revenue or 0) }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+              <div class="card empty-card" style="margin-top:1rem;">
+                <div class="empty-emoji">🤷‍♂️</div>
+                <p class="empty-text">No rows matched your filters.</p>
+              </div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    window.CURRENT_USER = {
+      id: {{ session.get('user_id') | tojson }},
+      role: {{ session.get('role', '') | tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

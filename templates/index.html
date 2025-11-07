@@ -122,6 +122,12 @@
 
   <!-- Provide products array to client-side JS -->
   <script>window.PRODUCTS = {{ products|tojson }};</script>
+  <script>
+    window.CURRENT_USER = {{ {
+      'id': session.get('user_id'),
+      'role': session.get('role', '')
+    } | tojson }};
+  </script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

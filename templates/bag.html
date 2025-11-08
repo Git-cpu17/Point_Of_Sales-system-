@@ -19,29 +19,22 @@
 
         {% if user %}
           <span class="welcome-text">Welcome, {{ user.Name }}</span>
-
+        
           {% if user.role == 'customer' %}
             <a href="{{ url_for('customer_dashboard') }}" class="nav-link">Dashboard</a>
-          {% if session.get('role','').lower() in ['employee','admin'] %}
-            <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
-          {% endif %}
           {% elif user.role == 'admin' %}
             <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Dashboard</a>
           {% elif user.role == 'employee' %}
             <a href="{{ url_for('employee_dashboard') }}" class="nav-link">Dashboard</a>
           {% endif %}
-
-          {% if session.get('role') in ['employee','admin'] %} 
-            <a href="{{ url_for('reports') }}" class="nav-link">Reports</a> 
+        
+          {% if session.get('role','').lower() in ['employee','admin'] %}
+            <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
           {% endif %}
-
-          <!-- Show Cart for all logged-in users -->
+        
           <a href="{{ url_for('bag_page') }}" class="bag-link">
-            <span>🛒</span>
-            <span>Cart</span>
-            <span id="bagCount" class="badge">0</span>
+            <span>🛒</span><span>Cart</span><span id="bagCount" class="badge">0</span>
           </a>
-
           <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}" class="nav-link">Account</a>

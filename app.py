@@ -292,8 +292,7 @@ def reports(cursor, conn):
         employees=employees
     )
 
-DETAIL_TABLE = "SalesTransactionDetail"
-DETAIL_UNIT_PRICE_COL = "UnitPrice"
+DETAIL_TABLE = "TransactionProduct"
 
 @app.post("/reports/query")
 @with_db
@@ -314,9 +313,8 @@ def reports_query(cursor, conn):
         group_dim  = "d.DepartmentID, d.Name"
         dim_label  = "Department"
     elif group_by == "employee":
-        select_dim = """e.EmployeeID AS DimID,
-                        COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username) AS DimName"""
-        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username)"
+        select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
+        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
         dim_label  = "Employee"
     else:
         select_dim = "p.ProductID AS DimID, p.Name AS DimName"
@@ -327,8 +325,8 @@ def reports_query(cursor, conn):
     SELECT
         {select_dim},
         SUM(sd.Quantity)                          AS UnitsSold,
-        SUM(sd.Quantity * sd.{DETAIL_UNIT_PRICE_COL}) AS GrossRevenue,
-        AVG(NULLIF(sd.{DETAIL_UNIT_PRICE_COL},0)) AS AvgUnitPrice,
+        SUM(sd.Quantity * p.Price)                AS GrossRevenue,
+        AVG(NULLIF(p.Price,0))                    AS AvgUnitPrice,
         COUNT(DISTINCT st.TransactionID)          AS NumOrders
     FROM SalesTransaction AS st
     JOIN {DETAIL_TABLE} AS sd

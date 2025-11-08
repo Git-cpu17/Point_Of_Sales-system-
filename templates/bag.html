@@ -22,6 +22,9 @@
 
           {% if user.role == 'customer' %}
             <a href="{{ url_for('customer_dashboard') }}" class="nav-link">Dashboard</a>
+          {% if session.get('role','').lower() in ['employee','admin','customer'] %}
+            <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
+          {% endif %}
           {% elif user.role == 'admin' %}
             <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Dashboard</a>
           {% elif user.role == 'employee' %}

@@ -844,12 +844,12 @@ form a:hover {
 .reports-content{display:grid;gap:1rem}
 .reports-header h1{margin:0;font-size:1.4rem;font-weight:700}
 .reports-header p{margin:0;color:var(--text-light,#6b7280)}
-.reports-card{padding:1rem 1.25rem}
-.reports-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.75rem .9rem;align-items:end}
-.reports-form .field{display:grid;gap:.35rem}
-.reports-form label{font-size:.86rem;color:var(--text-light,#6b7280)}
-.reports-form input[type="date"],.reports-form input[type="number"],.reports-form select{width:100%;height:40px;padding:0 .6rem;border:1px solid rgba(0,0,0,.1);border-radius:10px;background:#fff}
-.reports-form .actions{grid-column:span 6;display:flex;gap:.6rem;justify-content:flex-start;margin-top:.25rem}
+.reports-card{padding:1.25rem 1.5rem}
+.reports-form{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));column-gap:1.25rem;row-gap:1rem;align-items:end}
+.reports-form .field{display:block}
+.reports-form label{display:block;margin-bottom:.45rem;font-size:.9rem;line-height:1.25;color:var(--text-light,#6b7280)}
+.reports-form input[type="date"],.reports-form input[type="number"],.reports-form select{width:100%;height:42px;padding:0 .65rem;border:1px solid rgba(0,0,0,.12);border-radius:10px;background:#fff}
+.reports-form .actions{grid-column:1/-1;display:flex;gap:.75rem;justify-content:flex-start;margin-top:.5rem}
 .btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 1rem;border-radius:10px;border:none;cursor:pointer;font-weight:600}
 .btn.primary{background:var(--primary-green,#1ea446);color:#fff}
 .btn.secondary{background:#e7f3ea;color:var(--primary-green,#1ea446)}
@@ -857,5 +857,6 @@ form a:hover {
 .results-card table{width:100%;border-collapse:collapse}
 .results-card thead th{background:#f7faf7;color:var(--text-dark,#111);text-align:left;padding:.75rem .8rem;font-weight:700;border-bottom:1px solid rgba(0,0,0,.06)}
 .results-card tbody td{padding:.7rem .8rem;border-bottom:1px solid rgba(0,0,0,.06)}
-@media(max-width:980px){.reports-layout{grid-template-columns:1fr}.reports-sidebar{order:2}.reports-content{order:1}.reports-form{grid-template-columns:repeat(2,1fr)}.reports-form .actions{grid-column:span 2}}
-@media(max-width:560px){.reports-form{grid-template-columns:1fr}.reports-form .actions{grid-column:1}}
+@media(min-width:1100px){.reports-form{grid-template-columns:repeat(6,minmax(150px,1fr))}}
+@media(max-width:980px){.reports-layout{grid-template-columns:1fr}.reports-sidebar{order:2}.reports-content{order:1}.reports-form{grid-template-columns:repeat(2,minmax(180px,1fr))}.reports-form .actions{grid-column:1/-1}}
+@media(max-width:560px){.reports-form{grid-template-columns:1fr}.reports-form .actions{grid-column:1/-1}}

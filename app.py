@@ -1,8 +1,8 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from flask_cors import CORS
 import os
 import pyodbc
-import traceback
+import traceback, sys
 from functools import wraps
 
 app = Flask(__name__)
@@ -324,7 +324,17 @@ def reports(cursor, conn):
         else:
             select_dim = "p.ProductID AS DimID, p.Name AS DimName"
             group_dim  = "p.ProductID, p.Name"
-
+        try:
+            cursor.execute("""
+                SELECT 1
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'TransactionProduct' AND COLUMN_NAME = 'UnitPrice'
+            """)
+            has_unitprice = cursor.fetchone() is not None
+        except Exception:
+            has_unitprice = False
+        
+        revenue_expr = "SUM(tp.Quantity * tp.UnitPrice)" if has_unitprice else "SUM(tp.Quantity * p.Price)"
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
         sql = f"""
@@ -332,7 +342,7 @@ def reports(cursor, conn):
                 {select_dim},
                 COUNT(DISTINCT st.TransactionID) AS Orders,
                 SUM(tp.Quantity)                  AS Units,
-                SUM(tp.Quantity * p.Price)        AS Revenue
+                {revenue_expr}                    AS Revenue
             FROM SalesTransaction st
             JOIN TransactionProduct tp ON tp.TransactionID = st.TransactionID
             JOIN Product p             ON p.ProductID      = tp.ProductID

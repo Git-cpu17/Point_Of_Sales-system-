@@ -279,7 +279,7 @@ def reports(cursor, conn):
 
     cursor.execute("""
         SELECT EmployeeID,
-               COALESCE(NULLIF(LTRIM(RTRIM(FirstName + ' ' + LastName)), ''), Username) AS Name
+               COALESCE(NULLIF(LTRIM(RTRIM(Name)), ''), Username) AS Name
         FROM Employee
         ORDER BY Name
     """)
@@ -319,8 +319,8 @@ def reports(cursor, conn):
             select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
             group_dim  = "d.DepartmentID, d.Name"
         elif filters['group_by'] == 'employee':
-            select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username) AS DimName"
-            group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username)"
+            select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
+            group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
         else:
             select_dim = "p.ProductID AS DimID, p.Name AS DimName"
             group_dim  = "p.ProductID, p.Name"
@@ -342,12 +342,12 @@ def reports(cursor, conn):
                 {select_dim},
                 COUNT(DISTINCT st.TransactionID) AS Orders,
                 SUM(tp.Quantity)                  AS Units,
-                {revenue_expr}                    AS Revenue
-            FROM SalesTransaction st
-            JOIN TransactionProduct tp ON tp.TransactionID = st.TransactionID
-            JOIN Product p             ON p.ProductID      = tp.ProductID
-            LEFT JOIN Department d     ON d.DepartmentID   = p.DepartmentID
-            LEFT JOIN Employee e       ON e.EmployeeID     = st.EmployeeID
+                SUM(tp.Quantity * p.Price)        AS Revenue
+            FROM [Transaction] st
+            JOIN Transaction_Product tp ON tp.TransactionID = st.TransactionID
+            JOIN Product p              ON p.ProductID      = tp.ProductID
+            LEFT JOIN Department d      ON d.DepartmentID   = p.DepartmentID
+            LEFT JOIN Employee e        ON e.EmployeeID     = st.EmployeeID
             {where_sql}
             GROUP BY {group_dim}
             HAVING SUM(tp.Quantity) >= ?

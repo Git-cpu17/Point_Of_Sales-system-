@@ -1,0 +1,51 @@
+:root{
+  --rpt-bg:#f7f9fb;
+  --rpt-card:#ffffff;
+  --rpt-text:#111827;
+  --rpt-muted:#6b7280;
+  --rpt-line:#e5e7eb;
+  --rpt-shadow:0 10px 24px rgba(0,0,0,.08);
+  --rpt-green:#22c55e;
+  --rpt-green-weak:#eef6ee;
+}
+
+.rpt-page{background:var(--rpt-bg);padding:24px 0 56px}
+.rpt-container{max-width:1200px;margin:0 auto;padding:0 20px}
+
+.rpt-breadcrumbs{font-size:.95rem;color:var(--rpt-muted);margin:.25rem 0 1rem}
+.rpt-breadcrumbs a{color:#4f46e5;text-decoration:none}
+.rpt-sep{margin:0 .4rem;color:#9aa3af}
+.rpt-current{color:var(--rpt-text)}
+
+.rpt-grid{display:grid;grid-template-columns:260px 1fr;gap:20px}
+
+.rpt-menu{background:var(--rpt-card);border-radius:16px;box-shadow:var(--rpt-shadow);padding:8px;display:grid;gap:6px}
+.rpt-item{display:flex;align-items:center;gap:.6rem;padding:.8rem 1rem;border-radius:12px;color:var(--rpt-text);text-decoration:none}
+.rpt-item:hover{background:#f3f4f6}
+.rpt-active{background:var(--rpt-green);color:#fff}
+
+.rpt-header{margin:0 0 12px}
+.rpt-header h1{margin:0 0 6px;font-size:1.6rem;line-height:1.25}
+.rpt-header p{margin:0;color:var(--rpt-muted)}
+
+.rpt-card{background:var(--rpt-card);border-radius:16px;box-shadow:var(--rpt-shadow);padding:22px 24px}
+
+.rpt-form .rpt-row{display:grid;grid-template-columns:repeat(6,minmax(160px,1fr));gap:16px;align-items:end}
+.rpt-field label{display:block;font-weight:600;margin:0 0 7px}
+.rpt-field input,.rpt-field select{width:100%;height:42px;padding:.5rem .75rem;border:1px solid var(--rpt-line);border-radius:10px;background:#fff}
+
+.rpt-actions{display:flex;gap:12px;margin-top:16px}
+.rpt-btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 16px;border-radius:10px;border:0;cursor:pointer}
+.rpt-primary{background:var(--rpt-green);color:#fff}
+.rpt-secondary{background:var(--rpt-green-weak);color:var(--rpt-green)}
+
+.rpt-results{margin-top:16px}
+#reportResults:empty{display:none}
+
+@media (max-width:1100px){
+  .rpt-form .rpt-row{grid-template-columns:repeat(3,minmax(160px,1fr))}
+}
+@media (max-width:720px){
+  .rpt-grid{grid-template-columns:1fr}
+  .rpt-form .rpt-row{grid-template-columns:1fr}
+}

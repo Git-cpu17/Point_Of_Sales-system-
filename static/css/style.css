@@ -844,6 +844,14 @@ form a:hover {
   gap: 1rem;
 }
 
+.reports-form {
+  max-width: 560px;
+}
+
+.reports-form .filters-row {
+  grid-template-columns: 1fr !important;
+}
+
 .filters-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(180px, 1fr));

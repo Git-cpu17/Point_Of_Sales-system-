@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Data Reports • FreshMart</title>
+  <title>Reports • FreshMart</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
 </head>
 <body>
   <nav class="site-nav">
@@ -21,49 +22,49 @@
     </div>
   </nav>
 
-  <main class="reports-page">
-    <div class="reports-container">
-      <div class="reports-breadcrumbs">
+  <main class="rpt-page">
+    <div class="rpt-container">
+      <div class="rpt-breadcrumbs">
         <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>
-        <span class="sep">/</span>
+        <span class="rpt-sep">/</span>
         <a href="{{ url_for('customer_orders') }}">Orders</a>
-        <span class="sep">/</span>
-        <span class="current">Reports</span>
+        <span class="rpt-sep">/</span>
+        <span class="rpt-current">Reports</span>
       </div>
 
-      <div class="reports-grid">
-        <aside class="reports-sidebar">
-          <nav class="reports-menu">
-            <a href="{{ url_for('customer_dashboard') }}" class="menu-item">
+      <div class="rpt-grid">
+        <aside class="rpt-sidebar">
+          <nav class="rpt-menu">
+            <a href="{{ url_for('customer_dashboard') }}" class="rpt-item">
               <span>📊</span><span>Dashboard</span>
             </a>
-            <a href="{{ url_for('customer_orders') }}" class="menu-item">
+            <a href="{{ url_for('customer_orders') }}" class="rpt-item">
               <span>📦</span><span>Orders</span>
             </a>
-            <a class="menu-item is-active">
+            <a class="rpt-item rpt-active">
               <span>📈</span><span>Reports</span>
             </a>
           </nav>
         </aside>
 
-        <section class="reports-main">
-          <header class="reports-header">
+        <section class="rpt-main">
+          <header class="rpt-header">
             <h1>Data Reports</h1>
             <p>Filter sales and view aggregates by product, department, or employee</p>
           </header>
 
-          <div class="reports-card">
-            <form id="reportForm" class="reports-form" novalidate>
-              <div class="form-row">
-                <div class="field">
+          <div class="rpt-card">
+            <form id="reportForm" class="rpt-form" novalidate>
+              <div class="rpt-row">
+                <div class="rpt-field">
                   <label for="date_from">Date from</label>
                   <input id="date_from" name="date_from" type="date">
                 </div>
-                <div class="field">
+                <div class="rpt-field">
                   <label for="date_to">Date to</label>
                   <input id="date_to" name="date_to" type="date">
                 </div>
-                <div class="field">
+                <div class="rpt-field">
                   <label for="department_id">Department</label>
                   <select id="department_id" name="department_id">
                     <option value="">All</option>
@@ -72,7 +73,7 @@
                     {% endfor %}
                   </select>
                 </div>
-                <div class="field">
+                <div class="rpt-field">
                   <label for="employee_id">Employee</label>
                   <select id="employee_id" name="employee_id">
                     <option value="">All</option>
@@ -81,7 +82,7 @@
                     {% endfor %}
                   </select>
                 </div>
-                <div class="field">
+                <div class="rpt-field">
                   <label for="group_by">Group by</label>
                   <select id="group_by" name="group_by">
                     <option value="product">Product</option>
@@ -89,20 +90,20 @@
                     <option value="employee">Employee</option>
                   </select>
                 </div>
-                <div class="field">
+                <div class="rpt-field">
                   <label for="min_qty">Min units</label>
                   <input id="min_qty" name="min_qty" type="number" min="0" value="0" inputmode="numeric">
                 </div>
               </div>
 
-              <div class="actions-row">
-                <button type="button" id="runBtn" class="btn primary">Run</button>
-                <button type="button" id="csvBtn" class="btn secondary">Export CSV</button>
+              <div class="rpt-actions">
+                <button type="button" id="runBtn" class="rpt-btn rpt-primary">Run</button>
+                <button type="button" id="csvBtn" class="rpt-btn rpt-secondary">Export CSV</button>
               </div>
             </form>
           </div>
 
-          <div id="reportResults" class="results-card"></div>
+          <div id="reportResults" class="rpt-results"></div>
         </section>
       </div>
     </div>

@@ -499,6 +499,46 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   });
+  (function () {
+    const form = document.getElementById('reportForm');
+    const runBtn = document.getElementById('runBtn');
+    const results = document.getElementById('reportResults');
+    if (!form || !runBtn || !results) return;
+  
+    function val(id) {
+      const el = document.getElementById(id);
+      return el ? (el.value || '').trim() : '';
+    }
+  
+    async function runReport() {
+      const payload = {
+        date_from: val('date_from'),
+        date_to: val('date_to'),
+        department_id: val('department_id'),
+        employee_id: val('employee_id'),
+        group_by: val('group_by') || 'product',
+        min_qty: val('min_qty') || 0
+      };
+  
+      results.innerHTML = '<div class="loading">Loading…</div>';
+  
+      try {
+        const res = await fetch('/reports/query', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const html = await res.text();
+        results.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        results.innerHTML = '<div class="error">Could not load report. Please try again.</div>';
+      }
+    }
+  
+    runBtn.addEventListener('click', runReport);
+  })();
 });
 
 // -------------------- Global exports --------------------

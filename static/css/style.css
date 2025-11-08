@@ -899,3 +899,27 @@ form a:hover {
 @media (max-width: 820px) {
   .filters-row { grid-template-columns: 1fr; }
 }
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.report-table th, .report-table td {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid #eef2f4;
+}
+.report-table thead th {
+  background: #f7faf9;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+.report-table .num { text-align: right; }
+.report-table .empty { text-align: center; color: var(--text-light); }
+.report-table tfoot th { background: #fbfdfc; }
+.loading, .error { padding: 1rem; }
+.loading { color: var(--text-light); }
+.error { color: #c62828; }

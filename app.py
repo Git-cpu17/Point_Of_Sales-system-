@@ -275,7 +275,12 @@ def reports(cursor, conn):
     cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
     departments = [{'DepartmentID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
 
-    cursor.execute("SELECT EmployeeID, FirstName + ' ' + LastName AS Name FROM Employee ORDER BY Name")
+    cursor.execute("""
+        SELECT EmployeeID,
+               COALESCE(NULLIF(LTRIM(RTRIM(FirstName + ' ' + LastName)), ''), Username) AS Name
+        FROM Employee
+        ORDER BY Name
+    """)
     employees = [{'EmployeeID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
 
     filters = {
@@ -333,17 +338,16 @@ def reports(cursor, conn):
             LEFT JOIN Employee e       ON e.EmployeeID     = st.EmployeeID
             {where_sql}
             GROUP BY {group_dim}
-            HAVING (SUM(tp.Quantity) >= ?) OR (? = '')
+            HAVING SUM(tp.Quantity) >= ?
             ORDER BY Revenue DESC
         """
 
         try:
-            min_qty_val = int(filters['min_qty']) if filters['min_qty'] else None
+            min_qty_val = int(filters['min_qty']) if filters['min_qty'] else 0
         except:
-            min_qty_val = None
-
-        params_having = [min_qty_val if min_qty_val is not None else 0, filters['min_qty']]
-        cursor.execute(sql, tuple(params + params_having))
+            min_qty_val = 0
+        
+        cursor.execute(sql, tuple(params + [min_qty_val]))
         cols = [c[0] for c in cursor.description]
         results = [dict(zip(cols, r)) for r in cursor.fetchall()]
 

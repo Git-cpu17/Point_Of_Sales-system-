@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Data Reports • FreshMart</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-
   <nav class="site-nav">
     <div class="nav-container">
       <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
@@ -24,17 +23,17 @@
 
   <main class="reports-page">
     <div class="reports-container">
-      <nav class="reports-breadcrumbs">
+      <div class="reports-breadcrumbs">
         <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>
         <span class="sep">/</span>
         <a href="{{ url_for('customer_orders') }}">Orders</a>
         <span class="sep">/</span>
         <span class="current">Reports</span>
-      </nav>
+      </div>
 
       <div class="reports-grid">
         <aside class="reports-sidebar">
-          <div class="reports-menu">
+          <nav class="reports-menu">
             <a href="{{ url_for('customer_dashboard') }}" class="menu-item">
               <span>📊</span><span>Dashboard</span>
             </a>
@@ -44,48 +43,44 @@
             <a class="menu-item is-active">
               <span>📈</span><span>Reports</span>
             </a>
-          </div>
+          </nav>
         </aside>
 
         <section class="reports-main">
           <header class="reports-header">
             <h1>Data Reports</h1>
-            <p>Filter sales and view aggregates by product, department, or employee.</p>
+            <p>Filter sales and view aggregates by product, department, or employee</p>
           </header>
 
           <div class="reports-card">
-            <form class="reports-form" id="reportForm">
+            <form id="reportForm" class="reports-form" novalidate>
               <div class="form-row">
                 <div class="field">
                   <label for="date_from">Date from</label>
                   <input id="date_from" name="date_from" type="date">
                 </div>
-
                 <div class="field">
                   <label for="date_to">Date to</label>
                   <input id="date_to" name="date_to" type="date">
                 </div>
-
                 <div class="field">
                   <label for="department_id">Department</label>
                   <select id="department_id" name="department_id">
                     <option value="">All</option>
                     {% for d in departments %}
-                      <option value="{{ d.DepartmentID }}">{{ d.Name }}</option>
+                    <option value="{{ d.DepartmentID }}">{{ d.Name }}</option>
                     {% endfor %}
                   </select>
                 </div>
-
                 <div class="field">
                   <label for="employee_id">Employee</label>
                   <select id="employee_id" name="employee_id">
                     <option value="">All</option>
                     {% for e in employees %}
-                      <option value="{{ e.EmployeeID }}">{{ e.Name }}</option>
+                    <option value="{{ e.EmployeeID }}">{{ e.Name }}</option>
                     {% endfor %}
                   </select>
                 </div>
-
                 <div class="field">
                   <label for="group_by">Group by</label>
                   <select id="group_by" name="group_by">
@@ -94,27 +89,34 @@
                     <option value="employee">Employee</option>
                   </select>
                 </div>
-
                 <div class="field">
                   <label for="min_qty">Min units</label>
-                  <input id="min_qty" name="min_qty" type="number" min="0" value="0">
+                  <input id="min_qty" name="min_qty" type="number" min="0" value="0" inputmode="numeric">
                 </div>
               </div>
 
               <div class="actions-row">
-                <button type="button" class="btn primary" id="runBtn">Run</button>
-                <button type="button" class="btn secondary" id="csvBtn">Export CSV</button>
+                <button type="button" id="runBtn" class="btn primary">Run</button>
+                <button type="button" id="csvBtn" class="btn secondary">Export CSV</button>
               </div>
             </form>
           </div>
 
-          <div id="reportResults" class="reports-card results-card" aria-live="polite"></div>
+          <div id="reportResults" class="results-card"></div>
         </section>
       </div>
     </div>
   </main>
+
   <script>
-    window.CURRENT_USER = { id: {{ session.get('user_id') | tojson }}, role: {{ session.get('role','') | tojson }} };
+    function renderResults(html){
+      const box=document.getElementById('reportResults');
+      box.innerHTML=html||'';
+      box.style.display=html?'block':'none';
+    }
+  </script>
+  <script>
+    window.CURRENT_USER={id:{{ session.get('user_id')|tojson }},role:{{ session.get('role','')|tojson }}};
   </script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>

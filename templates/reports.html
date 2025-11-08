@@ -1,123 +1,141 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Data Reports • FreshMart</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Reports</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
-  <nav class="site-nav">
-    <div class="nav-container">
-      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
-      <div class="nav-right">
-        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
-        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
-        <a href="{{ url_for('bag_page') }}" class="bag-link">
-          <span>🛒</span><span>Cart</span><span id="bagCount" class="badge">0</span>
-        </a>
-        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+<body class="reports-body">
+<header class="site-header">
+  <div class="container site-header-inner">
+    <h1 class="site-title">Data Reports</h1>
+    <nav class="site-nav">
+      <a href="{{ url_for('index') }}">Home</a>
+      {% if session.get('role') == 'admin' %}
+      <a href="{{ url_for('admin_dashboard') }}">Admin</a>
+      {% endif %}
+      {% if session.get('role') == 'employee' %}
+      <a href="{{ url_for('employee_dashboard') }}">Employee</a>
+      {% endif %}
+      {% if session.get('role') == 'department' %}
+      <a href="{{ url_for('department_dashboard') }}">Department</a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container reports-page">
+  <section class="reports-filters card">
+    <h2 class="section-title">Filters</h2>
+    <form method="post" action="{{ url_for('reports') }}" class="filters-grid">
+      <div class="form-field">
+        <label for="date_from">From</label>
+        <input type="date" id="date_from" name="date_from" value="{{ request.form.get('date_from', '') }}">
       </div>
+      <div class="form-field">
+        <label for="date_to">To</label>
+        <input type="date" id="date_to" name="date_to" value="{{ request.form.get('date_to', '') }}">
+      </div>
+      <div class="form-field">
+        <label for="department_id">Department</label>
+        {% if departments %}
+        <select id="department_id" name="department_id">
+          <option value="">All</option>
+          {% for d in departments %}
+          <option value="{{ d.id }}" {% if request.form.get('department_id')==str(d.id) %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input type="text" id="department_id" name="department_id" value="{{ request.form.get('department_id', '') }}" placeholder="ID">
+        {% endif %}
+      </div>
+      <div class="form-field">
+        <label for="employee_id">Employee</label>
+        {% if employees %}
+        <select id="employee_id" name="employee_id">
+          <option value="">All</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}" {% if request.form.get('employee_id')==str(e.id) %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input type="text" id="employee_id" name="employee_id" value="{{ request.form.get('employee_id', '') }}" placeholder="ID">
+        {% endif %}
+      </div>
+      <div class="form-field form-field-wide">
+        <label for="product_name">Product</label>
+        <input type="text" id="product_name" name="product_name" value="{{ request.form.get('product_name', '') }}" placeholder="Name contains">
+      </div>
+      <div class="filters-actions">
+        <button type="submit" class="btn primary">Apply Filters</button>
+        <a class="btn ghost" href="{{ url_for('reports') }}">Reset</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="reports-summary">
+    {% if summary %}
+    <div class="summary-grid">
+      {% if summary.total_revenue is not none %}
+      <div class="card summary-card">
+        <div class="summary-label">Total Revenue</div>
+        <div class="summary-value">{{ "{:,.2f}".format(summary.total_revenue) }}</div>
+      </div>
+      {% endif %}
+      {% if summary.total_transactions is not none %}
+      <div class="card summary-card">
+        <div class="summary-label">Total Transactions</div>
+        <div class="summary-value">{{ summary.total_transactions }}</div>
+      </div>
+      {% endif %}
+      {% if summary.average_order_value is not none %}
+      <div class="card summary-card">
+        <div class="summary-label">Average Order Value</div>
+        <div class="summary-value">{{ "{:,.2f}".format(summary.average_order_value) }}</div>
+      </div>
+      {% endif %}
     </div>
-  </nav>
+    {% endif %}
+  </section>
 
-  <main class="reports-page">
-    <div class="reports-container">
-      <div class="reports-breadcrumbs">
-        <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>
-        <span class="sep">/</span>
-        <a href="{{ url_for('customer_orders') }}">Orders</a>
-        <span class="sep">/</span>
-        <span class="current">Reports</span>
-      </div>
-
-      <div class="reports-grid">
-        <aside class="reports-sidebar">
-          <nav class="reports-menu">
-            <a href="{{ url_for('customer_dashboard') }}" class="menu-item">
-              <span>📊</span><span>Dashboard</span>
-            </a>
-            <a href="{{ url_for('customer_orders') }}" class="menu-item">
-              <span>📦</span><span>Orders</span>
-            </a>
-            <a class="menu-item is-active">
-              <span>📈</span><span>Reports</span>
-            </a>
-          </nav>
-        </aside>
-
-        <section class="reports-main">
-          <header class="reports-header">
-            <h1>Data Reports</h1>
-            <p>Filter sales and view aggregates by product, department, or employee</p>
-          </header>
-
-          <div class="reports-card">
-            <form id="reportForm" class="reports-form" novalidate>
-              <div class="form-row">
-                <div class="field">
-                  <label for="date_from">Date from</label>
-                  <input id="date_from" name="date_from" type="date">
-                </div>
-                <div class="field">
-                  <label for="date_to">Date to</label>
-                  <input id="date_to" name="date_to" type="date">
-                </div>
-                <div class="field">
-                  <label for="department_id">Department</label>
-                  <select id="department_id" name="department_id">
-                    <option value="">All</option>
-                    {% for d in departments %}
-                    <option value="{{ d.DepartmentID }}">{{ d.Name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="employee_id">Employee</label>
-                  <select id="employee_id" name="employee_id">
-                    <option value="">All</option>
-                    {% for e in employees %}
-                    <option value="{{ e.EmployeeID }}">{{ e.Name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="group_by">Group by</label>
-                  <select id="group_by" name="group_by">
-                    <option value="product">Product</option>
-                    <option value="department">Department</option>
-                    <option value="employee">Employee</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label for="min_qty">Min units</label>
-                  <input id="min_qty" name="min_qty" type="number" min="0" value="0" inputmode="numeric">
-                </div>
-              </div>
-
-              <div class="actions-row">
-                <button type="button" id="runBtn" class="btn primary">Run</button>
-                <button type="button" id="csvBtn" class="btn secondary">Export CSV</button>
-              </div>
-            </form>
-          </div>
-
-          <div id="reportResults" class="results-card"></div>
-        </section>
-      </div>
+  <section class="reports-results card">
+    <h2 class="section-title">Results</h2>
+    {% if results and results|length > 0 %}
+    <div class="table-wrap">
+      <table class="report-table">
+        <thead>
+          <tr>
+            {% for k, v in results[0].items() %}
+            <th>{{ k.replace('_',' ').title() }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in results %}
+          <tr>
+            {% for k, v in row.items() %}
+            <td>
+              {% if v is number %}
+              {{ v }}
+              {% else %}
+              {{ v }}
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </main>
-
-  <script>
-    function renderResults(html){
-      const box=document.getElementById('reportResults');
-      box.innerHTML=html||'';
-      box.style.display=html?'block':'none';
-    }
-  </script>
-  <script>
-    window.CURRENT_USER={id:{{ session.get('user_id')|tojson }},role:{{ session.get('role','')|tojson }}};
-  </script>
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-title">No results</div>
+      <div class="empty-text">Adjust filters and try again.</div>
+    </div>
+    {% endif %}
+  </section>
+</main>
 </body>
 </html>

@@ -267,7 +267,7 @@ def employee_dashboard(cursor, conn):
 
     return render_template('employee_dashboard.html', employees=employees, user=user)
 
-@app.route('/reports', methods=['GET', 'POST'])
+@app.get("/reports")
 @with_db
 def reports(cursor, conn):
     role = session.get('role')
@@ -278,111 +278,119 @@ def reports(cursor, conn):
     departments = [{'DepartmentID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
 
     cursor.execute("""
-        SELECT EmployeeID,
-               COALESCE(NULLIF(LTRIM(RTRIM(Name)), ''), Username) AS Name
+        SELECT
+            EmployeeID,
+            COALESCE(
+              NULLIF(LTRIM(RTRIM(
+                COALESCE(FirstName,'') + ' ' + COALESCE(LastName,'')
+              )), ''),
+              Username
+            ) AS Name
         FROM Employee
         ORDER BY Name
     """)
     employees = [{'EmployeeID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
 
-    filters = {
-        'date_from': request.form.get('date_from', ''),
-        'date_to': request.form.get('date_to', ''),
-        'department_id': request.form.get('department_id', ''),
-        'employee_id': request.form.get('employee_id', ''),
-        'group_by': request.form.get('group_by', 'product'),
-        'min_qty': request.form.get('min_qty', '')
+    return render_template(
+        'reports.html',
+        departments=departments,
+        employees=employees
+    )
+
+DETAIL_TABLE = "SalesTransactionDetail"
+DETAIL_UNIT_PRICE_COL = "UnitPrice"
+
+@app.post("/reports/query")
+@with_db
+def reports_query(cursor, conn):
+    p = (request.get_json() or {})
+    date_from    = p.get("date_from") or None
+    date_to      = p.get("date_to")   or None
+    departmentId = p.get("department_id") or None
+    employeeId   = p.get("employee_id")   or None
+    group_by     = (p.get("group_by") or "product").lower()
+    try:
+        min_qty = int(p.get("min_qty") or 0)
+    except Exception:
+        min_qty = 0
+
+    if group_by == "department":
+        select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
+        group_dim  = "d.DepartmentID, d.Name"
+        dim_label  = "Department"
+    elif group_by == "employee":
+        select_dim = """e.EmployeeID AS DimID,
+                        COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username) AS DimName"""
+        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username)"
+        dim_label  = "Employee"
+    else:
+        select_dim = "p.ProductID AS DimID, p.Name AS DimName"
+        group_dim  = "p.ProductID, p.Name"
+        dim_label  = "Product"
+
+    sql = f"""
+    SELECT
+        {select_dim},
+        SUM(sd.Quantity)                          AS UnitsSold,
+        SUM(sd.Quantity * sd.{DETAIL_UNIT_PRICE_COL}) AS GrossRevenue,
+        AVG(NULLIF(sd.{DETAIL_UNIT_PRICE_COL},0)) AS AvgUnitPrice,
+        COUNT(DISTINCT st.TransactionID)          AS NumOrders
+    FROM SalesTransaction AS st
+    JOIN {DETAIL_TABLE} AS sd
+         ON sd.TransactionID = st.TransactionID
+    JOIN Product AS p
+         ON p.ProductID = sd.ProductID
+    LEFT JOIN Department AS d
+         ON d.DepartmentID = p.DepartmentID
+    LEFT JOIN Employee AS e
+         ON e.EmployeeID = st.EmployeeID
+    WHERE 1=1
+    """
+
+    params = []
+
+    if date_from:
+        sql += " AND st.TransactionDate >= ?"
+        params.append(date_from)
+
+    if date_to:
+        sql += " AND st.TransactionDate < DATEADD(day, 1, ?)"
+        params.append(date_to)
+
+    if departmentId:
+        sql += " AND p.DepartmentID = ?"
+        params.append(departmentId)
+
+    if employeeId:
+        sql += " AND st.EmployeeID = ?"
+        params.append(employeeId)
+
+    sql += f" GROUP BY {group_dim}"
+
+    if min_qty > 0:
+        sql += " HAVING SUM(sd.Quantity) >= ?"
+        params.append(min_qty)
+
+    sql += f" ORDER BY DimName"
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    cols = [c[0] for c in cursor.description]
+    data = [dict(zip(cols, r)) for r in rows]
+
+    totals = {
+        "UnitsSold": sum(r.get("UnitsSold", 0) or 0 for r in data),
+        "GrossRevenue": sum((r.get("GrossRevenue", 0) or 0) for r in data),
+        "NumOrders": sum((r.get("NumOrders", 0) or 0) for r in data),
     }
 
-    results = []
-    running = False
-
-    if request.method == 'POST':
-        running = True
-        params = []
-        where = []
-
-        if filters['date_from']:
-            where.append("st.TransactionDate >= ?")
-            params.append(filters['date_from'])
-        if filters['date_to']:
-            where.append("st.TransactionDate < DATEADD(day, 1, ?)")
-            params.append(filters['date_to'])
-        if filters['department_id']:
-            where.append("p.DepartmentID = ?")
-            params.append(filters['department_id'])
-        if filters['employee_id']:
-            where.append("st.EmployeeID = ?")
-            params.append(filters['employee_id'])
-
-        if filters['group_by'] == 'department':
-            select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
-            group_dim  = "d.DepartmentID, d.Name"
-        elif filters['group_by'] == 'employee':
-            select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
-            group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
-        else:
-            select_dim = "p.ProductID AS DimID, p.Name AS DimName"
-            group_dim  = "p.ProductID, p.Name"
-        try:
-            cursor.execute("""
-                SELECT 1
-                FROM INFORMATION_SCHEMA.COLUMNS
-                WHERE TABLE_NAME = 'TransactionProduct' AND COLUMN_NAME = 'UnitPrice'
-            """)
-            has_unitprice = cursor.fetchone() is not None
-        except Exception:
-            has_unitprice = False
-        
-        revenue_expr = "SUM(tp.Quantity * tp.UnitPrice)" if has_unitprice else "SUM(tp.Quantity * p.Price)"
-        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-
-        sql = f"""
-            SELECT
-                {select_dim},
-                COUNT(DISTINCT st.TransactionID) AS Orders,
-                SUM(tp.Quantity)                  AS Units,
-                SUM(tp.Quantity * p.Price)        AS Revenue
-            FROM [Transaction] st
-            JOIN Transaction_Product tp ON tp.TransactionID = st.TransactionID
-            JOIN Product p              ON p.ProductID      = tp.ProductID
-            LEFT JOIN Department d      ON d.DepartmentID   = p.DepartmentID
-            LEFT JOIN Employee e        ON e.EmployeeID     = st.EmployeeID
-            {where_sql}
-            GROUP BY {group_dim}
-            HAVING SUM(tp.Quantity) >= ?
-            ORDER BY Revenue DESC
-        """
-
-        try:
-            min_qty_val = int(filters['min_qty']) if filters['min_qty'] else 0
-        except:
-            min_qty_val = 0
-        print("REPORTS SQL:\n", sql)
-        print("PARAMS:", params + [min_qty_val])
-        cursor.execute(sql, tuple(params + [min_qty_val]))
-        cols = [c[0] for c in cursor.description]
-        results = [dict(zip(cols, r)) for r in cursor.fetchall()]
-
-        if request.form.get('export') == 'csv':
-            import csv, io
-            buf = io.StringIO()
-            w = csv.DictWriter(buf, fieldnames=cols)
-            w.writeheader()
-            w.writerows(results)
-            resp = make_response(buf.getvalue())
-            resp.headers['Content-Type'] = 'text/csv'
-            resp.headers['Content-Disposition'] = 'attachment; filename=report.csv'
-            return resp
-
-    return render_template('reports.html',
-                           departments=departments,
-                           employees=employees,
-                           filters=filters,
-                           results=results,
-                           running=running)
-
-from flask import session, redirect, url_for, render_template
+    return render_template(
+        "partials/report_table.html",
+        rows=data,
+        dim_label=dim_label,
+        totals=totals
+    )
 
 @app.route('/customer')
 @with_db

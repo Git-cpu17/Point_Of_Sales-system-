@@ -49,3 +49,60 @@
   .rpt-grid{grid-template-columns:1fr}
   .rpt-form .rpt-row{grid-template-columns:1fr}
 }
+
+.rpt-container{max-width:1180px}
+
+.rpt-card{
+  width:100%;
+  padding:24px 28px;
+  border-radius:18px;
+  box-shadow:0 14px 36px rgba(0,0,0,.08);
+}
+
+.rpt-form .rpt-row{
+  display:grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap:16px 18px;
+  align-items:end;
+}
+
+.rpt-field:nth-child(1){grid-column: span 3}
+.rpt-field:nth-child(2){grid-column: span 3}
+.rpt-field:nth-child(3){grid-column: span 2}
+.rpt-field:nth-child(4){grid-column: span 2}
+.rpt-field:nth-child(5){grid-column: span 1}
+.rpt-field:nth-child(6){grid-column: span 1}
+
+.rpt-actions{margin-top:12px}
+
+.rpt-menu{
+  padding:10px;
+  border-radius:18px;
+  box-shadow:0 10px 28px rgba(0,0,0,.06);
+}
+
+.rpt-field input,
+.rpt-field select{
+  height:44px;
+  border-radius:12px;
+}
+
+.rpt-header{margin:2px 0 14px}
+.rpt-header h1{font-size:1.7rem}
+
+@media (max-width: 1100px){
+  .rpt-form .rpt-row{
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .rpt-field{grid-column: span 3}
+  .rpt-field:nth-child(5),
+  .rpt-field:nth-child(6){grid-column: span 3}
+}
+
+@media (max-width: 720px){
+  .rpt-grid{grid-template-columns: 1fr}
+  .rpt-card{padding:20px}
+  .rpt-form .rpt-row{grid-template-columns: 1fr}
+  .rpt-field{grid-column: 1 / -1}
+  .rpt-actions{justify-content:flex-start}
+}

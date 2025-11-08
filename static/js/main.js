@@ -27,6 +27,10 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
+function formToParams(form) {
+  return new URLSearchParams(new FormData(form));
+}
+
 function normalizeProduct(p) {
   return {
     product_id: p.product_id ?? p.ProductID,
@@ -469,7 +473,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.getElementById('loginForm')) setupLoginForm();
   updateCartBadge();
-
+  const reportForm=document.getElementById('reportForm');
+  if(reportForm){
+    const runBtn=document.getElementById('runBtn');
+    if(runBtn){
+      runBtn.addEventListener('click',async()=>{
+        const params=formToParams(reportForm);
+        const res=await fetch('/reports/query',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params});
+        const html=await res.text();
+        if(typeof renderResults==='function'){renderResults(html);}else{const box=document.getElementById('reportResults');if(box){box.innerHTML=html;box.style.display='block';}}
+      });
+    }
+    const csvBtn=document.getElementById('csvBtn');
+    if(csvBtn){
+      csvBtn.addEventListener('click',()=>{
+        const params=formToParams(reportForm);
+        window.location='/reports/csv?'+params.toString();
+      });
+    }
+  }
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
       e.preventDefault();

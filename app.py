@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from flask_cors import CORS
 import os
 import pyodbc
+import traceback
 from functools import wraps
 
 app = Flask(__name__)
@@ -55,6 +56,7 @@ def with_db(f):
             return f(cursor, conn, *args, **kwargs)
         except Exception as e:
             print("DB error:", e)
+            traceback.print_exc()
             return jsonify({"message": "Database error"}), 500
         finally:
             if cursor:
@@ -346,7 +348,8 @@ def reports(cursor, conn):
             min_qty_val = int(filters['min_qty']) if filters['min_qty'] else 0
         except:
             min_qty_val = 0
-        
+        print("REPORTS SQL:\n", sql)
+        print("PARAMS:", params + [min_qty_val])
         cursor.execute(sql, tuple(params + [min_qty_val]))
         cols = [c[0] for c in cursor.description]
         results = [dict(zip(cols, r)) for r in cursor.fetchall()]

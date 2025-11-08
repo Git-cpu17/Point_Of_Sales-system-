@@ -8,6 +8,25 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
 </head>
 <body class="rpt-page">
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+  
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
+  
+        {% if session.get('role','').lower() in ['employee','admin'] %}
+        <a href="{{ url_for('reports') }}" class="nav-link active">Reports</a>
+        {% endif %}
+  
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span><span>Cart</span><span id="bagCount" class="badge">0</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
   <div class="rpt-container">
     <nav class="rpt-breadcrumbs">
       <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>

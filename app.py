@@ -280,12 +280,7 @@ def reports(cursor, conn):
     cursor.execute("""
         SELECT
             EmployeeID,
-            COALESCE(
-              NULLIF(LTRIM(RTRIM(
-                COALESCE(FirstName,'') + ' ' + COALESCE(LastName,'')
-              )), ''),
-              Username
-            ) AS Name
+            COALESCE(NULLIF(LTRIM(RTRIM(Name)), ''), Username) AS Name
         FROM Employee
         ORDER BY Name
     """)

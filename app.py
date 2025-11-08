@@ -317,8 +317,8 @@ def reports(cursor, conn):
             select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
             group_dim  = "d.DepartmentID, d.Name"
         elif filters['group_by'] == 'employee':
-            select_dim = "e.EmployeeID AS DimID, (e.FirstName + ' ' + e.LastName) AS DimName"
-            group_dim  = "e.EmployeeID, (e.FirstName + ' ' + e.LastName)"
+            select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username) AS DimName"
+            group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username)"
         else:
             select_dim = "p.ProductID AS DimID, p.Name AS DimName"
             group_dim  = "p.ProductID, p.Name"

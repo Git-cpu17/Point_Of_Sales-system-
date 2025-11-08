@@ -2,26 +2,26 @@
   --rpt-bg:#f7f9fb;
   --rpt-card:#ffffff;
   --rpt-text:#111827;
-  --rpt-muted:#6b7280;
-  --rpt-line:#e5e7eb;
+  --rpt-muted:#6B7280;
+  --rpt-line:#E5E7EB;
   --rpt-shadow:0 10px 24px rgba(0,0,0,.08);
-  --rpt-green:#22c55e;
-  --rpt-green-weak:#eef6ee;
+  --rpt-green:#22C55E;
+  --rpt-green-weak:#EEF6EE;
 }
 
 .rpt-page{background:var(--rpt-bg);padding:24px 0 56px}
 .rpt-container{max-width:1180px;margin:0 auto;padding:0 20px}
 
 .rpt-breadcrumbs{font-size:.95rem;color:var(--rpt-muted);margin:.25rem 0 1rem}
-.rpt-breadcrumbs a{color:#4f46e5;text-decoration:none}
-.rpt-sep{margin:0 .4rem;color:#9aa3af}
+.rpt-breadcrumbs a{color:#4F46E5;text-decoration:none}
+.rpt-sep{margin:0 .4rem;color:#9AA3AF}
 .rpt-current{color:var(--rpt-text)}
 
 .rpt-grid{display:grid;grid-template-columns:260px 1fr;gap:20px}
 
 .rpt-menu{background:var(--rpt-card);border-radius:16px;box-shadow:var(--rpt-shadow);padding:8px;display:grid;gap:6px}
 .rpt-item{display:flex;align-items:center;gap:.6rem;padding:.8rem 1rem;border-radius:12px;color:var(--rpt-text);text-decoration:none}
-.rpt-item:hover{background:#f3f4f6}
+.rpt-item:hover{background:#F3F4F6}
 .rpt-active{background:var(--rpt-green);color:#fff}
 
 .rpt-header{margin:2px 0 14px}
@@ -31,9 +31,10 @@
 .rpt-card{background:var(--rpt-card);border-radius:18px;box-shadow:0 14px 36px rgba(0,0,0,.08);padding:24px 28px}
 
 .rpt-form .rpt-row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:22px 24px;align-items:end}
-.rpt-form .rpt-field{grid-column:span 2;min-width:180px}
+.rpt-form .rpt-field{grid-column:span 2;min-width:200px}
 .rpt-form .rpt-field label{display:block;font-weight:600;margin:0 0 8px;line-height:1.15;white-space:nowrap}
-.rpt-form .rpt-field input,.rpt-form .rpt-field select{width:100%;height:44px;border-radius:12px;padding:.5rem .75rem;border:1px solid var(--rpt-line);background:#fff}
+.rpt-form .rpt-field input,
+.rpt-form .rpt-field select{width:100%;height:44px;border-radius:12px;padding:.5rem .75rem;border:1px solid var(--rpt-line);background:#fff}
 
 .rpt-form .rpt-field:nth-child(1),
 .rpt-form .rpt-field:nth-child(2){grid-column:span 3}

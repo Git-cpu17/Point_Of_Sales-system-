@@ -1,123 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reports • FreshMart</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Data Reports • FreshMart</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
 </head>
-<body>
-  <nav class="site-nav">
-    <div class="nav-container">
-      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
-      <div class="nav-right">
-        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
-        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
-        <a href="{{ url_for('bag_page') }}" class="bag-link">
-          <span>🛒</span><span>Cart</span><span id="bagCount" class="badge">0</span>
-        </a>
-        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
-      </div>
-    </div>
-  </nav>
+<body class="rpt-page">
+  <div class="rpt-container">
+    <nav class="rpt-breadcrumbs">
+      <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>
+      <span class="rpt-sep">/</span>
+      <a href="{{ url_for('customer_orders') }}">Orders</a>
+      <span class="rpt-sep">/</span>
+      <span class="rpt-current">Reports</span>
+    </nav>
 
-  <main class="rpt-page">
-    <div class="rpt-container">
-      <div class="rpt-breadcrumbs">
-        <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>
-        <span class="rpt-sep">/</span>
-        <a href="{{ url_for('customer_orders') }}">Orders</a>
-        <span class="rpt-sep">/</span>
-        <span class="rpt-current">Reports</span>
-      </div>
+    <div class="rpt-grid">
+      <aside class="rpt-menu">
+        <a href="{{ url_for('customer_dashboard') }}" class="rpt-item">📊 Dashboard</a>
+        <a href="{{ url_for('customer_orders') }}" class="rpt-item">📦 Orders</a>
+        <div class="rpt-item rpt-active">📈 Reports</div>
+      </aside>
 
-      <div class="rpt-grid">
-        <aside class="rpt-sidebar">
-          <nav class="rpt-menu">
-            <a href="{{ url_for('customer_dashboard') }}" class="rpt-item">
-              <span>📊</span><span>Dashboard</span>
-            </a>
-            <a href="{{ url_for('customer_orders') }}" class="rpt-item">
-              <span>📦</span><span>Orders</span>
-            </a>
-            <a class="rpt-item rpt-active">
-              <span>📈</span><span>Reports</span>
-            </a>
-          </nav>
-        </aside>
+      <main>
+        <header class="rpt-header">
+          <h1>Data Reports</h1>
+          <p>Filter sales and view aggregates by product, department, or employee</p>
+        </header>
 
-        <section class="rpt-main">
-          <header class="rpt-header">
-            <h1>Data Reports</h1>
-            <p>Filter sales and view aggregates by product, department, or employee</p>
-          </header>
-
-          <div class="rpt-card">
-            <form id="reportForm" class="rpt-form" novalidate>
-              <div class="rpt-row">
-                <div class="rpt-field">
-                  <label for="date_from">Date from</label>
-                  <input id="date_from" name="date_from" type="date">
-                </div>
-                <div class="rpt-field">
-                  <label for="date_to">Date to</label>
-                  <input id="date_to" name="date_to" type="date">
-                </div>
-                <div class="rpt-field">
-                  <label for="department_id">Department</label>
-                  <select id="department_id" name="department_id">
-                    <option value="">All</option>
-                    {% for d in departments %}
-                    <option value="{{ d.DepartmentID }}">{{ d.Name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="rpt-field">
-                  <label for="employee_id">Employee</label>
-                  <select id="employee_id" name="employee_id">
-                    <option value="">All</option>
-                    {% for e in employees %}
-                    <option value="{{ e.EmployeeID }}">{{ e.Name }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="rpt-field">
-                  <label for="group_by">Group by</label>
-                  <select id="group_by" name="group_by">
-                    <option value="product">Product</option>
-                    <option value="department">Department</option>
-                    <option value="employee">Employee</option>
-                  </select>
-                </div>
-                <div class="rpt-field">
-                  <label for="min_qty">Min units</label>
-                  <input id="min_qty" name="min_qty" type="number" min="0" value="0" inputmode="numeric">
-                </div>
+        <section class="rpt-card">
+          <form id="reportForm" class="rpt-form">
+            <div class="rpt-row">
+              <div class="rpt-field">
+                <label for="date_from">Date from</label>
+                <input id="date_from" name="date_from" type="date">
               </div>
-
-              <div class="rpt-actions">
-                <button type="button" id="runBtn" class="rpt-btn rpt-primary">Run</button>
-                <button type="button" id="csvBtn" class="rpt-btn rpt-secondary">Export CSV</button>
+              <div class="rpt-field">
+                <label for="date_to">Date to</label>
+                <input id="date_to" name="date_to" type="date">
               </div>
-            </form>
-          </div>
+              <div class="rpt-field">
+                <label for="department_id">Department</label>
+                <select id="department_id" name="department_id">
+                  <option value="">All</option>
+                  {% for d in departments %}<option value="{{ d.DepartmentID }}">{{ d.Name }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="rpt-field">
+                <label for="employee_id">Employee</label>
+                <select id="employee_id" name="employee_id">
+                  <option value="">All</option>
+                  {% for e in employees %}<option value="{{ e.EmployeeID }}">{{ e.Name }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="rpt-field">
+                <label for="group_by">Group by</label>
+                <select id="group_by" name="group_by">
+                  <option value="product">Product</option>
+                  <option value="department">Department</option>
+                  <option value="employee">Employee</option>
+                </select>
+              </div>
+              <div class="rpt-field">
+                <label for="min_qty">Min units</label>
+                <input id="min_qty" name="min_qty" type="number" min="0" value="0">
+              </div>
+            </div>
 
-          <div id="reportResults" class="rpt-results"></div>
+            <div class="rpt-actions">
+              <button type="button" id="runBtn" class="rpt-btn rpt-primary">Run</button>
+              <button type="button" id="csvBtn" class="rpt-btn rpt-secondary">Export CSV</button>
+            </div>
+          </form>
         </section>
-      </div>
+
+        <section id="reportResults" class="rpt-results"></section>
+      </main>
     </div>
-  </main>
+  </div>
 
   <script>
-    function renderResults(html){
-      const box=document.getElementById('reportResults');
-      box.innerHTML=html||'';
-      box.style.display=html?'block':'none';
-    }
-  </script>
-  <script>
-    window.CURRENT_USER={id:{{ session.get('user_id')|tojson }},role:{{ session.get('role','')|tojson }}};
+    window.CURRENT_USER = {
+      id: {{ session.get('user_id') | tojson }},
+      role: {{ session.get('role','') | tojson }}
+    };
   </script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>

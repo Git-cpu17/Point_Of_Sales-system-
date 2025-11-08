@@ -41,41 +41,49 @@
         </header>
         <div class="reports-card card">
           <form id="reportForm" class="reports-form">
-            <div class="field">
-              <label for="date_from">Date from</label>
-              <input id="date_from" name="date_from" type="date">
+            <div class="filters-row">
+              <div class="field">
+                <label for="date_from">Date from</label>
+                <input id="date_from" name="date_from" type="date">
+              </div>
+          
+              <div class="field">
+                <label for="date_to">Date to</label>
+                <input id="date_to" name="date_to" type="date">
+              </div>
+          
+              <div class="field">
+                <label for="department_id">Department</label>
+                <select id="department_id" name="department_id">
+                  <option value="">All</option>
+                  {% for d in departments %}<option value="{{ d.DepartmentID }}">{{ d.Name }}</option>{% endfor %}
+                </select>
+              </div>
+          
+              <div class="field">
+                <label for="employee_id">Employee</label>
+                <select id="employee_id" name="employee_id">
+                  <option value="">All</option>
+                  {% for e in employees %}<option value="{{ e.EmployeeID }}">{{ e.Name }}</option>{% endfor %}
+                </select>
+              </div>
+          
+              <div class="field">
+                <label for="group_by">Group by</label>
+                <select id="group_by" name="group_by">
+                  <option value="product">Product</option>
+                  <option value="department">Department</option>
+                  <option value="employee">Employee</option>
+                </select>
+              </div>
+          
+              <div class="field">
+                <label for="min_qty">Min units</label>
+                <input id="min_qty" name="min_qty" type="number" min="0" value="0">
+              </div>
             </div>
-            <div class="field">
-              <label for="date_to">Date to</label>
-              <input id="date_to" name="date_to" type="date">
-            </div>
-            <div class="field">
-              <label for="department_id">Department</label>
-              <select id="department_id" name="department_id">
-                <option value="">All</option>
-                {% for d in departments %}<option value="{{ d.DepartmentID }}">{{ d.Name }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label for="employee_id">Employee</label>
-              <select id="employee_id" name="employee_id">
-                <option value="">All</option>
-                {% for e in employees %}<option value="{{ e.EmployeeID }}">{{ e.Name }}</option>{% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label for="group_by">Group by</label>
-              <select id="group_by" name="group_by">
-                <option value="product">Product</option>
-                <option value="department">Department</option>
-                <option value="employee">Employee</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="min_qty">Min units</label>
-              <input id="min_qty" name="min_qty" type="number" min="0" value="0">
-            </div>
-            <div class="actions">
+          
+            <div class="actions-row">
               <button type="button" id="runBtn" class="btn primary">Run</button>
               <button type="button" id="csvBtn" class="btn secondary">Export CSV</button>
             </div>

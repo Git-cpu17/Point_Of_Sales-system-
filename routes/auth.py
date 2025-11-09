@@ -4,7 +4,7 @@ from utility.security import set_user_session, clear_user_session
 
 bp = Blueprint("auth", __name__)
 
-@app.route('/login', methods=['GET', 'POST'])
+@bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         data = request.get_json(silent=True) or request.form or {}
@@ -46,7 +46,7 @@ def login():
 
     return render_template('login.html')
 
-@app.route('/register', methods=['GET', 'POST'])
+@bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         data = request.get_json() or {}
@@ -81,7 +81,7 @@ def register():
 
     return render_template('register.html')
 
-@app.route('/logout')
+@bp.route('/logout')
 def logout():
     # Clear all session data
     session.clear()

@@ -1,3 +1,9 @@
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from db import with_db, rows_to_dict_list
+from utility.security import require_role
+
+bp = Blueprint("products", __name__)
+
 @app.route("/products", methods=["GET"])
 @with_db
 def get_products(cursor, conn):

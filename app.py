@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 from flask_cors import CORS
+from datetime import datetime
 from db import with_db, rows_to_dict_list, get_db_connection
 import os
 import traceback, sys
@@ -236,92 +237,108 @@ def reports(cursor, conn):
         employees=employees
     )
 
+def _iso_date(s):
+    if not s:
+        return None
+    s = s.strip()
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
 @app.post("/reports/query")
 @with_db
-def report_query(cur, _conn):
+def reports_query(cur, conn):
     payload = (request.get_json(silent=True) or request.form.to_dict() or {})
-    date_from = (payload.get("date_from") or "").strip() or None
-    date_to   = (payload.get("date_to") or "").strip() or None
-    dept_id   = (payload.get("department_id") or "").strip() or None
-    emp_id    = (payload.get("employee_id") or "").strip() or None
-    group_by  = (payload.get("group_by") or "product").strip().lower()
-    try:
-        min_qty = int(payload.get("min_qty") or 0)
-    except Exception:
-        min_qty = 0
 
-    if group_by == "department":
+    date_from = _iso_date(payload.get("date_from") or payload.get("from") or payload.get("dateFrom"))
+    date_to   = _iso_date(payload.get("date_to")   or payload.get("to")   or payload.get("dateTo"))
+    group_by  = (payload.get("group_by") or payload.get("groupBy") or "product").strip().lower()
+    department = payload.get("department") or payload.get("department_id")
+    employee   = payload.get("employee") or payload.get("employee_id")
+
+    try:
+        min_units = int(payload.get("min_units") or payload.get("minUnits") or 0)
+    except (TypeError, ValueError):
+        min_units = 0
+
+    if not date_from:
+        date_from = "1900-01-01"
+    if not date_to:
+        date_to = "2100-12-31"
+
+    if group_by == "product":
+        select_dim = "p.ProductID AS DimID, p.Name AS DimName"
+        group_dim  = "p.ProductID, p.Name"
+    elif group_by == "department":
         select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
         group_dim  = "d.DepartmentID, d.Name"
     elif group_by == "employee":
-        select_dim = (
-            "e.EmployeeID AS DimID, "
-            "COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
-        )
+        select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
         group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
     else:
         select_dim = "p.ProductID AS DimID, p.Name AS DimName"
         group_dim  = "p.ProductID, p.Name"
 
-    sql = f"""
-    SELECT
-        {select_dim},
-        SUM(tp.Quantity) AS UnitsSold,
-        SUM(CAST(tp.Quantity AS DECIMAL(18,4)) * CAST(p.Price AS DECIMAL(18,4))) AS GrossRevenue
-    FROM SalesTransaction AS st
-    JOIN TransactionProduct AS tp
-        ON tp.TransactionID = st.TransactionID
-    JOIN Product AS p
-        ON p.ProductID = tp.ProductID
-    LEFT JOIN Department AS d
-        ON d.DepartmentID = p.DepartmentID
-    LEFT JOIN Employee AS e
-        ON e.EmployeeID = st.EmployeeID
-    WHERE 1=1
-    """
+    sql_parts = [
+        "SELECT",
+        f"  {select_dim},",
+        "  SUM(td.Quantity) AS UnitsSold,",
 
-    params = []
+        "  SUM(CAST(td.Subtotal AS DECIMAL(18,4))) AS GrossRevenue",
+        "FROM SalesTransaction AS st",
+        "JOIN Transaction_Details AS td ON td.TransactionID = st.TransactionID",
+        "JOIN Product AS p              ON p.ProductID       = td.ProductID",
 
-    if date_from and date_to:
-        sql += " AND st.TransactionDate >= ? AND st.TransactionDate < DATEADD(day, 1, ?)"
-        params.extend([date_from, date_to])
-    elif date_from:
-        sql += " AND st.TransactionDate >= ?"
-        params.append(date_from)
-    elif date_to:
-        sql += " AND st.TransactionDate < DATEADD(day, 1, ?)"
-        params.append(date_to)
+        "LEFT JOIN Department_Product AS dp ON dp.ProductID   = p.ProductID",
+        "LEFT JOIN Department AS d          ON d.DepartmentID = dp.DepartmentID",
+        "LEFT JOIN Employee  AS e           ON e.EmployeeID   = st.EmployeeID",
+        "WHERE st.TransactionDate >= ?",
+        "  AND st.TransactionDate < DATEADD(day, 1, ?)",
+    ]
+    params = [date_from, date_to]
 
-    if dept_id:
-        sql += " AND p.DepartmentID = ?"
-        params.append(dept_id)
+    if department and str(department).lower() not in {"", "all"}:
+        sql_parts.append("  AND d.DepartmentID = ?")
+        params.append(department)
 
-    if emp_id:
-        sql += " AND st.EmployeeID = ?"
-        params.append(emp_id)
+    if employee and str(employee).lower() not in {"", "all"}:
+        sql_parts.append("  AND e.EmployeeID = ?")
+        params.append(employee)
 
-    sql += f"""
-    GROUP BY {group_dim}
-    HAVING SUM(tp.Quantity) >= ?
-    ORDER BY GrossRevenue DESC, UnitsSold DESC
-    """
-    params.append(min_qty)
+    sql_parts.append(f"GROUP BY {group_dim}")
 
-    cur.execute(sql, params)
-    rows = cur.fetchall()
+    if min_units and min_units > 0:
+        sql_parts.append("HAVING SUM(td.Quantity) >= ?")
+        params.append(min_units)
+
+    sql_parts.append(f"ORDER BY {group_dim}")
+
+    sql = "\n".join(sql_parts)
+
+    try:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    except Exception as e:
+        print("DB error in /reports/query:", e)
+        return "Could not load report. Please check parameter values and try again.", 500
 
     html = [
         '<table class="report-table">',
         '<thead><tr><th>Group</th><th>Units Sold</th><th>Gross Revenue</th></tr></thead>',
         '<tbody>'
     ]
-    for dim_name, units, revenue in [(r[1], r[2], r[3]) if len(r) >= 4 else (r[1], r[2], 0) for r in rows]:
-        html.append(
-            f"<tr><td>{dim_name}</td><td>{int(units or 0)}</td><td>${float(revenue or 0):,.2f}</td></tr>"
-        )
-    html.append('</tbody></table>')
     
-    return ''.join(html)
+    for r in rows:
+        dim_name = r[1]
+        units    = int(r[2] or 0)
+        revenue  = float(r[3] or 0.0)
+        html.append(f"<tr><td>{dim_name}</td><td>{units}</td><td>${revenue:,.2f}</td></tr>")
+    html.append("</tbody></table>")
+
+    return "".join(html), 200, {"Content-Type": "text/html; charset=utf-8"}
 
 @app.route('/customer')
 @with_db

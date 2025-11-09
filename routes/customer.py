@@ -1,3 +1,9 @@
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from db import with_db, rows_to_dict_list
+from utility.security import require_role
+
+bp = Blueprint("customer", __name__)
+
 @app.route('/customer')
 @with_db
 def customer_dashboard(cursor, conn):

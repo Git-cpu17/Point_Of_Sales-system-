@@ -4,7 +4,7 @@ from utility.security import require_role
 
 bp = Blueprint("customer", __name__)
 
-@app.route('/customer')
+@bp.route('/customer')
 @with_db
 def customer_dashboard(cursor, conn):
     try:
@@ -58,7 +58,7 @@ def customer_dashboard(cursor, conn):
         print("Error fetching customer dashboard:", e)
         return render_template('error.html', message="Error loading dashboard")
 
-@app.route('/customer/orders')
+@bp.route('/customer/orders')
 @with_db
 def customer_orders(cursor, conn):
     if 'user_id' not in session or session.get('role') != 'customer':
@@ -94,7 +94,7 @@ def customer_orders(cursor, conn):
 
     return render_template('customer_orders.html', orders=orders)
 
-@app.route('/customer/orders/<int:transaction_id>')
+@bp.route('/customer/orders/<int:transaction_id>')
 @with_db
 def customer_order_detail(cursor, conn, transaction_id):
     if 'user_id' not in session or session.get('role') != 'customer':
@@ -144,7 +144,7 @@ def customer_order_detail(cursor, conn, transaction_id):
 
     return render_template('customer_order_detail.html', order=order, items=items)
 
-@app.route('/bag', endpoint='bag_page')
+@bp.route('/bag', endpoint='bag_page')
 @with_db
 def bag(cursor, conn):
     user = None

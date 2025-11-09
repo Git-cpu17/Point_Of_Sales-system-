@@ -4,7 +4,7 @@ from utility.security import require_role
 
 bp = Blueprint("admin", __name__)
 
-@app.route('/admin')
+@bp.route('/admin')
 @with_db
 def admin_dashboard(cursor, conn):
     # Stats
@@ -43,7 +43,7 @@ def admin_dashboard(cursor, conn):
         admin_name=admin_name
     )
 
-@app.route('/admin/inventory-report', methods=['GET', 'POST'])
+@bp.route('/admin/inventory-report', methods=['GET', 'POST'])
 @with_db
 def inventory_report(cursor, conn):
     # Get list of departments for the dropdown

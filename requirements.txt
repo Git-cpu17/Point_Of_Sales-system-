@@ -4,4 +4,3 @@ gunicorn
 pyodbc
 Flask-SQLAlchemy
 mysql-connector-python
-pyodbc

@@ -239,7 +239,7 @@ def reports(cursor, conn):
 @app.post("/reports/query")
 @with_db
 def report_query(cur, _conn):
-    payload = request.get_json(force=True) or {}
+    payload = (request.get_json(silent=True) or request.form.to_dict() or {})
     date_from = (payload.get("date_from") or "").strip() or None
     date_to   = (payload.get("date_to") or "").strip() or None
     dept_id   = (payload.get("department_id") or "").strip() or None

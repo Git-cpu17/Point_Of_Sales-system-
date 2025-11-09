@@ -185,29 +185,3 @@ def get_transactions(cursor, conn):
     cursor.execute(base_query, params)
     transactions = rows_to_dict_list(cursor)
     return jsonify(transactions)
-
-@app.route('/bag', endpoint='bag_page')
-@with_db
-def bag(cursor, conn):
-    user = None
-    if 'user_id' in session:
-        role = session.get('role')
-        if role == 'customer':
-            cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
-            record = cursor.fetchone()
-            if record:
-                user = {'Name': record[0], 'role': 'customer'}
-        elif role == 'admin':
-            cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
-            record = cursor.fetchone()
-            if record:
-                user = {'Name': record[0], 'role': 'admin'}
-        elif role == 'employee':  # <-- add this
-            cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
-            record = cursor.fetchone()
-            if record:
-                user = {'Name': record[0], 'role': 'employee'}
-
-    # You can fetch cart items here if needed
-
-    return render_template('bag.html', user=user)

@@ -26,5 +26,7 @@ def create_app():
     app.register_blueprint(employee_bp)
     app.register_blueprint(customer_bp)
     app.register_blueprint(department_bp)
+    
+    return app
 
-  return app
+app = create_app()

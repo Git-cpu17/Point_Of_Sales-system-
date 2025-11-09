@@ -4,7 +4,7 @@ from utility.security import require_role
 
 bp = Blueprint("employee", __name__)
 
-@app.route('/employee')
+@bp.route('/employee')
 @with_db
 def employee_dashboard(cursor, conn):
     if 'user_id' not in session or session.get('role') != 'employee':

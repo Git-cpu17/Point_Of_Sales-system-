@@ -292,98 +292,82 @@ def reports(cursor, conn):
         employees=employees
     )
 
-DETAIL_TABLE = "TransactionProduct"
-
 @app.post("/reports/query")
 @with_db
-def reports_query(cursor, conn):
-    p = (request.get_json() or {})
-    date_from    = p.get("date_from") or None
-    date_to      = p.get("date_to")   or None
-    departmentId = p.get("department_id") or None
-    employeeId   = p.get("employee_id")   or None
-    group_by     = (p.get("group_by") or "product").lower()
+def report_query(cur, _conn):
+    payload = request.get_json(force=True) or {}
+    date_from = (payload.get("date_from") or "").strip() or None
+    date_to   = (payload.get("date_to") or "").strip() or None
+    dept_id   = (payload.get("department_id") or "").strip() or None
+    emp_id    = (payload.get("employee_id") or "").strip() or None
+    group_by  = (payload.get("group_by") or "product").strip().lower()
     try:
-        min_qty = int(p.get("min_qty") or 0)
+        min_qty = int(payload.get("min_qty") or 0)
     except Exception:
         min_qty = 0
 
     if group_by == "department":
         select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
         group_dim  = "d.DepartmentID, d.Name"
-        dim_label  = "Department"
     elif group_by == "employee":
-        select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
-        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
-        dim_label  = "Employee"
+        select_dim = (
+            "e.EmployeeID AS DimID, "
+            "COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username) AS DimName"
+        )
+        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username)"
     else:
         select_dim = "p.ProductID AS DimID, p.Name AS DimName"
         group_dim  = "p.ProductID, p.Name"
-        dim_label  = "Product"
 
     sql = f"""
     SELECT
         {select_dim},
-        SUM(sd.Quantity)                          AS UnitsSold,
-        SUM(sd.Quantity * p.Price)                AS GrossRevenue,
-        AVG(NULLIF(p.Price,0))                    AS AvgUnitPrice,
-        COUNT(DISTINCT st.TransactionID)          AS NumOrders
+        SUM(sd.Quantity) AS UnitsSold,
+        SUM(CAST(sd.Quantity AS DECIMAL(18,4)) * CAST(sd.UnitPrice AS DECIMAL(18,4))) AS GrossRevenue
     FROM SalesTransaction AS st
-    JOIN {DETAIL_TABLE} AS sd
-         ON sd.TransactionID = st.TransactionID
-    JOIN Product AS p
-         ON p.ProductID = sd.ProductID
-    LEFT JOIN Department AS d
-         ON d.DepartmentID = p.DepartmentID
-    LEFT JOIN Employee AS e
-         ON e.EmployeeID = st.EmployeeID
-    WHERE 1=1
+    JOIN SalesTransactionDetail AS sd
+        ON sd.TransactionID = st.TransactionID
+    JOIN Products AS p
+        ON p.ProductID = sd.ProductID
+    LEFT JOIN Departments AS d
+        ON d.DepartmentID = p.DepartmentID
+    LEFT JOIN Employees AS e
+        ON e.EmployeeID = st.EmployeeID
+    WHERE 1 = 1
     """
 
     params = []
 
-    if date_from:
+    if date_from and date_to:
+        sql += " AND st.TransactionDate >= ? AND st.TransactionDate < DATEADD(day, 1, ?)"
+        params.extend([date_from, date_to])
+    elif date_from:
         sql += " AND st.TransactionDate >= ?"
         params.append(date_from)
-
-    if date_to:
+    elif date_to:
         sql += " AND st.TransactionDate < DATEADD(day, 1, ?)"
         params.append(date_to)
 
-    if departmentId:
+    if dept_id:
         sql += " AND p.DepartmentID = ?"
-        params.append(departmentId)
+        params.append(dept_id)
 
-    if employeeId:
+    if emp_id:
         sql += " AND st.EmployeeID = ?"
-        params.append(employeeId)
+        params.append(emp_id)
 
-    sql += f" GROUP BY {group_dim}"
+    sql += f"""
+    GROUP BY {group_dim}
+    HAVING SUM(sd.Quantity) >= ?
+    ORDER BY GrossRevenue DESC, UnitsSold DESC
+    """
+    params.append(min_qty)
 
-    if min_qty > 0:
-        sql += " HAVING SUM(sd.Quantity) >= ?"
-        params.append(min_qty)
-
-    sql += f" ORDER BY DimName"
-
-    cursor.execute(sql, params)
-    rows = cursor.fetchall()
-
-    cols = [c[0] for c in cursor.description]
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    cols = [c[0] for c in cur.description]
     data = [dict(zip(cols, r)) for r in rows]
-
-    totals = {
-        "UnitsSold": sum(r.get("UnitsSold", 0) or 0 for r in data),
-        "GrossRevenue": sum((r.get("GrossRevenue", 0) or 0) for r in data),
-        "NumOrders": sum((r.get("NumOrders", 0) or 0) for r in data),
-    }
-
-    return render_template(
-        "partials/report_table.html",
-        rows=data,
-        dim_label=dim_label,
-        totals=totals
-    )
+    return jsonify({"ok": True, "data": data})
 
 @app.route('/customer')
 @with_db

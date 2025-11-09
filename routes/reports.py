@@ -4,7 +4,7 @@ from utility.security import require_role
 
 bp = Blueprint("reports", __name__)
 
-@app.get("/reports")
+@bp.get("/reports")
 @with_db
 def reports(cursor, conn):
     role = session.get('role')
@@ -29,7 +29,7 @@ def reports(cursor, conn):
         employees=employees
     )
 
-@app.post("/reports/query")
+@bp.post("/reports/query")
 @with_db
 def report_query(cur, _conn):
     payload = request.get_json(force=True) or {}

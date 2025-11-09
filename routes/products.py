@@ -4,7 +4,7 @@ from utility.security import require_role
 
 bp = Blueprint("products", __name__)
 
-@app.route("/products", methods=["GET"])
+@bp.route("/products", methods=["GET"])
 @with_db
 def get_products(cursor, conn):
     cursor.execute("""
@@ -14,7 +14,7 @@ def get_products(cursor, conn):
     rows = rows_to_dict_list(cursor)
     return jsonify(rows)
 
-@app.route("/add", methods=["POST"])
+@bp.route("/add", methods=["POST"])
 @with_db
 def add_product(cursor, conn):
     data = request.get_json() or {}

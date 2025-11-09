@@ -3,7 +3,7 @@ from db import with_db, rows_to_dict_list
 
 bp = Blueprint("home", __name__)
 
-@app.route('/')
+@bp.route('/')
 @with_db
 def home(cursor, conn):
     cursor.execute("SELECT * FROM Product")
@@ -34,6 +34,6 @@ def home(cursor, conn):
 
     return render_template('index.html', products=products, departments=departments, user=user)
 
-@app.route("/api/status", methods=["GET"])
+@bp.route("/api/status", methods=["GET"])
 def status():
     return jsonify({"message": "Flask API is running and connected to Azure SQL!"})

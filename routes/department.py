@@ -1,11 +1,17 @@
-@app.route('/department')
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from db import with_db, rows_to_dict_list
+from utility.security import require_role
+
+bp = Blueprint("department", __name__)
+
+@bp.route('/department')
 @with_db
 def department(cursor, conn):
     cursor.execute("SELECT * FROM Department")
     departments = rows_to_dict_list(cursor)
     return render_template('department_dashboard.html', departments=departments)
 
-@app.route('/transactions')
+@bp.route('/transactions')
 @with_db
 def get_transactions(cursor, conn):
     base_query = """

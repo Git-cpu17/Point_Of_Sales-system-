@@ -269,6 +269,13 @@ def reports_query(cur, conn):
     if not date_to:
         date_to = "2100-12-31"
 
+    dept_val = None if (not department or str(department).lower() == "all") else int(department)
+    emp_val  = None if (not employee   or str(employee).lower()   == "all") else int(employee)
+    try:
+        min_val = None if (not min_units or int(min_units) <= 0) else int(min_units)
+    except Exception:
+        min_val = None
+
     if group_by == "product":
         select_dim = "p.ProductID AS DimID, p.Name AS DimName"
         group_dim  = "p.ProductID, p.Name"
@@ -286,37 +293,30 @@ def reports_query(cur, conn):
         "SELECT",
         f"  {select_dim},",
         "  SUM(td.Quantity) AS UnitsSold,",
-
         "  SUM(CAST(td.Subtotal AS DECIMAL(18,4))) AS GrossRevenue",
         "FROM SalesTransaction AS st",
         "JOIN Transaction_Details AS td ON td.TransactionID = st.TransactionID",
         "JOIN Product AS p              ON p.ProductID       = td.ProductID",
-
         "LEFT JOIN Department_Product AS dp ON dp.ProductID   = p.ProductID",
         "LEFT JOIN Department AS d          ON d.DepartmentID = dp.DepartmentID",
         "LEFT JOIN Employee  AS e           ON e.EmployeeID   = st.EmployeeID",
         "WHERE st.TransactionDate >= ?",
         "  AND st.TransactionDate < DATEADD(day, 1, ?)",
+        "  AND ( ? IS NULL OR d.DepartmentID = ? )",
+        "  AND ( ? IS NULL OR e.EmployeeID   = ? )",
+        f"GROUP BY {group_dim}",
+        "HAVING ( ? IS NULL OR SUM(td.Quantity) >= ? )",
+        f"ORDER BY {group_dim}",
     ]
-    params = [date_from, date_to]
-
-    if department and str(department).lower() not in {"", "all"}:
-        sql_parts.append("  AND d.DepartmentID = ?")
-        params.append(department)
-
-    if employee and str(employee).lower() not in {"", "all"}:
-        sql_parts.append("  AND e.EmployeeID = ?")
-        params.append(employee)
-
-    sql_parts.append(f"GROUP BY {group_dim}")
-
-    if min_units and min_units > 0:
-        sql_parts.append("HAVING SUM(td.Quantity) >= ?")
-        params.append(min_units)
-
-    sql_parts.append(f"ORDER BY {group_dim}")
-
+    
     sql = "\n".join(sql_parts)
+    
+    params = [
+        date_from, date_to,
+        dept_val, dept_val,
+        emp_val,  emp_val,
+        min_val,  min_val
+    ]
 
     try:
         cur.execute(sql, params)

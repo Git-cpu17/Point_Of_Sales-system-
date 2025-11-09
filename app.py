@@ -256,9 +256,9 @@ def report_query(cur, _conn):
     elif group_by == "employee":
         select_dim = (
             "e.EmployeeID AS DimID, "
-            "COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username) AS DimName"
+            "COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
         )
-        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.FirstName + ' ' + e.LastName)), ''), e.Username)"
+        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
     else:
         select_dim = "p.ProductID AS DimID, p.Name AS DimName"
         group_dim  = "p.ProductID, p.Name"
@@ -266,18 +266,18 @@ def report_query(cur, _conn):
     sql = f"""
     SELECT
         {select_dim},
-        SUM(sd.Quantity) AS UnitsSold,
-        SUM(CAST(sd.Quantity AS DECIMAL(18,4)) * CAST(sd.UnitPrice AS DECIMAL(18,4))) AS GrossRevenue
+        SUM(tp.Quantity) AS UnitsSold,
+        SUM(CAST(tp.Quantity AS DECIMAL(18,4)) * CAST(p.Price AS DECIMAL(18,4))) AS GrossRevenue
     FROM SalesTransaction AS st
-    JOIN SalesTransactionDetail AS sd
-        ON sd.TransactionID = st.TransactionID
-    JOIN Products AS p
-        ON p.ProductID = sd.ProductID
-    LEFT JOIN Departments AS d
+    JOIN TransactionProduct AS tp
+        ON tp.TransactionID = st.TransactionID
+    JOIN Product AS p
+        ON p.ProductID = tp.ProductID
+    LEFT JOIN Department AS d
         ON d.DepartmentID = p.DepartmentID
-    LEFT JOIN Employees AS e
+    LEFT JOIN Employee AS e
         ON e.EmployeeID = st.EmployeeID
-    WHERE 1 = 1
+    WHERE 1=1
     """
 
     params = []
@@ -302,16 +302,26 @@ def report_query(cur, _conn):
 
     sql += f"""
     GROUP BY {group_dim}
-    HAVING SUM(sd.Quantity) >= ?
+    HAVING SUM(tp.Quantity) >= ?
     ORDER BY GrossRevenue DESC, UnitsSold DESC
     """
     params.append(min_qty)
 
     cur.execute(sql, params)
     rows = cur.fetchall()
-    cols = [c[0] for c in cur.description]
-    data = [dict(zip(cols, r)) for r in rows]
-    return jsonify({"ok": True, "data": data})
+
+    html = [
+        '<table class="report-table">',
+        '<thead><tr><th>Group</th><th>Units Sold</th><th>Gross Revenue</th></tr></thead>',
+        '<tbody>'
+    ]
+    for dim_name, units, revenue in [(r[1], r[2], r[3]) if len(r) >= 4 else (r[1], r[2], 0) for r in rows]:
+        html.append(
+            f"<tr><td>{dim_name}</td><td>{int(units or 0)}</td><td>${float(revenue or 0):,.2f}</td></tr>"
+        )
+    html.append('</tbody></table>')
+    
+    return ''.join(html)
 
 @app.route('/customer')
 @with_db

@@ -642,8 +642,8 @@ def checkout(cursor, conn):
             INSERT INTO SalesTransaction (
                 CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
             )
-            OUTPUT INSERTED.TransactionID
-            VALUES (?, ?, GETDATE(), ?, ?, ?)
+            VALUES (?, ?, GETDATE(), ?, ?, ?);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
         """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
         new_tid = cursor.fetchone()[0]
 

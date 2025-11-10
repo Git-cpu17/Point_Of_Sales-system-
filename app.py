@@ -521,18 +521,15 @@ def get_transactions(cursor, conn):
 @app.route('/admin/inventory-report', methods=['GET', 'POST'])
 @with_db
 def inventory_report(cursor, conn):
-    # Get list of departments for the dropdown
     cursor.execute("SELECT DepartmentID, Name FROM Department")
     departments = rows_to_dict_list(cursor)
 
     if request.method == 'POST':
-        # Get filter values from the form
         department_id = request.form.get('department')
         min_price = request.form.get('min_price')
         max_price = request.form.get('max_price')
         stock_status = request.form.get('stock_status')
 
-        # Build query dynamically based on filters
         query = "SELECT * FROM Inventory WHERE 1=1"
         params = []
 
@@ -557,7 +554,6 @@ def inventory_report(cursor, conn):
                                inventory=inventory_data,
                                filters=request.form)
 
-    # GET request -> show empty form
     return render_template('admin_inventory_report.html', 
                            departments=departments, 
                            inventory=[], 
@@ -579,7 +575,7 @@ def bag(cursor, conn):
             record = cursor.fetchone()
             if record:
                 user = {'Name': record[0], 'role': 'admin'}
-        elif role == 'employee':  # <-- add this
+        elif role == 'employee':
             cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
             record = cursor.fetchone()
             if record:
@@ -588,6 +584,102 @@ def bag(cursor, conn):
     # You can fetch cart items here if needed
 
     return render_template('bag.html', user=user)
+
+@app.post("/checkout")
+@with_db
+def checkout(cur, conn):
+    payload = request.get_json(silent=True) or {}
+    items = payload.get("items") or []
+    customer_id = payload.get("customer_id")
+    employee_id = payload.get("employee_id")
+    payment_method = payload.get("payment_method") or None
+
+    if not items:
+        return jsonify({"message": "No items to checkout."}), 400
+
+    cur.execute("""
+        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME='Product' AND COLUMN_NAME='UnitPrice'
+    """)
+    price_is_unitprice = cur.fetchone()[0] > 0
+    price_col = "UnitPrice" if price_is_unitprice else "Price"
+
+    cur.execute("""
+        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_NAME='Product' AND COLUMN_NAME='QuantityInStock'
+    """)
+    stock_is_quantityinstock = cur.fetchone()[0] > 0
+    stock_col = "QuantityInStock" if stock_is_quantityinstock else "StockQuantity"
+
+    autocommit_before = conn.autocommit
+    conn.autocommit = False
+    try:
+        line_items = []
+        grand_total = 0
+
+        for it in items:
+            pid = it.get("product_id")
+            qty = it.get("quantity")
+            if not isinstance(pid, int) or not isinstance(qty, int) or qty <= 0:
+                conn.rollback()
+                conn.autocommit = autocommit_before
+                return jsonify({"message": f"Invalid item: {it}"}), 400
+
+            cur.execute(f"""
+                SELECT TOP 1 ProductID, {price_col}, {stock_col}
+                FROM Product WITH (UPDLOCK, ROWLOCK)
+                WHERE ProductID = ?
+            """, (pid,))
+            row = cur.fetchone()
+            if not row:
+                conn.rollback()
+                conn.autocommit = autocommit_before
+                return jsonify({"message": f"Product {pid} not found."}), 404
+
+            db_pid, db_price, db_stock = row
+            if db_stock is None: db_stock = 0
+            if db_stock < qty:
+                conn.rollback()
+                conn.autocommit = autocommit_before
+                return jsonify({"message": f"Insufficient stock for ProductID {pid}. In stock: {db_stock}, requested: {qty}"}), 409
+
+            subtotal = float(db_price) * qty
+            grand_total += subtotal
+            line_items.append((db_pid, qty, float(db_price), subtotal))
+
+        cur.execute("""
+            INSERT INTO SalesTransaction (CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod)
+            OUTPUT INSERTED.TransactionID
+            VALUES (?, ?, GETDATE(), ?, ?)
+        """, (customer_id, employee_id, grand_total, payment_method))
+        new_tid = cur.fetchone()[0]
+
+        for (pid, qty, price, subtotal) in line_items:
+            cur.execute("""
+                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Subtotal)
+                VALUES (?, ?, ?, ?)
+            """, (new_tid, pid, qty, subtotal))
+
+            cur.execute(f"""
+                UPDATE Product
+                SET {stock_col} = {stock_col} - ?
+                WHERE ProductID = ?
+            """, (qty, pid))
+
+        conn.commit()
+        conn.autocommit = autocommit_before
+
+        return jsonify({
+            "message": "Checkout complete.",
+            "transaction_id": new_tid,
+            "total_amount": grand_total
+        }), 201
+
+    except Exception as e:
+        conn.rollback()
+        conn.autocommit = autocommit_before
+        print("DB error (checkout):", e)
+        return jsonify({"message": "Database error"}), 500
 
 @app.route('/logout')
 def logout():

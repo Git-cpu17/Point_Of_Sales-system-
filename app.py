@@ -604,11 +604,15 @@ def checkout(cursor, conn):
             return jsonify({"message": f"Invalid item: {it}"}), 400
         clean.append((pid, qty))
 
+    role = session.get('role')
+    cust_id = session.get('user_id') if role == 'customer' else None
+    emp_id  = session.get('user_id') if role == 'employee' else None
+
     autocommit_backup = conn.autocommit
     conn.autocommit = False
     try:
-        line_items = []
         grand_total = 0.0
+        line_items = []
 
         for pid, qty in clean:
             cursor.execute("""
@@ -621,7 +625,7 @@ def checkout(cursor, conn):
                 conn.rollback(); conn.autocommit = autocommit_backup
                 return jsonify({"message": f"Product {pid} not found."}), 404
 
-            _pid, price, stock = row
+            _, price, stock = row
             stock = stock or 0
             if stock < qty:
                 conn.rollback(); conn.autocommit = autocommit_backup
@@ -634,8 +638,8 @@ def checkout(cursor, conn):
         cursor.execute("""
             INSERT INTO SalesTransaction (CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod)
             OUTPUT INSERTED.TransactionID
-            VALUES (NULL, NULL, GETDATE(), ?, NULL)
-        """, (grand_total,))
+            VALUES (?, ?, GETDATE(), ?, NULL)
+        """, (cust_id, emp_id, grand_total))
         new_tid = cursor.fetchone()[0]
 
         for pid, qty, price, subtotal in line_items:

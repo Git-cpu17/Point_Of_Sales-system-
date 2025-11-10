@@ -587,100 +587,78 @@ def bag(cursor, conn):
 
 @app.post("/checkout")
 @with_db
-def checkout(cur, conn):
+def checkout(cursor, conn):
     payload = request.get_json(silent=True) or {}
     items = payload.get("items") or []
-    customer_id = payload.get("customer_id")
-    employee_id = payload.get("employee_id")
-    payment_method = payload.get("payment_method") or None
-
     if not items:
         return jsonify({"message": "No items to checkout."}), 400
 
-    cur.execute("""
-        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_NAME='Product' AND COLUMN_NAME='UnitPrice'
-    """)
-    price_is_unitprice = cur.fetchone()[0] > 0
-    price_col = "UnitPrice" if price_is_unitprice else "Price"
+    clean = []
+    for it in items:
+        try:
+            pid = int(it.get("product_id"))
+            qty = int(it.get("quantity"))
+        except Exception:
+            return jsonify({"message": f"Invalid item: {it}"}), 400
+        if pid <= 0 or qty <= 0:
+            return jsonify({"message": f"Invalid item: {it}"}), 400
+        clean.append((pid, qty))
 
-    cur.execute("""
-        SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_NAME='Product' AND COLUMN_NAME='QuantityInStock'
-    """)
-    stock_is_quantityinstock = cur.fetchone()[0] > 0
-    stock_col = "QuantityInStock" if stock_is_quantityinstock else "StockQuantity"
-
-    autocommit_before = conn.autocommit
+    autocommit_backup = conn.autocommit
     conn.autocommit = False
     try:
         line_items = []
-        grand_total = 0
+        grand_total = 0.0
 
-        for it in items:
-            pid = it.get("product_id")
-            qty = it.get("quantity")
-            if not isinstance(pid, int) or not isinstance(qty, int) or qty <= 0:
-                conn.rollback()
-                conn.autocommit = autocommit_before
-                return jsonify({"message": f"Invalid item: {it}"}), 400
-
-            cur.execute(f"""
-                SELECT TOP 1 ProductID, {price_col}, {stock_col}
+        for pid, qty in clean:
+            cursor.execute("""
+                SELECT TOP 1 ProductID, Price, QuantityInStock
                 FROM Product WITH (UPDLOCK, ROWLOCK)
                 WHERE ProductID = ?
             """, (pid,))
-            row = cur.fetchone()
+            row = cursor.fetchone()
             if not row:
-                conn.rollback()
-                conn.autocommit = autocommit_before
+                conn.rollback(); conn.autocommit = autocommit_backup
                 return jsonify({"message": f"Product {pid} not found."}), 404
 
-            db_pid, db_price, db_stock = row
-            if db_stock is None: db_stock = 0
-            if db_stock < qty:
-                conn.rollback()
-                conn.autocommit = autocommit_before
-                return jsonify({"message": f"Insufficient stock for ProductID {pid}. In stock: {db_stock}, requested: {qty}"}), 409
+            _pid, price, stock = row
+            stock = stock or 0
+            if stock < qty:
+                conn.rollback(); conn.autocommit = autocommit_backup
+                return jsonify({"message": f"Insufficient stock for ProductID {pid}. In stock: {stock}, requested: {qty}"}), 409
 
-            subtotal = float(db_price) * qty
+            subtotal = float(price) * qty
             grand_total += subtotal
-            line_items.append((db_pid, qty, float(db_price), subtotal))
+            line_items.append((pid, qty, float(price), subtotal))
 
-        cur.execute("""
+        cursor.execute("""
             INSERT INTO SalesTransaction (CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod)
             OUTPUT INSERTED.TransactionID
-            VALUES (?, ?, GETDATE(), ?, ?)
-        """, (customer_id, employee_id, grand_total, payment_method))
-        new_tid = cur.fetchone()[0]
+            VALUES (NULL, NULL, GETDATE(), ?, NULL)
+        """, (grand_total,))
+        new_tid = cursor.fetchone()[0]
 
-        for (pid, qty, price, subtotal) in line_items:
-            cur.execute("""
+        for pid, qty, price, subtotal in line_items:
+            cursor.execute("""
                 INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Subtotal)
                 VALUES (?, ?, ?, ?)
             """, (new_tid, pid, qty, subtotal))
-
-            cur.execute(f"""
+            cursor.execute("""
                 UPDATE Product
-                SET {stock_col} = {stock_col} - ?
+                SET QuantityInStock = QuantityInStock - ?
                 WHERE ProductID = ?
             """, (qty, pid))
 
         conn.commit()
-        conn.autocommit = autocommit_before
-
-        return jsonify({
-            "message": "Checkout complete.",
-            "transaction_id": new_tid,
-            "total_amount": grand_total
-        }), 201
+        conn.autocommit = autocommit_backup
+        return jsonify({"transaction_id": new_tid, "total_amount": grand_total}), 201
 
     except Exception as e:
+        print("DB error (/checkout):", e)
         conn.rollback()
-        conn.autocommit = autocommit_before
-        print("DB error (checkout):", e)
+        conn.autocommit = autocommit_backup
         return jsonify({"message": "Database error"}), 500
-
+        
 @app.route('/logout')
 def logout():
     # Clear all session data

@@ -421,10 +421,10 @@ def customer_orders(cursor, conn):
     for o in orders:
         if not o['TotalAmount']:
             cursor.execute("""
-                SELECT SUM(tp.Quantity * p.Price)
-                FROM TransactionProduct tp
-                JOIN Product p ON p.ProductID = tp.ProductID
-                WHERE tp.TransactionID = ?
+                SELECT SUM(td.Quantity * p.Price)
+                FROM Transaction_Details td
+                JOIN Product p ON p.ProductID = td.ProductID
+                WHERE td.TransactionID = ?
             """, (o['TransactionID'],))
             o['TotalAmount'] = float(cursor.fetchone()[0] or 0)
 
@@ -461,15 +461,15 @@ def customer_order_detail(cursor, conn, transaction_id):
 
     cursor.execute("""
         SELECT
-            tp.ProductID,
+            td.ProductID,
             p.Name,
-            tp.Quantity,
-            p.Price                                    AS UnitPrice,
-            (tp.Quantity * p.Price)                         AS Subtotal
-        FROM TransactionProduct tp
-        JOIN Product p ON p.ProductID = tp.ProductID
-        WHERE tp.TransactionID = ?
-        ORDER BY tp.ProductID
+            td.Quantity,
+            p.Price              AS UnitPrice,
+            (td.Quantity * p.Price) AS Subtotal
+        FROM Transaction_Details td
+        JOIN Product p ON p.ProductID = td.ProductID
+        WHERE td.TransactionID = ?
+        ORDER BY td.ProductID
     """, (transaction_id,))
     item_cols = [c[0] for c in cursor.description]
     items = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
@@ -644,9 +644,9 @@ def checkout(cursor, conn):
 
         for pid, qty, price, subtotal in line_items:
             cursor.execute("""
-                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Subtotal)
-                VALUES (?, ?, ?, ?)
-            """, (new_tid, pid, qty, subtotal))
+                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity)
+                VALUES (?, ?, ?)
+            """, (new_tid, pid, qty))
             cursor.execute("""
                 UPDATE Product
                 SET QuantityInStock = QuantityInStock - ?

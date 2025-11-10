@@ -293,7 +293,7 @@ def reports_query(cur, conn):
         "SELECT",
         f"  {select_dim},",
         "  SUM(td.Quantity) AS UnitsSold,",
-        "  SUM(CAST(td.Subtotal AS DECIMAL(18,4))) AS GrossRevenue",
+        "  SUM(CAST(td.Quantity * p.Price AS DECIMAL(18,4))) AS GrossRevenue",
         "FROM SalesTransaction AS st",
         "JOIN Transaction_Details AS td ON td.TransactionID = st.TransactionID",
         "JOIN Product AS p              ON p.ProductID       = td.ProductID",
@@ -636,10 +636,12 @@ def checkout(cursor, conn):
             line_items.append((pid, qty, float(price), subtotal))
 
         cursor.execute("""
-            INSERT INTO SalesTransaction (CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod)
+            INSERT INTO SalesTransaction (
+                CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
+            )
             OUTPUT INSERTED.TransactionID
-            VALUES (?, ?, GETDATE(), ?, NULL)
-        """, (cust_id, emp_id, grand_total))
+            VALUES (?, ?, GETDATE(), ?, ?, ?)
+        """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
         new_tid = cursor.fetchone()[0]
 
         for pid, qty, price, subtotal in line_items:

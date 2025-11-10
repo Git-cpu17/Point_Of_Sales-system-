@@ -182,19 +182,45 @@ async function checkout() {
     return;
   }
 
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const items = cart
+    .filter(it => it && Number.isInteger(Number(it.product_id)) && Number(it.quantity) > 0)
+    .map(it => ({ product_id: Number(it.product_id), quantity: Number(it.quantity) }));
 
-  const message = `Order Summary:\n\n` +
-    cart.map(item => `${item.name} x${item.quantity} - ${formatCurrency(item.price * item.quantity)}`).join('\n') +
-    `\n\nTotal: ${formatCurrency(total)}\n\nProceed with checkout?`;
+  if (!items.length) {
+    showNotification('Your cart has no valid items', 'error');
+    return;
+  }
 
-  if (confirm(message)) {
+  const summary =
+    'Order Summary:\n\n' +
+    cart.map(it => `${it.name} x${it.quantity} - ${formatCurrency((Number(it.price)||0)*(Number(it.quantity)||0))}`).join('\n') +
+    `\n\n(Actual total will be computed server-side)\nProceed with checkout?`;
+
+  if (!confirm(summary)) return;
+
+  try {
     showNotification('Processing your order...', 'success');
-    setTimeout(() => {
-      writeCart([]);
-      renderCartPage();
-      showNotification('Order placed successfully! 🎉', 'success');
-    }, 2000);
+
+    const res = await fetch('/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      showNotification(data?.message || `Checkout failed (HTTP ${res.status})`, 'error');
+      return;
+    }
+
+    writeCart([]);
+    renderCartPage();
+    showNotification(`Order placed! Transaction ID: ${data.transaction_id} — Total: ${formatCurrency(Number(data.total_amount)||0)}`, 'success');
+
+  } catch (err) {
+    console.error('Checkout error:', err);
+    showNotification('Network error during checkout.', 'error');
   }
 }
 

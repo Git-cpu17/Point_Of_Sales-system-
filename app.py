@@ -639,13 +639,14 @@ def checkout(cursor, conn):
             line_items.append((pid, qty, float(price), subtotal))
 
         cursor.execute("""
-            INSERT INTO SalesTransaction (
-                CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
-            )
-            VALUES (?, ?, GETDATE(), ?, ?, ?);
-            SELECT CAST(SCOPE_IDENTITY() AS INT);
-        """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
-        new_tid = cursor.fetchone()[0]
+             INSERT INTO SalesTransaction (
+                 CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
+             )
+             VALUES (?, ?, GETDATE(), ?, ?, ?)
+         """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
+
+         cursor.execute("SELECT CAST(SCOPE_IDENTITY() AS INT)")
+         new_tid = cursor.fetchone()[0]
 
         for pid, qty, price, subtotal in line_items:
             cursor.execute("""

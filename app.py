@@ -649,9 +649,9 @@ def checkout(cursor, conn):
 
         for pid, qty, price, subtotal in line_items:
             cursor.execute("""
-                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity)
-                VALUES (?, ?, ?)
-            """, (new_tid, pid, qty))
+                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Price)
+                VALUES (?, ?, ?, ?)
+            """, (new_tid, pid, qty, price))
             cursor.execute("""
                 UPDATE Product
                 SET QuantityInStock = QuantityInStock - ?

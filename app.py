@@ -608,6 +608,9 @@ def checkout(cursor, conn):
     cust_id = session.get('user_id') if role == 'customer' else None
     emp_id  = session.get('user_id') if role == 'employee' else None
 
+    if cust_id is None and emp_id is None:
+        return jsonify({"message": "Login required to checkout."}), 401
+
     autocommit_backup = conn.autocommit
     conn.autocommit = False
     try:
@@ -661,9 +664,10 @@ def checkout(cursor, conn):
 
     except Exception as e:
         print("DB error (/checkout):", e)
+        traceback.print_exc()
         conn.rollback()
         conn.autocommit = autocommit_backup
-        return jsonify({"message": "Database error"}), 500
+        return jsonify({"message": f"Database error: {str(e)}"}), 500
         
 @app.route('/logout')
 def logout():

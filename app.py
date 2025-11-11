@@ -19,6 +19,20 @@ def get_bag_owner_from_session():
     if role == 'employee' and uid:
         return {'CustomerID': None, 'EmployeeID': uid}
     return None
+
+@app.context_processor
+@with_db
+def inject_bag_count(cursor, conn):
+    owner = get_bag_owner_from_session()
+    count = 0
+    if owner:
+        if owner['CustomerID'] is not None:
+            cursor.execute("SELECT COALESCE(SUM(Quantity),0) FROM dbo.Bag WHERE CustomerID = ? AND EmployeeID IS NULL", (owner['CustomerID'],))
+        else:
+            cursor.execute("SELECT COALESCE(SUM(Quantity),0) FROM dbo.Bag WHERE EmployeeID = ? AND CustomerID IS NULL", (owner['EmployeeID'],))
+        row = cursor.fetchone()
+        count = int(row[0] or 0) if row else 0
+    return {'bag_count': count}
     
 # -----------------------------
 # Routes

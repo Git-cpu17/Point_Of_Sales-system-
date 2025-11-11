@@ -569,86 +569,110 @@
 
   // -------------------- Employee Report Filters & Sorting --------------------
   document.addEventListener('DOMContentLoaded', () => {
-    const tableBody = document.getElementById('employeeTableBody');
-    const filterBtn = document.getElementById('filterBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    const printBtn = document.getElementById('printBtn');
-    const tableHeaders = document.querySelectorAll('.data-table th');
+      const tableBody = document.getElementById('employeeTableBody');
+      const filterBtn = document.getElementById('filterBtn');
 
-    if (!tableBody) return;
+      // --- Department dropdown ---
+      const deptDropdown = document.getElementById('employeeDepartmentDropdown');
+      const deptCheckboxes = document.querySelectorAll('.employee-dept-option');
+      const deptHiddenInput = document.getElementById('employeeDepartment');
+      const deptToggleBtn = deptDropdown ? deptDropdown.querySelector('.dropdown-toggle') : null;
 
-    let sortColumn = '';
-    let sortOrder = '';
+      function updateDeptLabel() {
+          const selected = Array.from(deptCheckboxes)
+              .filter(ch => ch.checked)
+              .map(ch => ch.value);
+          deptHiddenInput.value = selected.join(',');
 
-    async function fetchEmployees() {
-      const payload = {
-        department: document.getElementById("department").value,
-        name: document.getElementById("name").value,
-        job_title: document.getElementById("job_title").value,
-        hire_date_from: document.getElementById("hire_date_from").value,
-        hire_date_to: document.getElementById("hire_date_to").value,
-        active_status: document.getElementById("active_status").value,
-        revenue_min: document.getElementById("revenue_min").value,
-        revenue_max: document.getElementById("revenue_max").value,
-        sort_column: sortColumn,
-        sort_order: sortOrder
-      };
-
-      tableBody.innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
-
-      try {
-        const res = await fetch("/api/employee_report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        tableBody.innerHTML = data.html || '<tr><td colspan="8">No results found</td></tr>';
-      } catch (err) {
-        console.error(err);
-        tableBody.innerHTML = '<tr><td colspan="8">Error loading report</td></tr>';
+          if (!deptToggleBtn) return;
+          if (selected.length === 0) {
+              deptToggleBtn.textContent = 'Select Department ▼';
+          } else if (selected.length <= 2) {
+              deptToggleBtn.textContent = selected.join(', ');
+          } else {
+              deptToggleBtn.textContent = `${selected.length} selected`;
+          }
       }
-    }
 
-    // Filters
-    filterBtn.addEventListener('click', fetchEmployees);
+      deptCheckboxes.forEach(ch => ch.addEventListener('change', updateDeptLabel));
 
-    // Column Sorting
-    tableHeaders.forEach(th => {
-      th.addEventListener('click', () => {
-        const column = th.dataset.column;
-        if (!column) return;
-        sortColumn = column;
-        sortOrder = th.dataset.sort === 'asc' ? 'desc' : 'asc';
-        th.dataset.sort = sortOrder;
-
-        // Reset other headers
-        tableHeaders.forEach(h => { if (h !== th) h.dataset.sort = ''; });
-
-        fetchEmployees();
+      document.getElementById('employeeSelectAllDepts').addEventListener('click', () => {
+          deptCheckboxes.forEach(ch => ch.checked = true);
+          updateDeptLabel();
       });
-    });
 
-    // Export CSV
-    exportBtn.addEventListener('click', () => {
-      const params = new URLSearchParams({
-        department: document.getElementById("department").value,
-        name: document.getElementById("name").value,
-        job_title: document.getElementById("job_title").value,
-        hire_date_from: document.getElementById("hire_date_from").value,
-        hire_date_to: document.getElementById("hire_date_to").value,
-        active_status: document.getElementById("active_status").value,
-        revenue_min: document.getElementById("revenue_min").value,
-        revenue_max: document.getElementById("revenue_max").value,
-        sort_column: sortColumn,
-        sort_order: sortOrder
+      document.getElementById('employeeClearAllDepts').addEventListener('click', () => {
+          deptCheckboxes.forEach(ch => ch.checked = false);
+          updateDeptLabel();
       });
-      window.location.href = `/reports/employee_csv?${params.toString()}`;
-    });
 
-    // Print
-    printBtn.addEventListener('click', () => window.print());
+      if (deptToggleBtn) {
+          deptToggleBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              deptDropdown.classList.toggle('open');
+          });
+      }
+
+      document.addEventListener('click', (e) => {
+          if (deptDropdown && !deptDropdown.contains(e.target)) {
+              deptDropdown.classList.remove('open');
+          }
+      });
+
+      updateDeptLabel();
+
+      // --- Sorting ---
+      let sortColumn = '';
+      let sortOrder = '';
+
+      async function fetchEmployees() {
+          const payload = {
+              department: deptHiddenInput.value.split(',').filter(Boolean),
+              name: document.getElementById("name").value,
+              job_title: document.getElementById("job_title").value,
+              hire_date_from: document.getElementById("hire_date_from").value,
+              hire_date_to: document.getElementById("hire_date_to").value,
+              revenue_min: document.getElementById("revenue_min").value,
+              revenue_max: document.getElementById("revenue_max").value,
+              sort_column: sortColumn,
+              sort_order: sortOrder
+          };
+
+          tableBody.innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
+
+          try {
+              const res = await fetch("/api/employee_report", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(payload)
+              });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+              tableBody.innerHTML = data.html || '<tr><td colspan="8">No results found</td></tr>';
+          } catch (err) {
+              console.error(err);
+              tableBody.innerHTML = '<tr><td colspan="8">Error loading report</td></tr>';
+          }
+      }
+
+      filterBtn.addEventListener('click', fetchEmployees);
+
+      // --- Sorting by table headers ---
+      const sortableHeaders = document.querySelectorAll('.report-table th.sortable');
+      sortableHeaders.forEach(th => {
+          th.addEventListener('click', () => {
+              const column = th.dataset.column;
+              if (sortColumn === column) {
+                  sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+              } else {
+                  sortColumn = column;
+                  sortOrder = 'asc';
+              }
+              sortableHeaders.forEach(h => h.classList.remove('asc', 'desc'));
+              th.classList.add(sortOrder);
+              fetchEmployees();
+          });
+      });
   });
 
   // -------------------- Product Overview Report Filters --------------------
@@ -657,7 +681,65 @@
     const filterBtn = document.getElementById('productFilterBtn');
     const exportBtn = document.getElementById('productExportBtn');
     const printBtn = document.getElementById('productPrintBtn');
-    const sortableHeaders = document.querySelectorAll('.sortable'); // clickable headers
+    const sortableHeaders = document.querySelectorAll('.report-table th.sortable'); // clickable headers
+
+    const deptDropdown = document.getElementById('departmentDropdown');
+    const deptCheckboxes = document.querySelectorAll('.dept-option');
+    const deptHiddenInput = document.getElementById('department');
+    const deptToggleBtn = deptDropdown ? deptDropdown.querySelector('.dropdown-toggle') : null;
+
+    // --- Helper to update dropdown button label ---
+    function updateDeptLabel() {
+      const selected = Array.from(deptCheckboxes)
+        .filter(ch => ch.checked)
+        .map(ch => ch.value);
+
+      deptHiddenInput.value = selected.join(',');
+
+      if (!deptToggleBtn) return;
+      if (selected.length === 0) {
+        deptToggleBtn.textContent = 'Select Department ▼';
+      } else if (selected.length <= 2) {
+        deptToggleBtn.textContent = selected.join(', ');
+      } else {
+        deptToggleBtn.textContent = `${selected.length} selected`;
+      }
+    }
+
+    // --- Department checkbox logic ---
+    deptCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updateDeptLabel);
+    });
+
+    // --- Select All / Clear All functionality ---
+    const selectAllBtn = document.getElementById('selectAllDepts');
+    const clearAllBtn = document.getElementById('clearAllDepts');
+
+    if (selectAllBtn && clearAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        deptCheckboxes.forEach(ch => ch.checked = true);
+        updateDeptLabel();
+      });
+
+      clearAllBtn.addEventListener('click', () => {
+        deptCheckboxes.forEach(ch => ch.checked = false);
+        updateDeptLabel();
+      });
+    }
+
+    // --- Dropdown open/close behavior ---
+    if (deptToggleBtn) {
+      deptToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // prevent immediate close
+        deptDropdown.classList.toggle('open');
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (deptDropdown && !deptDropdown.contains(e.target)) {
+        deptDropdown.classList.remove('open');
+      }
+    });
 
     if (!tableBody) return;
 
@@ -666,7 +748,7 @@
 
     async function filterProductsServerSide() {
       const payload = {
-        department: document.getElementById("department").value,
+        department: deptHiddenInput.value.split(',').filter(Boolean),
         product_name: document.getElementById("product_name").value,
         stock_status: document.getElementById("stock_status").value,
         on_sale: document.getElementById("on_sale").checked ? "Yes" : "All",
@@ -703,7 +785,7 @@
     filterBtn.addEventListener('click', filterProductsServerSide);
     exportBtn.addEventListener('click', () => {
       const params = new URLSearchParams({
-        department: document.getElementById("department").value,
+        department: deptHiddenInput.value,
         product_name: document.getElementById("product_name").value,
         stock_status: document.getElementById("stock_status").value,
         on_sale: document.getElementById("on_sale").checked ? "Yes" : "All",
@@ -738,6 +820,9 @@
         filterProductsServerSide();
       });
     });
+
+    // Initialize label text when page loads
+    updateDeptLabel();
   });
 
   // -------------------- Customer Report Filters --------------------

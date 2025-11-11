@@ -58,25 +58,6 @@ def get_products(cursor, conn):
     rows = rows_to_dict_list(cursor)
     return jsonify(rows)
 
-@app.route("/add", methods=["POST"])
-@with_db
-def add_product(cursor, conn):
-    data = request.get_json() or {}
-    query = """
-        INSERT INTO Product (Name, Description, Price, Barcode, QuantityInStock, DepartmentID)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """
-    cursor.execute(query, (
-        data.get('name'),
-        data.get('description', ''),
-        data.get('price', 0),
-        data.get('barcode', ''),
-        data.get('quantity_in_stock', 0),
-        data.get('department_id')
-    ))
-    conn.commit()
-    return jsonify({"message": "Product added successfully"}), 201
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -688,27 +669,33 @@ def bag(cursor, conn):
 @app.route('/employee_report')
 @with_db
 def employee_report(cursor, conn):
+    # Fetch employees
     cursor.execute("""
-        SELECT
+        SELECT 
             e.EmployeeID,
             e.Name,
             d.Name AS DepartmentName,
             e.JobTitle,
             e.HireDate,
-            ISNULL(SUM(td.Quantity * p.Price), 0) AS TotalRevenue,
+            ISNULL(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,
             COUNT(td.TransactionID) AS NumberOfSales,
-            CASE WHEN COUNT(td.TransactionID) = 0 THEN 0
-                ELSE SUM(td.Quantity * p.Price) / COUNT(td.TransactionID)
-            END AS AverageSaleValue
+            CASE WHEN COUNT(td.TransactionID) > 0 THEN SUM(td.Quantity * td.Price)/COUNT(td.TransactionID) ELSE 0 END AS AverageSaleValue
         FROM Employee e
         LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID
         LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID
-        LEFT JOIN Product p ON p.ProductID = td.ProductID
         GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate
-        ORDER BY e.Name
     """)
     employees = rows_to_dict_list(cursor)
-    return render_template('employee_report.html', employees=employees)
+
+    # Fetch all departments
+    cursor.execute("SELECT Name FROM Department ORDER BY Name")
+    departments = [row[0] for row in cursor.fetchall()]
+
+    # Fetch all unique job titles
+    cursor.execute("SELECT DISTINCT JobTitle FROM Employee ORDER BY JobTitle")
+    job_titles = [row[0] for row in cursor.fetchall() if row[0]]  # ignore nulls
+
+    return render_template('employee_report.html', employees=employees, departments=departments, job_titles=job_titles)
 
 @app.post("/api/employee_report")
 @with_db
@@ -764,8 +751,9 @@ def employee_report_filter(cursor, conn):
     params = []
 
     if department:
-        sql_parts.append("AND d.Name = ?")
-        params.append(department)
+        placeholders = ",".join("?" for _ in department)
+        sql_parts.append(f"AND d.Name IN ({placeholders})")
+        params.extend(department)
     if job_title:
         sql_parts.append("AND e.JobTitle = ?")
         params.append(job_title)
@@ -778,20 +766,19 @@ def employee_report_filter(cursor, conn):
     if hire_date_to:
         sql_parts.append("AND e.HireDate <= ?")
         params.append(hire_date_to)
-    if active_status:
-        if active_status == "active":
-            sql_parts.append("AND e.Active = 1")
-        elif active_status == "inactive":
-            sql_parts.append("AND e.Active = 0")
 
     sql_parts.append("GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate")
 
+    having_clauses = []
     if revenue_min > 0:
-        sql_parts.append("HAVING COALESCE(SUM(td.Quantity * p.Price), 0) >= ?")
+        having_clauses.append("COALESCE(SUM(td.Quantity * p.Price), 0) >= ?")
         params.append(revenue_min)
     if revenue_max > 0:
-        sql_parts.append("AND COALESCE(SUM(td.Quantity * p.Price), 0) <= ?")
+        having_clauses.append("COALESCE(SUM(td.Quantity * p.Price), 0) <= ?")
         params.append(revenue_max)
+
+    if having_clauses:
+        sql_parts.append("HAVING " + " AND ".join(having_clauses))
 
     # --- Add sorting ---
     sql_parts.append(f"ORDER BY {sort_column} {sort_order.upper()}")
@@ -817,6 +804,7 @@ def employee_report_filter(cursor, conn):
 @app.route('/product_report')
 @with_db
 def product_report(cursor, conn):
+    # Fetch products as before
     cursor.execute("""
         SELECT 
             p.ProductID,
@@ -844,9 +832,13 @@ def product_report(cursor, conn):
             i.QuantityAvailable, i.ReorderLevel, i.LastRestockDate, p.OnSale
         ORDER BY p.Name
     """)
-    
     products = rows_to_dict_list(cursor)
-    return render_template('product_report.html', products=products)
+
+    # Fetch all departments for the filter
+    cursor.execute("SELECT Name FROM Department ORDER BY Name")
+    departments = [row[0] for row in cursor.fetchall()]
+
+    return render_template('product_report.html', products=products, departments=departments)
 
 @app.post("/api/product_report")
 @with_db
@@ -901,9 +893,15 @@ def product_report_filter(cursor, conn):
     params = []
 
     # Filters
-    if department and department.lower() != "all":
-        sql_parts.append("AND d.Name = ?")
-        params.append(department)
+    # if department is a list
+    if department:
+        if isinstance(department, list):
+            placeholders = ", ".join(["?"] * len(department))
+            sql_parts.append(f"AND d.Name IN ({placeholders})")
+            params.extend(department)
+        else:
+            sql_parts.append("AND d.Name = ?")
+            params.append(department)
 
     if product_name:
         sql_parts.append("AND p.Name LIKE ?")

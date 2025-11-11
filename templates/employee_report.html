@@ -1,250 +1,445 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Employee Report - FreshMart</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-  <style>
-    :root {
-      --primary: #2ecc71;
-      --secondary: #27ae60;
-      --bg-light: #f9f9f9;
-      --text-dark: #333;
-      --text-muted: #777;
-      --radius: 10px;
-      --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Employee Report - FreshMart</title>
+		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+        <style>
+            :root {
+                --primary: #2ecc71;
+                --secondary: #27ae60;
+                --bg-light: #f9f9f9;
+                --text-dark: #333;
+                --text-muted: #777;
+                --radius: 10px;
+                --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            }
 
-    body {
-      background: var(--bg-light);
-      font-family: 'Segoe UI', Roboto, sans-serif;
-      color: var(--text-dark);
-    }
+            body {
+                background: var(--bg-light);
+                font-family: 'Segoe UI', Roboto, sans-serif;
+                color: var(--text-dark);
+            }
 
-    .report-container {
-      max-width: 1400px;
-      margin: 2rem auto;
-      padding: 2rem;
-      background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
+            .report-container {
+                max-width: 1400px;
+                margin: 2rem auto;
+                padding: 2rem;
+                background: white;
+                border-radius: var(--radius);
+                box-shadow: var(--shadow);
+            }
 
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-      color: var(--secondary);
-    }
+            h1 {
+                text-align: center;
+                margin-bottom: 2rem;
+                color: var(--secondary);
+            }
 
-    .filter-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1rem;
-      background: #f4fef8;
-      padding: 1.5rem;
-      border-radius: var(--radius);
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-    }
+            /* --- FILTERS --- */
+            .filter-section {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 1rem;
+                background: #f4fef8;
+                padding: 1.5rem;
+                border-radius: var(--radius);
+                margin-bottom: 2rem;
+                box-shadow: var(--shadow);
+            }
 
-    .filter-section label {
-      display: block;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin-bottom: 0.3rem;
-    }
+            .filter-section label {
+                display: block;
+                font-size: 0.9rem;
+                color: var(--text-muted);
+                margin-bottom: 0.3rem;
+            }
 
-    .filter-section input,
-    .filter-section select {
-      width: 100%;
-      padding: 0.6rem;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
-    }
+            .filter-section input,
+            .filter-section select {
+                width: 100%;
+                padding: 0.6rem;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                transition: all 0.2s ease;
+            }
 
-    .filter-section input:focus,
-    .filter-section select:focus {
-      border-color: var(--primary);
-      outline: none;
-      box-shadow: 0 0 3px var(--primary);
-    }
+            .filter-section select {
+                position: relative;
+                z-index: 9999;
+            }
 
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
+            .filter-section input:focus,
+            .filter-section select:focus {
+                border-color: var(--primary);
+                outline: none;
+                box-shadow: 0 0 3px var(--primary);
+            }
 
-    .filter-group input[type="number"],
-    .filter-group input[type="date"] {
-      flex: 1;
-    }
+            .filter-group {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
 
-    .btn {
-      cursor: pointer;
-      padding: 0.7rem 1.2rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: 0.2s ease;
-      margin-right: 10px;
-    }
+            /* --- Updated flex for multi-input fields --- */
+            .filter-group input {
+                flex: 1 1 auto;
+            }
 
-    .btn.primary {
-      background: var(--primary);
-      color: white;
-    }
+            .filter-group span {
+                flex: 0 0 auto;
+            }
 
-    .btn.primary:hover {
-      background: var(--secondary);
-    }
+            /* --- Ensure dropdowns are full width --- */
+            #departmentDropdown {
+                width: 100%;
+            }
 
-    .btn.secondary {
-      background: #ecf0f1;
-      color: var(--text-dark);
-    }
+            /* --- BUTTONS --- */
+            .btn {
+                cursor: pointer;
+                padding: 0.7rem 1.2rem;
+                border: none;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                font-weight: 500;
+                transition: 0.2s ease;
+                margin-right: 10px;
+            }
 
-    .btn.secondary:hover {
-      background: #dfe6e9;
-    }
+            .btn.primary {
+                background: var(--primary);
+                color: white;
+            }
 
-    .action-buttons {
-      display: flex;
-      justify-content: flex-end;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
+            .btn.primary:hover {
+                background: var(--secondary);
+            }
 
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      margin-top: 1rem;
-    }
+            .btn.secondary {
+                background: #ecf0f1;
+                color: var(--text-dark);
+            }
 
-    .report-table th,
-    .report-table td {
-      padding: 1rem;
-      text-align: left;
-    }
+            .btn.secondary:hover {
+                background: #dfe6e9;
+            }
 
-    .report-table th {
-      background: var(--secondary);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      user-select: none;
-    }
+            .action-buttons {
+                display: flex;
+                justify-content: flex-end;
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
 
-    .report-table th:hover { background: #219150; }
+            /* --- REPORT TABLE --- */
+            .report-table {
+                width: 100%;
+                border-collapse: collapse;
+                border-radius: var(--radius);
+                overflow: hidden;
+                box-shadow: var(--shadow);
+                margin-top: 1rem;
+            }
 
-    .sortable::after { content: ""; margin-left: 5px; font-size: 0.8rem; }
-    .sortable.asc::after { content: "↑"; }
-    .sortable.desc::after { content: "↓"; }
+            .report-table th,
+            .report-table td {
+                padding: 1rem;
+                text-align: left;
+            }
 
-    .report-table tr:nth-child(even) { background: #f8f8f8; }
-    .report-table tr:hover { background: #eafaf1; }
-    .report-table td { color: var(--text-dark); }
-  </style>
-</head>
-<body>
-  <main class="report-container">
-    <h1>Employee Report</h1>
+            .report-table th {
+                background: var(--secondary);
+                color: white;
+                font-weight: 600;
+                cursor: pointer;
+                user-select: none;
+            }
 
-    <!-- Filters -->
-    <section class="filter-section">
-      <div>
-        <label>Department</label>
-        <select id="department" name="department">
-          <option value="">All</option>
-          <option value="Produce">Produce</option>
-          <option value="Dairy">Dairy</option>
-          <option value="Bakery">Bakery</option>
-        </select>
-      </div>
-      <div>
-        <label>Name</label>
-        <input type="text" id="name" name="name" placeholder="Search by name" />
-      </div>
-      <div>
-        <label>Job Title</label>
-        <select id="job_title" name="job_title">
-          <option value="">All</option>
-          <option value="Manager">Manager</option>
-          <option value="Clerk">Clerk</option>
-          <option value="Cashier">Cashier</option>
-        </select>
-      </div>
-      <div>
-        <label>Hire Date</label>
-        <div class="filter-group">
-          <input type="date" id="hire_date_from" name="hire_date_from" />
-          <span>-</span>
-          <input type="date" id="hire_date_to" name="hire_date_to" />
-        </div>
-      </div>
-      <div>
-        <label>Active Status</label>
-        <select id="active_status" name="active_status">
-          <option value="">All</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-      </div>
-      <div>
-        <label>Total Revenue ($)</label>
-        <div class="filter-group">
-          <input type="number" id="revenue_min" placeholder="Min" />
-          <span>-</span>
-          <input type="number" id="revenue_max" placeholder="Max" />
-        </div>
-      </div>
-    </section>
+            .report-table th:hover {
+                background: #219150;
+            }
 
-    <!-- Action buttons -->
-    <div class="action-buttons">
-      <button class="btn secondary" id="exportBtn">📄 Export CSV</button>
-      <button class="btn secondary" id="printBtn">🖨️ Print</button>
-      <button class="btn primary" id="filterBtn">🔍 Apply Filters</button>
-    </div>
+            .sortable::after {
+                content: "";
+                margin-left: 5px;
+                font-size: 0.8rem;
+            }
 
-    <!-- Report Table -->
-    <table class="report-table">
-      <thead>
-        <tr>
-          <th class="sortable" data-column="EmployeeID">EmployeeID</th>
-          <th class="sortable" data-column="Name">Name</th>
-          <th class="sortable" data-column="DepartmentName">Department</th>
-          <th class="sortable" data-column="JobTitle">Job Title</th>
-          <th class="sortable" data-column="HireDate">Hire Date</th>
-          <th class="sortable" data-column="TotalRevenue">Total Revenue</th>
-          <th class="sortable" data-column="NumberOfSales">Number of Sales</th>
-          <th class="sortable" data-column="AverageSaleValue">Average Sale Value</th>
-        </tr>
-      </thead>
-      <tbody id="employeeTableBody">
-        {% for emp in employees %}
-        <tr>
-          <td>{{ emp.EmployeeID }}</td>
-          <td>{{ emp.Name }}</td>
-          <td>{{ emp.DepartmentName }}</td>
-          <td>{{ emp.JobTitle }}</td>
-          <td>{{ emp.HireDate }}</td>
-          <td>${{ '%.2f' | format(emp.TotalRevenue or 0) }}</td>
-          <td>{{ emp.NumberOfSales or 0 }}</td>
-          <td>${{ '%.2f' | format(emp.AverageSaleValue or 0) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </main>
+            .sortable.asc::after {
+                content: "↑";
+            }
 
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
+            .sortable.desc::after {
+                content: "↓";
+            }
+
+            .report-table tr:nth-child(even) {
+                background: #f8f8f8;
+            }
+
+            .report-table tr:hover {
+                background: #eafaf1;
+            }
+
+            .report-table td {
+                color: var(--text-dark);
+            }
+
+            /* --- MULTI-SELECT TAGS & DROPDOWNS --- */
+            .ts-control {
+                border-radius: 8px !important;
+                border: 1px solid #ccc !important;
+                padding: 0.4rem 0.6rem !important;
+                font-size: 0.9rem;
+                background: white;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            }
+
+            .ts-wrapper.multi.has-items .ts-control {
+                flex-wrap: wrap;
+                gap: 0.3rem;
+            }
+
+            .ts-wrapper.multi .ts-control .selected-bubble {
+                background: var(--primary);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                display: inline-flex;
+                align-items: center;
+                font-size: 0.85rem;
+                font-weight: 500;
+            }
+
+            .ts-wrapper.multi .ts-control .selected-bubble:hover {
+                background: var(--secondary);
+            }
+
+            .dropdown {
+                position: relative;
+                display: inline-block;
+                width: 100%;
+            }
+
+            .dropdown-toggle {
+                width: 100%;
+                background: #fff;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                padding: 0.6rem;
+                text-align: left;
+                cursor: pointer;
+                transition: 0.2s ease;
+            }
+
+            .dropdown-toggle:hover {
+                background: #f9f9f9;
+            }
+
+            .dropdown-menu {
+                opacity: 0;
+                transform: translateY(-5px);
+                transition: opacity 0.2s ease, transform 0.2s ease;
+                display: block;
+                position: absolute;
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                width: 100%;
+                margin-top: 5px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+                z-index: 999;
+            }
+
+            .dropdown.open .dropdown-menu {
+                opacity: 1;
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+
+            .pretty-dropdown {
+                max-height: 240px;
+                overflow-y: auto;
+                border-radius: 10px;
+                background: white;
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+                padding: 0.75rem;
+                animation: fadeIn 0.15s ease-in-out;
+            }
+
+            .dropdown-actions {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 0.5rem;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 0.4rem;
+            }
+
+            .dropdown-item {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 0.4rem 0.5rem;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: background 0.2s ease, transform 0.1s ease;
+            }
+
+            .dropdown-item:hover {
+                background: #f4fef8;
+                transform: scale(1.01);
+            }
+
+            .dropdown-item input {
+                accent-color: var(--primary);
+            }
+
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-4px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            /* --- Mini buttons --- */
+            .btn-mini {
+                border: none;
+                border-radius: 6px;
+                padding: 0.35rem 0.7rem;
+                font-size: 0.8rem;
+                cursor: pointer;
+                transition: 0.2s ease;
+                font-weight: 500;
+            }
+
+            .btn-mini.success {
+                background: #e8f9ee;
+                color: var(--secondary);
+            }
+
+            .btn-mini.danger {
+                background: #fdeaea;
+                color: #c0392b;
+            }
+
+            .btn-mini.success:hover {
+                background: var(--primary);
+                color: white;
+                box-shadow: 0 2px 6px rgba(46, 204, 113, 0.3);
+            }
+
+            .btn-mini.danger:hover {
+                background: #e74c3c;
+                color: white;
+                box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3);
+            }
+        </style>
+	</head>
+
+	<body>
+		<main class="report-container">
+			<h1>Employee Report</h1>
+
+			<!-- Filters -->
+			<section class="filter-section">
+                <div class="filter-group">
+                    <label for="department" class="form-label">Department</label>
+                    <div id="employeeDepartmentDropdown" class="dropdown">
+                        <button type="button" class="dropdown-toggle btn secondary w-100">
+                            Select Department ▼
+                        </button>
+                        <div class="dropdown-menu pretty-dropdown p-2">
+                            <div class="dropdown-actions">
+                                <button type="button" id="employeeSelectAllDepts" class="btn-mini success">✅ Select All</button>
+                                <button type="button" id="employeeClearAllDepts" class="btn-mini danger">❌ Clear All</button>
+                            </div>
+                            <div class="dropdown-list">
+                                {% for dept in departments %}
+                                <label class="dropdown-item">
+                                    <input type="checkbox" class="employee-dept-option" value="{{ dept }}">
+                                    {{ dept }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="employeeDepartment" name="department" value="">
+                </div>
+
+				<div>
+					<label>Name</label>
+					<input type="text" id="name" name="name" placeholder="Search by name" />
+				</div>
+
+                <div>
+                    <label>Job Title</label>
+                    <select id="job_title" name="job_title">
+                        <option value="">All</option>
+                        {% for title in job_titles %}
+                            <option value="{{ title }}">{{ title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+				<div>
+					<label>Hire Date</label>
+					<div class="filter-group">
+						<input type="date" id="hire_date_from" name="hire_date_from" />
+						<span>-</span>
+						<input type="date" id="hire_date_to" name="hire_date_to" />
+					</div>
+				</div>
+
+				<div>
+					<label>Total Revenue ($)</label>
+					<div class="filter-group">
+						<input type="number" id="revenue_min" placeholder="Min" />
+						<span>-</span>
+						<input type="number" id="revenue_max" placeholder="Max" />
+					</div>
+				</div>
+			</section>
+
+			<!-- Action buttons -->
+			<div class="action-buttons">
+				<button class="btn secondary" id="exportBtn">📄 Export CSV</button>
+				<button class="btn secondary" id="printBtn">🖨️ Print</button>
+				<button class="btn primary" id="filterBtn">🔍 Apply Filters</button>
+			</div>
+
+			<!-- Report Table -->
+			<table class="report-table">
+				<thead>
+					<tr>
+						<th class="sortable" data-column="EmployeeID">EmployeeID</th>
+						<th class="sortable" data-column="Name">Name</th>
+						<th class="sortable" data-column="DepartmentName">Department</th>
+						<th class="sortable" data-column="JobTitle">Job Title</th>
+						<th class="sortable" data-column="HireDate">Hire Date</th>
+						<th class="sortable" data-column="TotalRevenue">Total Revenue</th>
+						<th class="sortable" data-column="NumberOfSales">Number of Sales</th>
+						<th class="sortable" data-column="AverageSaleValue">Average Sale Value</th>
+					</tr>
+				</thead>
+				<tbody id="employeeTableBody">
+					{% for emp in employees %}
+					<tr>
+						<td>{{ emp.EmployeeID }}</td>
+						<td>{{ emp.Name }}</td>
+						<td>{{ emp.DepartmentName }}</td>
+						<td>{{ emp.JobTitle }}</td>
+						<td>{{ emp.HireDate }}</td>
+						<td>${{ '%.2f' | format(emp.TotalRevenue or 0) }}</td>
+						<td>{{ emp.NumberOfSales or 0 }}</td>
+						<td>${{ '%.2f' | format(emp.AverageSaleValue or 0) }}</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</main>
+
+		<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+	</body>
 </html>

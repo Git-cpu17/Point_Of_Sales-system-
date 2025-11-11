@@ -640,6 +640,7 @@ def customer_order_detail(cursor, conn, transaction_id):
         order['TotalAmount'] = float(gross - (order.get('OrderDiscount') or 0))
 
     return render_template('customer_order_detail.html', order=order, items=items)
+
 @app.route('/department')
 @with_db
 def department(cursor, conn):

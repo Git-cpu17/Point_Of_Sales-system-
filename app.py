@@ -907,6 +907,26 @@ def api_delete_bag_item(cursor, conn, bag_id):
     conn.commit()
     return jsonify({"message": "Deleted"})
 
+@app.get('/shopping-lists')
+@with_db
+def shopping_lists_page(cursor, conn):
+    user = None
+    if 'user_id' in session:
+        role = session.get('role')
+        if role == 'customer':
+            cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
+            rec = cursor.fetchone()
+            if rec: user = {'Name': rec[0], 'role': 'customer'}
+        elif role == 'admin':
+            cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
+            rec = cursor.fetchone()
+            if rec: user = {'Name': rec[0], 'role': 'admin'}
+        elif role == 'employee':
+            cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+            rec = cursor.fetchone()
+            if rec: user = {'Name': rec[0], 'role': 'employee'}
+
+    return render_template('shopping_lists.html', user=user)
 
 @app.delete("/api/bag")
 @with_db

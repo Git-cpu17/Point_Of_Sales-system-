@@ -580,6 +580,7 @@ def customer_orders(cursor, conn):
 
     customer_id = session['user_id']
 
+    # Fetch orders
     cursor.execute("""
         SELECT
             st.TransactionID,
@@ -597,6 +598,7 @@ def customer_orders(cursor, conn):
     orders = [dict(zip(cols, r)) for r in cursor.fetchall()]
 
     for o in orders:
+        # Ensure TotalAmount is set
         if not o['TotalAmount']:
             cursor.execute("""
                 SELECT SUM(td.Quantity * p.Price)
@@ -606,7 +608,94 @@ def customer_orders(cursor, conn):
             """, (o['TransactionID'],))
             o['TotalAmount'] = float(cursor.fetchone()[0] or 0)
 
+        # Fetch first 3 items for inline summary
+        cursor.execute("""
+            SELECT TOP 3 td.ProductID, p.Name, td.Quantity
+            FROM Transaction_Details td
+            JOIN Product p ON p.ProductID = td.ProductID
+            WHERE td.TransactionID = ?
+            ORDER BY td.ProductID
+        """, (o['TransactionID'],))
+        item_cols = [c[0] for c in cursor.description]
+        o['items'] = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
+
     return render_template('customer_orders.html', orders=orders)
+
+@app.route('/customer/orders/json')
+@with_db
+def customer_orders_json(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    customer_id = session['user_id']
+
+    # Get filter parameters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    status = request.args.get('status')
+    min_amount = request.args.get('min_amount')
+    max_amount = request.args.get('max_amount')
+    keyword = request.args.get('keyword', '').strip()
+
+    query = """
+        SELECT
+            st.TransactionID,
+            st.TransactionDate,
+            COALESCE(st.TotalAmount, 0) AS TotalAmount,
+            COALESCE(st.OrderStatus, '') AS OrderStatus,
+            COALESCE(st.PaymentMethod, '') AS PaymentMethod,
+            COALESCE(st.OrderDiscount, 0) AS OrderDiscount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress
+        FROM SalesTransaction st
+        WHERE st.CustomerID = ?
+    """
+    params = [customer_id]
+
+    # Dynamic filters
+    if start_date:
+        query += " AND st.TransactionDate >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND st.TransactionDate <= ?"
+        params.append(end_date)
+    if status:
+        query += " AND st.OrderStatus = ?"
+        params.append(status)
+    if min_amount:
+        query += " AND COALESCE(st.TotalAmount,0) >= ?"
+        params.append(min_amount)
+    if max_amount:
+        query += " AND COALESCE(st.TotalAmount,0) <= ?"
+        params.append(max_amount)
+
+    query += " ORDER BY st.TransactionDate DESC"
+
+    cursor.execute(query, tuple(params))
+    cols = [c[0] for c in cursor.description]
+    orders = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+    # Fetch items for each order and apply keyword filtering
+    for o in orders:
+        cursor.execute("""
+            SELECT td.ProductID, p.Name, td.Quantity, p.Price, (td.Quantity * p.Price) AS Subtotal
+            FROM Transaction_Details td
+            JOIN Product p ON p.ProductID = td.ProductID
+            WHERE td.TransactionID = ?
+        """, (o['TransactionID'],))
+        item_cols = [c[0] for c in cursor.description]
+        items = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
+
+        # Filter items by keyword
+        if keyword:
+            items = [it for it in items if keyword.lower() in it['Name'].lower()]
+
+        o['items'] = items
+        # Recalculate total amount based on filtered items
+        o['TotalAmount'] = sum(it['Subtotal'] or 0 for it in items)
+
+    orders = [o for o in orders if o['items']]
+
+    return jsonify(orders)
 
 @app.route('/customer/orders/<int:transaction_id>')
 @with_db
@@ -657,6 +746,34 @@ def customer_order_detail(cursor, conn, transaction_id):
         order['TotalAmount'] = float(gross - (order.get('OrderDiscount') or 0))
 
     return render_template('customer_order_detail.html', order=order, items=items)
+
+@app.route('/customer/orders/<int:transaction_id>/items')
+@with_db
+def customer_order_items_json(cursor, conn, transaction_id):
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    customer_id = session['user_id']
+
+    # Get items for this transaction
+    cursor.execute("""
+        SELECT
+            td.ProductID,
+            p.Name,
+            td.Quantity,
+            p.Price AS UnitPrice,
+            (td.Quantity * p.Price) AS Subtotal
+        FROM Transaction_Details td
+        JOIN Product p ON p.ProductID = td.ProductID
+        JOIN SalesTransaction st ON st.TransactionID = td.TransactionID
+        WHERE td.TransactionID = ? AND st.CustomerID = ?
+        ORDER BY td.ProductID
+    """, (transaction_id, customer_id))
+
+    cols = [c[0] for c in cursor.description]
+    items = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+    return jsonify(items)
 
 @app.route('/department')
 @with_db

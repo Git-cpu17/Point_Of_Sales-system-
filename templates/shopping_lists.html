@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shopping Lists - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
+        <a href="{{ url_for('shopping_lists') }}" class="nav-link active">Shopping Lists</a>
+        {% if session.get('role','').lower() in ['employee','admin'] %}
+          <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
+        {% endif %}
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span><span>Cart</span><span id="bagCount" class="badge">0</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container" style="max-width: 1100px;">
+    <div class="section-header">
+      <h2 class="section-title">My Shopping List</h2>
+      <div style="display:flex; gap:10px;">
+        <button id="addListToCartBtn" class="btn primary">Add All to Cart</button>
+        <button id="clearListBtn" class="btn danger secondary">Clear List</button>
+      </div>
+    </div>
+
+    <div id="listContainer" class="card" style="padding: 1rem;">
+
+      <p id="emptyListText" style="margin: 1rem 0; color: var(--text-light); display:none;">Your list is empty.</p>
+      <div id="listTableWrap"></div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

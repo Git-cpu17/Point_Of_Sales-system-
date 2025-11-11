@@ -193,6 +193,104 @@ def admin_dashboard(cursor, conn):
         admin_name=admin_name
     )
 
+@app.route('/employees')
+@with_db
+def manage_employees(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+
+    cursor.execute("SELECT * FROM Employee ORDER BY HireDate DESC")
+    employees = rows_to_dict_list(cursor)
+
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = rows_to_dict_list(cursor)
+
+    return render_template('admin_employees.html', employees=employees, departments=departments)
+
+@app.get("/api/employees/<int:emp_id>")
+@with_db
+def get_employee(cursor, conn, emp_id):
+    cursor.execute("""
+        SELECT EmployeeID, Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password
+        FROM Employee
+        WHERE EmployeeID = ?
+    """, (emp_id,))
+    row = cursor.fetchone()
+    if not row:
+        return jsonify({"message": "Employee not found"}), 404
+    columns = [c[0] for c in cursor.description]
+    return jsonify(dict(zip(columns, row)))
+
+@app.post("/api/employees/add")
+@with_db
+def add_employee(cursor, conn):
+    if 'role' not in session or session['role'] != 'admin':
+        return jsonify({"message": "Unauthorized"}), 403
+
+    data = request.get_json()
+    username = data.get("Username")
+    current_date = datetime.now().strftime("%m/%d/%Y")
+
+    # Check for duplicate username
+    cursor.execute("SELECT EmployeeID FROM Employee WHERE Username = ?", (username,))
+    if cursor.fetchone():
+        return jsonify({"message": f"Username '{username}' already exists."}), 409
+
+    # Insert employee
+    cursor.execute("""
+        INSERT INTO Employee (Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        data.get("Name"),
+        data.get("Phone") or None,
+        data.get("Email") or None,
+        data.get("JobTitle") or None,
+        current_date,
+        data.get("DepartmentID"),
+        session.get("user_id"),  # logged-in admin
+        data.get("Username"),
+        data.get("Password")
+    ))
+    conn.commit()
+    return jsonify({"message": "Employee added successfully!"}), 201
+
+@app.post("/api/employees/edit/<int:emp_id>")
+@with_db
+def edit_employee(cursor, conn, emp_id):
+    data = request.get_json()
+
+    # Fetch current hire date
+    cursor.execute("SELECT HireDate FROM Employee WHERE EmployeeID = ?", (emp_id,))
+    current_hiredate = cursor.fetchone()[0]
+
+    # If no new hire date provided, keep current
+    hiredate = data.get("HireDate") or current_hiredate
+
+    cursor.execute("""
+        UPDATE Employee
+        SET Name = ?, Phone = ?, Email = ?, JobTitle = ?, HireDate = ?, DepartmentID = ?, Username = ?, Password = ?
+        WHERE EmployeeID = ?
+    """, (
+        data.get("Name"),
+        data.get("Phone"),
+        data.get("Email"),
+        data.get("JobTitle"),
+        hiredate,
+        data.get("DepartmentID"),
+        data.get("Username"),
+        data.get("Password"),
+        emp_id
+    ))
+    conn.commit()
+    return jsonify({"message": "Employee updated successfully!"}), 200
+
+@app.delete("/api/employees/delete/<int:emp_id>")
+@with_db
+def delete_employee(cursor, conn, emp_id):
+    cursor.execute("DELETE FROM Employee WHERE EmployeeID = ?", (emp_id,))
+    conn.commit()
+    return jsonify({"message": "Employee deleted successfully!"}), 200
+
 @app.route('/employee')
 @with_db
 def employee_dashboard(cursor, conn):
@@ -585,6 +683,425 @@ def bag(cursor, conn):
 
     return render_template('bag.html', user=user)
 
+#DATA REPORTS theres three of them
+
+@app.route('/employee_report')
+@with_db
+def employee_report(cursor, conn):
+    cursor.execute("""
+        SELECT
+            e.EmployeeID,
+            e.Name,
+            d.Name AS DepartmentName,
+            e.JobTitle,
+            e.HireDate,
+            ISNULL(SUM(td.Quantity * p.Price), 0) AS TotalRevenue,
+            COUNT(td.TransactionID) AS NumberOfSales,
+            CASE WHEN COUNT(td.TransactionID) = 0 THEN 0
+                ELSE SUM(td.Quantity * p.Price) / COUNT(td.TransactionID)
+            END AS AverageSaleValue
+        FROM Employee e
+        LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID
+        LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID
+        LEFT JOIN Product p ON p.ProductID = td.ProductID
+        GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate
+        ORDER BY e.Name
+    """)
+    employees = rows_to_dict_list(cursor)
+    return render_template('employee_report.html', employees=employees)
+
+@app.post("/api/employee_report")
+@with_db
+def employee_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    department = payload.get("department")
+    job_title = payload.get("job_title")
+    name = payload.get("name")
+    hire_date_from = _iso_date(payload.get("hire_date_from"))
+    hire_date_to = _iso_date(payload.get("hire_date_to"))
+    active_status = payload.get("active_status")
+    
+    try:
+        revenue_min = float(payload.get("revenue_min") or 0)
+    except:
+        revenue_min = 0
+    try:
+        revenue_max = float(payload.get("revenue_max") or 0)
+    except:
+        revenue_max = 0
+
+    # --- Sorting parameters ---
+    sort_column = payload.get("sort_column")
+    sort_order = payload.get("sort_order", "asc").lower()  # asc/desc from JS
+
+    allowed_columns = [
+        "EmployeeID", "Name", "DepartmentName", "JobTitle",
+        "HireDate", "TotalRevenue", "NumberOfSales", "AverageSaleValue"
+    ]
+    if sort_column not in allowed_columns:
+        sort_column = "Name"  # default column
+    if sort_order not in ["asc", "desc"]:
+        sort_order = "asc"    # default order
+
+    sql_parts = [
+        "SELECT",
+        "  e.EmployeeID,",
+        "  e.Name,",
+        "  d.Name AS DepartmentName,",
+        "  e.JobTitle,",
+        "  e.HireDate,",
+        "  COALESCE(SUM(td.Quantity * p.Price), 0) AS TotalRevenue,",
+        "  COUNT(td.TransactionID) AS NumberOfSales,",
+        "  COALESCE(SUM(td.Quantity * p.Price)/NULLIF(COUNT(td.TransactionID),0), 0) AS AverageSaleValue",
+        "FROM Employee e",
+        "LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID",
+        "LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID",
+        "LEFT JOIN Product p ON p.ProductID = td.ProductID",
+        "WHERE 1=1"
+    ]
+
+    params = []
+
+    if department:
+        sql_parts.append("AND d.Name = ?")
+        params.append(department)
+    if job_title:
+        sql_parts.append("AND e.JobTitle = ?")
+        params.append(job_title)
+    if name:
+        sql_parts.append("AND e.Name LIKE ?")
+        params.append(f"%{name}%")
+    if hire_date_from:
+        sql_parts.append("AND e.HireDate >= ?")
+        params.append(hire_date_from)
+    if hire_date_to:
+        sql_parts.append("AND e.HireDate <= ?")
+        params.append(hire_date_to)
+    if active_status:
+        if active_status == "active":
+            sql_parts.append("AND e.Active = 1")
+        elif active_status == "inactive":
+            sql_parts.append("AND e.Active = 0")
+
+    sql_parts.append("GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate")
+
+    if revenue_min > 0:
+        sql_parts.append("HAVING COALESCE(SUM(td.Quantity * p.Price), 0) >= ?")
+        params.append(revenue_min)
+    if revenue_max > 0:
+        sql_parts.append("AND COALESCE(SUM(td.Quantity * p.Price), 0) <= ?")
+        params.append(revenue_max)
+
+    # --- Add sorting ---
+    sql_parts.append(f"ORDER BY {sort_column} {sort_order.upper()}")
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    html = ""
+    for r in rows:
+        html += "<tr>"
+        for val in r:
+            if isinstance(val, float):
+                html += f"<td>${val:,.2f}</td>"
+            elif isinstance(val, datetime):
+                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    return jsonify({"html": html})
+
+@app.route('/product_report')
+@with_db
+def product_report(cursor, conn):
+    cursor.execute("""
+        SELECT 
+            p.ProductID,
+            p.Name AS ProductName,
+            d.Name AS Department,
+            p.Price,
+            p.SalePrice,
+            i.QuantityAvailable,
+            CASE
+                WHEN i.QuantityAvailable <= 0 THEN 'Out of Stock'
+                WHEN i.QuantityAvailable <= i.ReorderLevel THEN 'Low Stock'
+                ELSE 'In Stock'
+            END AS StockStatus,
+            i.ReorderLevel,
+            i.LastRestockDate,
+            CASE WHEN p.OnSale = 1 THEN 'Yes' ELSE 'No' END AS OnSale,
+            ISNULL(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,
+            COUNT(td.TransactionID) AS NumberOfSales
+        FROM Product p
+        LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID
+        LEFT JOIN Inventory i ON p.ProductID = i.ProductID
+        LEFT JOIN Transaction_Details td ON td.ProductID = p.ProductID
+        GROUP BY 
+            p.ProductID, p.Name, d.Name, p.Price, p.SalePrice, 
+            i.QuantityAvailable, i.ReorderLevel, i.LastRestockDate, p.OnSale
+        ORDER BY p.Name
+    """)
+    
+    products = rows_to_dict_list(cursor)
+    return render_template('product_report.html', products=products)
+
+@app.post("/api/product_report")
+@with_db
+def product_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    department = payload.get("department")
+    product_name = payload.get("product_name")
+    stock_status = payload.get("stock_status")
+    on_sale = payload.get("on_sale")
+    min_price = payload.get("min_price")
+    max_price = payload.get("max_price")
+    qty_min = payload.get("qty_min")
+    qty_max = payload.get("qty_max")
+    restock_from = payload.get("restock_from")
+    restock_to = payload.get("restock_to")
+
+    sort_column = payload.get("sort_column")
+    sort_direction = payload.get("sort_direction", "ASC").upper()
+
+    allowed_columns = [
+        "ProductID","ProductName","Department","Price","SalePrice",
+        "QuantityAvailable","StockStatus","ReorderLevel",
+        "LastRestockDate","OnSale","TotalRevenue","NumberOfSales"
+    ]
+
+    sql_parts = [
+        "SELECT",
+        "  p.ProductID,",
+        "  p.Name AS ProductName,",
+        "  d.Name AS Department,",
+        "  p.Price,",
+        "  p.SalePrice,",
+        "  i.QuantityAvailable,",
+        "  CASE",
+        "      WHEN i.QuantityAvailable <= 0 THEN 'Out of Stock'",
+        "      WHEN i.QuantityAvailable <= i.ReorderLevel THEN 'Low Stock'",
+        "      ELSE 'In Stock'",
+        "  END AS StockStatus,",
+        "  i.ReorderLevel,",
+        "  i.LastRestockDate,",
+        "  CASE WHEN p.OnSale = 1 THEN 'Yes' ELSE 'No' END AS OnSale,",
+        "  COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,",
+        "  COUNT(td.TransactionID) AS NumberOfSales",
+        "FROM Product p",
+        "LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID",
+        "LEFT JOIN Inventory i ON p.ProductID = i.ProductID",
+        "LEFT JOIN Transaction_Details td ON td.ProductID = p.ProductID",
+        "WHERE 1=1"
+    ]
+
+    params = []
+
+    # Filters
+    if department and department.lower() != "all":
+        sql_parts.append("AND d.Name = ?")
+        params.append(department)
+
+    if product_name:
+        sql_parts.append("AND p.Name LIKE ?")
+        params.append(f"%{product_name}%")
+
+    if stock_status and stock_status.lower() != "all":
+        if stock_status.lower() == "in stock":
+            sql_parts.append("AND i.QuantityAvailable > i.ReorderLevel")
+        elif stock_status.lower() == "low stock":
+            sql_parts.append("AND i.QuantityAvailable <= i.ReorderLevel AND i.QuantityAvailable > 0")
+        elif stock_status.lower() == "out of stock":
+            sql_parts.append("AND i.QuantityAvailable <= 0")
+
+    if on_sale and on_sale.lower() != "all":
+        sql_parts.append("AND p.OnSale = ?")
+        params.append(1 if on_sale.lower() == "yes" else 0)
+
+    if min_price not in (None, ""):
+        sql_parts.append("AND p.Price >= ?")
+        params.append(float(min_price))
+    if max_price not in (None, ""):
+        sql_parts.append("AND p.Price <= ?")
+        params.append(float(max_price))
+
+    if qty_min not in (None, ""):
+        sql_parts.append("AND i.QuantityAvailable >= ?")
+        params.append(int(qty_min))
+    if qty_max not in (None, ""):
+        sql_parts.append("AND i.QuantityAvailable <= ?")
+        params.append(int(qty_max))
+
+    if restock_from not in (None, ""):
+        sql_parts.append("AND i.LastRestockDate >= ?")
+        params.append(restock_from)
+    if restock_to not in (None, ""):
+        sql_parts.append("AND i.LastRestockDate <= ?")
+        params.append(restock_to)
+
+    # Grouping
+    sql_parts.append("""
+        GROUP BY 
+            p.ProductID, p.Name, d.Name, p.Price, p.SalePrice, 
+            i.QuantityAvailable, i.ReorderLevel, i.LastRestockDate, p.OnSale
+    """)
+
+    # Sorting
+    if sort_column in allowed_columns:
+        sort_direction = "DESC" if sort_direction == "DESC" else "ASC"
+        sql_parts.append(f"ORDER BY {sort_column} {sort_direction}")
+    else:
+        sql_parts.append("ORDER BY p.Name ASC")  # default sort
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    html = ""
+    for r in rows:
+        html += "<tr>"
+        for val in r:
+            if isinstance(val, float):
+                html += f"<td>${val:,.2f}</td>"
+            elif isinstance(val, datetime):
+                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    return jsonify({"html": html})
+
+@app.route('/customer_report')
+@with_db
+def customer_report(cursor, conn):
+    cursor.execute("""
+        SELECT
+            c.CustomerID,
+            c.Name,
+            c.Email,
+            COUNT(DISTINCT st.TransactionID) AS TotalPurchases,
+            COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalSpent,
+            COALESCE((
+                SELECT TOP 1 p.Name
+                FROM Transaction_Details td2
+                JOIN Product p ON td2.ProductID = p.ProductID
+                JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID
+                WHERE st2.CustomerID = c.CustomerID
+                GROUP BY p.ProductID, p.Name
+                ORDER BY SUM(td2.Quantity) DESC
+            ), 'N/A') AS FavoriteProduct,
+            COALESCE(CONVERT(VARCHAR, MAX(st.TransactionDate), 23), 'N/A') AS LastPurchaseDate,
+            COALESCE(c.MemberID, 'N/A') AS MemberID
+        FROM Customer c
+        LEFT JOIN SalesTransaction st ON c.CustomerID = st.CustomerID
+        LEFT JOIN Transaction_Details td ON st.TransactionID = td.TransactionID
+        GROUP BY c.CustomerID, c.Name, c.Email, c.MemberID
+        ORDER BY c.Name
+    """)
+    customers = rows_to_dict_list(cursor)
+    return render_template('customer_report.html', customers=customers)
+
+@app.post("/api/customer_report")
+@with_db
+def customer_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    customer_name = payload.get("customer_name")
+    email = payload.get("email")
+    date_from = payload.get("date_from")
+    date_to = payload.get("date_to")
+    total_spent_min = payload.get("total_spent_min")
+    total_spent_max = payload.get("total_spent_max")
+    sort_column = payload.get("sort_column")
+    sort_direction = payload.get("sort_direction", "asc").upper()  # default ASC
+
+    # Base SQL
+    sql_parts = [
+        "SELECT",
+        "  c.CustomerID,",
+        "  c.Name,",
+        "  c.Email,",
+        "  COUNT(DISTINCT st.TransactionID) AS TotalPurchases,",
+        "  COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalSpent,",
+        "  COALESCE((",
+        "      SELECT TOP 1 p.Name",
+        "      FROM Transaction_Details td2",
+        "      JOIN Product p ON td2.ProductID = p.ProductID",
+        "      JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID",
+        "      WHERE st2.CustomerID = c.CustomerID",
+        "      GROUP BY p.ProductID, p.Name",
+        "      ORDER BY SUM(td2.Quantity) DESC",
+        "  ), 'N/A') AS FavoriteProduct,",
+        "  COALESCE(CONVERT(VARCHAR, MAX(st.TransactionDate), 23), 'N/A') AS LastPurchaseDate,",
+        "  COALESCE(c.MemberID, 'N/A') AS MemberID",
+        "FROM Customer c",
+        "LEFT JOIN SalesTransaction st ON c.CustomerID = st.CustomerID",
+        "LEFT JOIN Transaction_Details td ON st.TransactionID = td.TransactionID",
+        "WHERE 1=1"
+    ]
+
+    params = []
+
+    # Filters
+    if customer_name:
+        sql_parts.append("AND c.Name LIKE ?")
+        params.append(f"%{customer_name}%")
+    if email:
+        sql_parts.append("AND c.Email LIKE ?")
+        params.append(f"%{email}%")
+    if date_from:
+        sql_parts.append("AND st.TransactionDate >= ?")
+        params.append(date_from)
+    if date_to:
+        sql_parts.append("AND st.TransactionDate <= ?")
+        params.append(date_to)
+
+    # GROUP BY
+    sql_parts.append("GROUP BY c.CustomerID, c.Name, c.Email, c.MemberID")
+
+    # HAVING for TotalSpent min/max
+    having_conditions = []
+    if total_spent_min:
+        having_conditions.append("COALESCE(SUM(td.Quantity * td.Price), 0) >= ?")
+        params.append(float(total_spent_min))
+    if total_spent_max:
+        having_conditions.append("COALESCE(SUM(td.Quantity * td.Price), 0) <= ?")
+        params.append(float(total_spent_max))
+    if having_conditions:
+        sql_parts.append("HAVING " + " AND ".join(having_conditions))
+
+    # Safe ORDER BY
+    allowed_columns = ["CustomerID","Name","Email","TotalPurchases","TotalSpent","FavoriteProduct","LastPurchaseDate","MemberID"]
+    if sort_column in allowed_columns:
+        sort_direction = "DESC" if sort_direction == "DESC" else "ASC"  # sanitize
+        sql_parts.append(f"ORDER BY {sort_column} {sort_direction}")
+    else:
+        sql_parts.append("ORDER BY c.Name ASC")  # default sort
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    # Build HTML with N/A for None
+    html = ""
+    for r in rows:
+        html += "<tr>"
+        for val in r:
+            if val is None:
+                html += "<td>N/A</td>"
+            elif isinstance(val, float):
+                html += f"<td>${val:,.2f}</td>"
+            elif isinstance(val, datetime):
+                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    return jsonify({"html": html})
+
 @app.post("/checkout")
 @with_db
 def checkout(cursor, conn):
@@ -639,14 +1156,14 @@ def checkout(cursor, conn):
             line_items.append((pid, qty, float(price), subtotal))
 
         cursor.execute("""
-             INSERT INTO SalesTransaction (
-                 CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
-             )
-             VALUES (?, ?, GETDATE(), ?, ?, ?)
-         """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
+            INSERT INTO SalesTransaction (
+                CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
+            )
+            VALUES (?, ?, GETDATE(), ?, ?, ?)
+        """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
 
-         cursor.execute("SELECT CAST(SCOPE_IDENTITY() AS INT)")
-         new_tid = cursor.fetchone()[0]
+        cursor.execute("SELECT CAST(SCOPE_IDENTITY() AS INT)")
+        new_tid = cursor.fetchone()[0]
 
         for pid, qty, price, subtotal in line_items:
             cursor.execute("""

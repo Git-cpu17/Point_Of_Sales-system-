@@ -204,8 +204,10 @@
             <span>Add Product</span>
           </div>
           <div class="quick-action-btn">
-            <span class="icon">👤</span>
-            <span>Add Employee</span>
+            <a href="{{ url_for('manage_employees') }}" style="text-decoration: none; color: inherit; display: block;">
+              <span class="icon">👤</span>
+              <span>Manage Employees</span>
+            </a>
           </div>
           <div class="quick-action-btn">
             <span class="icon">📊</span>
@@ -228,47 +230,29 @@
         </div>
       </div>
 
-      <!-- Employees Table -->
+      <!-- Reports Section -->
       <div class="admin-section">
-        <h2 class="section-title">Employee Management</h2>
-        <div class="action-buttons">
-          <button class="btn primary">Add New Employee</button>
-          <button class="btn secondary">Export List</button>
+        <h2 class="section-title">Reports</h2>
+        <div class="quick-actions">
+          <div class="quick-action-btn">
+            <a href="{{ url_for('product_report') }}" style="text-decoration: none; color: inherit; display: block;">
+              <span class="icon">📦</span>
+              <span>Product Overview</span>
+            </a>
+          </div>
+          <div class="quick-action-btn">
+            <a href="{{ url_for('employee_report') }}" style="text-decoration: none; color: inherit; display: block;">
+              <span class="icon">👤</span>
+              <span>Staff Directory</span>
+            </a>
+          </div>
+          <div class="quick-action-btn">
+            <a href="{{ url_for('customer_report') }}" style="text-decoration: none; color: inherit; display: block;">
+              <span class="icon">💰</span>
+              <span>Customer Report</span>
+            </a>
+          </div>
         </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Department</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% if employees %}
-              {% for emp in employees %}
-              <tr>
-                <td>#{{ emp.EmployeeID }}</td>
-                <td>{{ emp.Name }}</td>
-                <td>{{ emp.Email }}</td>
-                <td>{{ emp.DepartmentID or 'N/A' }}</td>
-                <td><span style="color: var(--primary-green);">● Active</span></td>
-                <td>
-                  <button class="btn secondary" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Edit</button>
-                </td>
-              </tr>
-              {% endfor %}
-            {% else %}
-              <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-light);">
-                  No employees found
-                </td>
-              </tr>
-            {% endif %}
-          </tbody>
-        </table>
       </div>
 
       <!-- Recent Activity -->

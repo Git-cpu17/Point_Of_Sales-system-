@@ -1024,27 +1024,6 @@ def api_delete_bag_item(cursor, conn, bag_id):
     conn.commit()
     return jsonify({"message": "Deleted"})
 
-@app.get('/shopping-lists')
-@with_db
-def shopping_lists_page(cursor, conn):
-    user = None
-    if 'user_id' in session:
-        role = session.get('role')
-        if role == 'customer':
-            cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
-            rec = cursor.fetchone()
-            if rec: user = {'Name': rec[0], 'role': 'customer'}
-        elif role == 'admin':
-            cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
-            rec = cursor.fetchone()
-            if rec: user = {'Name': rec[0], 'role': 'admin'}
-        elif role == 'employee':
-            cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
-            rec = cursor.fetchone()
-            if rec: user = {'Name': rec[0], 'role': 'employee'}
-
-    return render_template('shopping_lists.html', user=user)
-
 @app.delete("/api/bag")
 @with_db
 def api_clear_bag(cursor, conn):
@@ -1060,6 +1039,119 @@ def api_clear_bag(cursor, conn):
                        (owner['EmployeeID'],))
     conn.commit()
     return jsonify({"message": "Cleared"})
+
+# ---------- Shopping Lists (default list per customer using dbo.Customer_Product) ----------
+
+@app.get('/shopping-lists', endpoint='shopping_lists')
+@with_db
+def shopping_lists_page(cursor, conn):
+    user = None
+    if 'user_id' in session:
+        role = session.get('role')
+        if role == 'customer':
+            cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
+            r = cursor.fetchone()
+            if r: user = {'Name': r[0], 'role': 'customer'}
+        elif role == 'admin':
+            cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
+            r = cursor.fetchone()
+            if r: user = {'Name': r[0], 'role': 'admin'}
+        elif role == 'employee':
+            cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+            r = cursor.fetchone()
+            if r: user = {'Name': r[0], 'role': 'employee'}
+    return render_template('shopping_lists.html', user=user)
+
+@app.get('/api/list')
+@with_db
+def api_list_get(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    cursor.execute("""
+        SELECT 
+            cp.ProductID,
+            p.Name,
+            p.Price,
+            CONVERT(VARCHAR(19), cp.DateAdded, 120) AS DateAdded
+        FROM dbo.Customer_Product cp
+        JOIN dbo.Product p ON p.ProductID = cp.ProductID
+        WHERE cp.CustomerID = ?
+        ORDER BY cp.DateAdded DESC
+    """, (cid,))
+    return jsonify(rows_to_dict_list(cursor))
+
+@app.post('/api/list/add')
+@with_db
+def api_list_add(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    payload = request.get_json(silent=True) or {}
+    try:
+        pid = int(payload.get('product_id') or 0)
+    except Exception:
+        return jsonify({"message": "Bad product_id"}), 400
+    if pid <= 0:
+        return jsonify({"message": "Bad product_id"}), 400
+
+    cursor.execute("""
+        MERGE dbo.Customer_Product AS target
+        USING (SELECT ? AS CustomerID, ? AS ProductID) AS src
+        ON target.CustomerID = src.CustomerID AND target.ProductID = src.ProductID
+        WHEN NOT MATCHED THEN
+            INSERT (CustomerID, ProductID, DateAdded)
+            VALUES (src.CustomerID, src.ProductID, GETDATE());
+    """, (cid, pid))
+    conn.commit()
+    return jsonify({"message": "Saved"})
+
+@app.delete('/api/list/<int:product_id>')
+@with_db
+def api_list_remove(cursor, conn, product_id):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    cursor.execute("DELETE FROM dbo.Customer_Product WHERE CustomerID = ? AND ProductID = ?", (cid, product_id))
+    conn.commit()
+    return jsonify({"message": "Removed"})
+
+@app.delete('/api/list')
+@with_db
+def api_list_clear(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    cursor.execute("DELETE FROM dbo.Customer_Product WHERE CustomerID = ?", (cid,))
+    conn.commit()
+    return jsonify({"message": "Cleared"})
+
+@app.post('/api/list/add-to-bag')
+@with_db
+def api_list_add_to_bag(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+
+    cursor.execute("SELECT ProductID FROM dbo.Customer_Product WHERE CustomerID = ?", (cid,))
+    rows = cursor.fetchall()
+    if not rows:
+        return jsonify({"message": "List empty"}), 200
+
+    for (pid,) in rows:
+        cursor.execute("""
+            MERGE dbo.Bag AS target
+            USING (SELECT ? AS CustomerID, ? AS ProductID) AS src
+            ON target.CustomerID = src.CustomerID
+               AND target.ProductID = src.ProductID
+               AND target.EmployeeID IS NULL
+            WHEN MATCHED THEN UPDATE SET Quantity = target.Quantity + 1
+            WHEN NOT MATCHED THEN
+                INSERT (CustomerID, EmployeeID, ProductID, Quantity)
+                VALUES (src.CustomerID, NULL, src.ProductID, 1);
+        """, (cid, pid))
+    conn.commit()
+    return jsonify({"message": "Added to cart"})
 
 #DATA REPORTS theres three of them
 

@@ -89,7 +89,7 @@
   }
 
   function updateCartBadge() {
-    const badges = document.querySelectorAll('#bagCount, .badge');
+    const badges = document.querySelectorAll('#bagCount');
     const cart = readCart();
     const totalQty = cart.reduce((s, it) => s + (it.quantity || 0), 0);
     badges.forEach(badge => {
@@ -522,6 +522,7 @@
     setupSearchInput();
     setupCategoryFilters();
     ensureProducts().catch(() => {});
+    refreshBag().catch(() => { updateCartBadge(); });
 
     if (document.getElementById('cartContainer')) {
       refreshBag().then(() => {

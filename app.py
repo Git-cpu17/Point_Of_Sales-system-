@@ -201,6 +201,7 @@ def add_product(cursor, conn):
         department_id = data.get("DepartmentID")
         on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
         sale_price = data.get("SalePrice")  # optional
+        image_url = data.get("ImageURL") or ""
 
         # Validate required fields
         if not name:
@@ -225,6 +226,14 @@ def add_product(cursor, conn):
         except (ValueError, TypeError):
             flash("Please select a valid department.", "danger")
             return redirect(url_for('add_product'))
+        if not image_url:
+            dept_defaults = {
+                1: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400",  # Produce
+                2: "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400",  # Meat
+                3: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",  # Dairy
+                4: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400",  # Bakery
+            }
+            image_url = dept_defaults.get(int(department_id), "https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400")
 
         # Handle sale price if product is on sale
         on_sale_flag = 1 if on_sale == 'on' else 0
@@ -252,10 +261,9 @@ def add_product(cursor, conn):
         # Insert into Product table with defaults
         cursor.execute("""
             INSERT INTO Product
-            (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag))
-        conn.commit()
+            (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale, ImageURL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag, image_url))
 
         flash(f"Product '{name}' added successfully!", "success")
         return redirect(url_for('admin_dashboard'))

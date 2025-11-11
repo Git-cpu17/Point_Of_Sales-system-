@@ -184,7 +184,7 @@
           <a href="{{ url_for('bag_page') }}" class="bag-link">
             <span>🛒</span>
             <span>Cart</span>
-            <span id="bagCount" class="badge">0</span>
+            <span id="bagCount" class="badge">{{ bag_count }}</span>
           </a>
 
         {% if session.get('role') in ['employee','admin'] %}

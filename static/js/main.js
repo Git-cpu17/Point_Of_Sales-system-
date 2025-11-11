@@ -949,6 +949,84 @@
     printBtn.addEventListener("click", () => window.print());
   });
 
+  // ----- Shopping List (default list per customer) -----
+  async function fetchShoppingList() {
+    const r = await fetch('/api/list', { credentials: 'same-origin' });
+    if (!r.ok) throw new Error('Failed to load list');
+    return await r.json();
+  }
+  async function addToList(productId) {
+    const res = await fetch('/api/list/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ product_id: Number(productId) })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showNotification(data?.message || 'Failed to save', 'error');
+    showNotification('Saved to your list', 'success');
+  }
+  async function removeFromList(productId) {
+    const res = await fetch(`/api/list/${Number(productId)}`, { method: 'DELETE', credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showNotification(data?.message || 'Failed to remove', 'error');
+    showNotification('Removed from your list', 'info');
+    if (document.getElementById('listContainer')) loadAndRenderList();
+  }
+  async function clearList() {
+    const res = await fetch('/api/list', { method: 'DELETE', credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showNotification(data?.message || 'Failed to clear list', 'error');
+    showNotification('List cleared', 'info');
+    if (document.getElementById('listContainer')) loadAndRenderList();
+  }
+  async function addListToCart() {
+    const res = await fetch('/api/list/add-to-bag', { method: 'POST', credentials: 'same-origin' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return showNotification(data?.message || 'Failed to add to cart', 'error');
+    await refreshBag().catch(() => {});
+    showNotification('All list items added to cart', 'success');
+  }
+  function renderListPageRows(items) {
+    const wrap = document.getElementById('listTableWrap');
+    const emptyText = document.getElementById('emptyListText');
+    if (!wrap) return;
+    if (!items || !items.length) {
+      if (emptyText) emptyText.style.display = '';
+      wrap.innerHTML = '';
+      return;
+    }
+    if (emptyText) emptyText.style.display = 'none';
+    const rows = items.map(it => `
+      <tr>
+        <td>${escapeHtml(it.Name ?? '')}</td>
+        <td>${formatCurrency(Number(it.Price || 0))}</td>
+        <td>${it.DateAdded ? escapeHtml(it.DateAdded) : ''}</td>
+        <td style="text-align:right;">
+          <button class="btn" onclick="addToCart(${Number(it.ProductID)})">Add to Cart</button>
+          <button class="btn danger" onclick="removeFromList(${Number(it.ProductID)})">Remove</button>
+        </td>
+      </tr>`).join('');
+    wrap.innerHTML = `
+      <table class="report-table">
+        <thead><tr><th>Product</th><th>Price</th><th>Saved</th><th style="text-align:right;">Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+  async function loadAndRenderList() {
+    try { renderListPageRows(await fetchShoppingList()); }
+    catch { renderListPageRows([]); }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('listContainer')) {
+      loadAndRenderList();
+      const addBtn = document.getElementById('addListToCartBtn');
+      if (addBtn) addBtn.addEventListener('click', addListToCart);
+      const clrBtn = document.getElementById('clearListBtn');
+      if (clrBtn) clrBtn.addEventListener('click', clearList);
+    }
+  });
+
   // -------------------- Global exports --------------------
   window.addToCart = addToCart;
   window.removeFromCart = removeFromCart;

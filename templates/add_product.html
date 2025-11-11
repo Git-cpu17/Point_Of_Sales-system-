@@ -383,7 +383,42 @@ small.form-text {
                 <small class="form-text"><span class="char-counter" id="charCounter">0 / 250 characters</span></small>
             </div>
         </div>
-
+        
+        <div class="form-card">
+            <h4><span class="section-icon">🖼️</span>Product Image</h4>
+    
+            <div style="display: flex; gap: 2rem;">
+                <div style="flex: 1;">
+                    <label for="imageUrl">Image URL (Optional)</label>
+                    <input type="url" class="form-control" id="imageUrl" name="ImageURL" 
+                           placeholder="https://example.com/image.jpg" 
+                           onchange="updateImagePreview()">
+                    <small class="form-text">Paste an image URL or click below for free stock photos</small>
+            
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button type="button" onclick="searchStockImages('unsplash')" 
+                                style="padding: 0.4rem 0.8rem; background: #e8f5e9; border: 1px solid #4a9b3e; border-radius: 6px; cursor: pointer;">
+                            Search Unsplash
+                        </button>
+                        <button type="button" onclick="searchStockImages('pexels')" 
+                                style="padding: 0.4rem 0.8rem; background: #e8f5e9; border: 1px solid #4a9b3e; border-radius: 6px; cursor: pointer;">
+                            Search Pexels
+                        </button>
+                        <button type="button" onclick="useDefaultImage()" 
+                                style="padding: 0.4rem 0.8rem; background: #ffc107; border: 1px solid #ff9800; border-radius: 6px; cursor: pointer;">
+                            Use Default
+                        </button>
+                    </div>
+                </div>
+        
+                <div>
+                    <label>Preview</label>
+                    <div id="imagePreview" style="width: 150px; height: 150px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; overflow: hidden;">
+                        <span style="color: #999;">No image</span>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- Pricing & Sale Card -->
         <div class="form-card">
             <h4><span class="section-icon">💰</span>Pricing</h4>
@@ -509,5 +544,41 @@ form.addEventListener('submit', function(e) {
         setTimeout(() => btn.innerHTML = '<span class="btn-icon">✓</span> Add Product to Inventory', 2000);
     });
 });
+//Image Functions
+function updateImagePreview() {
+    const url = document.getElementById('imageUrl').value.trim();
+    const preview = document.getElementById('imagePreview');
+    
+    if (url) {
+        preview.innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<span style=color:#999>Invalid URL</span>'">`;
+    } else {
+        preview.innerHTML = '<span style="color: #999;">No image</span>';
+    }
+}
+
+function searchStockImages(site) {
+    const productName = document.getElementById('name').value || 'grocery';
+    const urls = {
+        'unsplash': `https://unsplash.com/s/photos/${encodeURIComponent(productName)}`,
+        'pexels': `https://www.pexels.com/search/${encodeURIComponent(productName)}`
+    };
+    window.open(urls[site], '_blank');
+}
+
+function useDefaultImage() {
+    const dept = document.getElementById('department').value;
+    const defaults = {
+        '1': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400',
+        '2': 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400',
+        '3': 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+        '4': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400',
+        '5': 'https://images.unsplash.com/photo-1584313234340-712fe7c4c3e3?w=400',
+        '6': 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400'
+    };
+    
+    document.getElementById('imageUrl').value = defaults[dept] || 'https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400';
+    updateImagePreview();
+}
+    
 </script>
 {% endblock %}

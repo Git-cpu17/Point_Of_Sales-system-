@@ -88,7 +88,14 @@
               {% set stock_class = 'in-stock' if p.QuantityInStock > 10 else 'low-stock' %}
               {% set product_emoji = ['🍎', '🥕', '🥦', '🍊', '🥑', '🍇', '🥬', '🫐'][loop.index0 % 8] %}
               <div class="product-card" data-product-id="{{ p.ProductID }}" data-name="{{ p.Name }}" data-description="{{ p.Description }}" data-price="{{ p.Price }}">
-                <div class="product-image">{{ product_emoji }}{% if loop.index % 4 == 0 %}<span class="sale-badge">SALE</span>{% endif %}</div>
+                <div class="product-image">
+                  {% if p.ImageURL %}
+                    <img src="{{ p.ImageURL }}" alt="{{ p.Name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                  {% else %}
+                    {{ product_emoji }}
+                  {% endif %}
+                  {% if p.OnSale %}<span class="sale-badge">SALE</span>{% elif loop.index % 4 == 0 %}<span class="sale-badge">SALE</span>{% endif %}
+                </div>
                 <div class="product-details">
                   <div class="product-header"><h3>{{ p.Name }}</h3></div>
                   <p class="product-desc">{{ p.Description or 'Fresh and high quality product' }}</p>

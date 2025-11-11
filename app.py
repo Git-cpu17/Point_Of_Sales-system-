@@ -1159,10 +1159,9 @@ def checkout(cursor, conn):
             INSERT INTO SalesTransaction (
                 CustomerID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
             )
+            OUTPUT INSERTED.TransactionID
             VALUES (?, GETDATE(), ?, ?, ?)
         """, (cust_id, grand_total, 'Cash', 'Completed'))
-
-        cursor.execute("SELECT CAST(SCOPE_IDENTITY() AS INT)")
         new_tid = cursor.fetchone()[0]
 
         for pid, qty, price, subtotal in line_items:

@@ -250,8 +250,8 @@
 
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
-        <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Admin</a>
-        <a href="#" class="nav-link">Reports</a>
+        
+        <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
         <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
       </div>
     </div>
@@ -322,18 +322,18 @@
 
       <!-- Action Buttons -->
       <div class="action-buttons">
-        <button class="btn primary">
+        <a class="btn primary" href="{{ url_for('add') }}">
           <span>➕ Add Product</span>
-        </button>
-        <button class="btn secondary">
+        </a>
+        <a class="btn secondary" href="{{ url_for('restock') }}" >
           <span>📦 Restock Items</span>
-        </button>
-        <button class="btn secondary">
+        </a>
+        <a class="btn secondary" href="{{ url_for('reports') }}">
           <span>📊 Generate Report</span>
-        </button>
-        <button class="btn secondary">
+        </a>
+        <a class="btn secondary" href="{{ url_for('update_prices') }}">
           <span>🔄 Update Prices</span>
-        </button>
+        </a>
       </div>
 
       <!-- Inventory Table -->
@@ -358,7 +358,8 @@
             <td>
               <div style="display: flex; align-items: center;">
                 <div class="stock-level">
-                  <div class="stock-fill stock-high" style="width: {{ [90, 75, 60, 40, 85][loop.index0 % 5] }}%;"></div>
+                  {% set width = [90, 75, 60, 40, 85][loop.index0 % 5] %}
+                  <div class="stock-fill stock-high" style="width: {{ width }}%;"></div>
                 </div>
                 <span>{{ [90, 75, 60, 40, 85][loop.index0 % 5] }}%</span>
               </div>

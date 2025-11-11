@@ -129,7 +129,7 @@
                       {% endif %}
                     </span>
                   </div>
-                  <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})">
+                  <button class="add-btn" type="button" onclick="addToCart('{{ p.ProductID }}')">
                     <span>🛒</span>
                     <span>Add to Cart</span>
                   </button>
@@ -193,7 +193,7 @@
 
   <!-- Provide products array to client-side JS -->
   <script>
-    window.PRODUCTS = {{ products|tojson }};
+    window.PRODUCTS = {{ products|tojson|safe }};
   </script>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>

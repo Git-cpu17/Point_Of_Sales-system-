@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Restock Products</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+      <div class="nav-right">
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2>Restock Products</h2>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Product ID</th>
+          <th>Name</th>
+          <th>Current Stock</th>
+          <th>New Stock</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="restockTableBody">
+        {% for p in products %}
+        <tr>
+          <td>{{ p.ProductID }}</td>
+          <td>{{ p.Name }}</td>
+          <td>{{ p.QuantityInStock }}</td>
+          <td><input type="number" min="0" data-id="{{ p.ProductID }}" class="new-stock-input"></td>
+          <td><button class="btn primary update-stock-btn" data-id="{{ p.ProductID }}">Update</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2024 FreshMart. All rights reserved.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    document.querySelectorAll('.update-stock-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const pid = e.currentTarget.dataset.id;
+        const qty = document.querySelector(`.new-stock-input[data-id="${pid}"]`).value;
+        try {
+          const res = await fetch("{{ url_for('update_stock') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_id: pid, new_stock: parseInt(qty) })
+          });
+          const result = await res.json();
+          alert(result.message || 'Stock updated');
+          if(result.success) location.reload();
+        } catch(err) {
+          console.error(err);
+          alert("Failed to update stock");
+        }
+      });
+    });
+  </script>
+</body>
+</html>

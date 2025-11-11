@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Update Prices</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+      <div class="nav-right">
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2>Update Product Prices</h2>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Product ID</th>
+          <th>Name</th>
+          <th>Current Price ($)</th>
+          <th>New Price ($)</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="updatePricesTableBody">
+        {% for p in products %}
+        <tr>
+          <td>{{ p.ProductID }}</td>
+          <td>{{ p.Name }}</td>
+          <td>{{ '%.2f'|format(p.Price) }}</td>
+          <td><input type="number" step="0.01" data-id="{{ p.ProductID }}" class="new-price-input"></td>
+          <td><button class="btn primary update-price-btn" data-id="{{ p.ProductID }}">Update</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2024 FreshMart. All rights reserved.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    document.querySelectorAll('.update-price-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const pid = e.currentTarget.dataset.id;
+        const price = document.querySelector(`.new-price-input[data-id="${pid}"]`).value;
+        try {
+          const res = await fetch("{{ url_for('update_price') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ product_id: pid, new_price: parseFloat(price) })
+          });
+          const result = await res.json();
+          alert(result.message || 'Price updated');
+          if(result.success) location.reload();
+        } catch(err) {
+          console.error(err);
+          alert("Failed to update price");
+        }
+      });
+    });
+  </script>
+</body>
+</html>

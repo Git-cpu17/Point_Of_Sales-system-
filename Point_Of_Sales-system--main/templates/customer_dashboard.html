@@ -257,27 +257,27 @@
           <div class="sidebar-item active">
             <span >📊</span> Dashboard
           </div>
-          <div class="sidebar-item">
-            <span href="{{ url_for('') }}">📦</span> Orders
-          </div>
-          <div class="sidebar-item">
+          <a class="sidebar-item">
+            <span href="{{ url_for('order') }}">📦</span> Orders
+          </a>
+          <a class="sidebar-item" href="#">
             <span>❤️</span> Favorites
-          </div>
-          <div class="sidebar-item">
+          </a>
+          <a class="sidebar-item" href="#">
             <span>📋</span> Shopping Lists
-          </div>
-          <div class="sidebar-item">
+          </a>
+          <a class="sidebar-item" href="#">
             <span>🏠</span> Addresses
-          </div>
-          <div class="sidebar-item">
-            <span href="{{ url_for('Transaction') }}">💳</span> Payment Methods
-          </div>
-          <div class="sidebar-item">
+          </a>
+          <a class="sidebar-item" href="#">
+            <span href="{{ url_for('transaction') }}">💳</span> Payment Methods
+          </a>
+          <a class="sidebar-item" href="#">
             <span>🎁</span> Rewards
-          </div>
-          <div class="sidebar-item">
+          </a>
+          <a class="sidebar-item" href="#">
             <span>⚙️</span> Settings
-          </div>
+          </a>
         </div>
 
         <!-- Content Area -->

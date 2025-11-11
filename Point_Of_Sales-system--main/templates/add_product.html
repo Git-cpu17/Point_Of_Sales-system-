@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Add Product</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+      <div class="nav-right">
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2>Add New Product</h2>
+    <form id="addProductForm">
+      <div class="form-group">
+        <label for="name">Product Name</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" name="description"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="price">Price ($)</label>
+        <input type="number" step="0.01" id="price" name="price" required>
+      </div>
+      <div class="form-group">
+        <label for="quantity">Quantity in Stock</label>
+        <input type="number" id="quantity" name="quantity" required>
+      </div>
+      <button type="submit" class="btn primary">Add Product</button>
+    </form>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2024 FreshMart. All rights reserved.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        price: parseFloat(document.getElementById('price').value),
+        quantity: parseInt(document.getElementById('quantity').value)
+      };
+      try {
+        const res = await fetch("{{ url_for('add_product') }}", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        alert(result.message || 'Product added');
+        if(result.success) e.target.reset();
+      } catch(err) {
+        console.error(err);
+        alert("Failed to add product");
+      }
+    });
+  </script>
+</body>
+</html>

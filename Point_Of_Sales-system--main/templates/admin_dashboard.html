@@ -136,7 +136,9 @@
 
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
-        <a href="#" class="nav-link">Settings</a>
+        <a href="{{ url_for('department')}}" class="nav-link">Department</a>
+        <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
+        
         <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
       </div>
     </div>
@@ -186,31 +188,37 @@
       <div class="admin-section">
         <h2 class="section-title">Quick Actions</h2>
         <div class="quick-actions">
-          <div class="quick-action-btn">
+          <a class="quick-action-btn" href="{{ url_for('add_product') }}">
             <span class="icon">➕</span>
-            <span>Add Product</span>
-          </div>
-          <div class="quick-action-btn">
+            <span >Add Product</span>
+          </a>
+          <a class="quick-action-btn" href="#">
             <span class="icon">👤</span>
             <span>Add Employee</span>
-          </div>
-          <div class="quick-action-btn">
+          </a>
+          <a class="quick-action-btn" href="{{ url_for('reports') }}">
             <span class="icon">📊</span>
-            <span>View Reports</span>
-          </div>
-          <div class="quick-action-btn">
+            <span >View Reports</span>
+          </a>
+          <a class="quick-action-btn" href="#">
             <span class="icon">🏷️</span>
             <span>Manage Promotions</span>
-          </div>
-          <div class="quick-action-btn">
+          </a>
+          <a class="quick-action-btn" href="#">
             <span class="icon">📦</span>
             <span>Inventory</span>
-          </div>
-          <div class="quick-action-btn">
+          </a>
+          <a class="quick-action-btn" href="#">
             <span class="icon">⚙️</span>
             <span>Settings</span>
+          </a>
+          <div class="quick-action-btn" href="#">
+          <button id="updateStockBtn" >Update Stock</button>
+          <button id="applySalesBtn" >Apply Holiday Sales</button>
           </div>
         </div>
+        
+
       </div>
 
       <!-- Employees Table -->
@@ -235,10 +243,10 @@
             {% if employees %}
               {% for emp in employees %}
               <tr>
-                <td>#{{ emp.employee_id }}</td>
-                <td>{{ emp.name }}</td>
-                <td>{{ emp.email }}</td>
-                <td>{{ emp.department_id or 'N/A' }}</td>
+                <td>#{{ emp.EmployeeID }}</td>
+                <td>{{ emp.Name }}</td>
+                <td>{{ emp.Email }}</td>
+                <td>{{ emp.DepartmentID or 'N/A' }}</td>
                 <td><span style="color: var(--primary-green);">● Active</span></td>
                 <td>
                   <button class="btn secondary" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Edit</button>

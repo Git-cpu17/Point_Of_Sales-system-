@@ -42,7 +42,7 @@ async function ensureProducts() {
 
 function getProductById(id) {
   const products = window.PRODUCTS || [];
-  return products.find(p => Number(p.product_id) === Number(id)) || null;
+  return products.find(p => Number(p.ProductID) === Number(id)) || null;
 }
 
 // Admin: Load products into table
@@ -121,13 +121,13 @@ function addToCart(productId) {
     }
 
     const cart = readCart();
-    const idx = cart.findIndex(it => Number(it.product_id) === Number(productId));
+    const idx = cart.findIndex(it => Number(it.ProductID) === Number(productId));
     
     if (idx >= 0) {
       cart[idx].quantity = (cart[idx].quantity || 0) + 1;
     } else {
       cart.push({
-        product_id: product.product_id,
+        ProductID: product.ProductID,
         name: product.name,
         price: Number(product.price) || 0,
         quantity: 1
@@ -560,50 +560,61 @@ window.checkout = checkout;
 //const API_BASE = "https://posapp-fcghfrh4cfc5h0dh.centralus-01.azurewebsites.net";  // adjust to your Flask API base
 
 // ---- Update Product Stock ----
-document.getElementById("updateStockBtn").addEventListener("click", async () => {
-  const productId = prompt("Enter Product ID to update:");
-  const newStock = prompt("Enter new stock quantity:");
+document.addEventListener("DOMContentLoaded", () => {
+  const updateBtn = document.getElementById("updateStockBtn");
+  if (updateBtn) {
+    updateBtn.addEventListener("click", async () => {
+      const productId = prompt("Enter Product ID to update:");
+      const newStock = prompt("Enter new stock quantity:");
 
-  if (!productId || !newStock) return alert("Missing product ID or stock value.");
+      if (!productId || !newStock) return alert("Missing product ID or stock value.");
 
-  try {
-    const response = await fetch(`${API_BASE}/update_stock`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_id: productId, new_stock: newStock })
+      try {
+        const response = await fetch(`${API_BASE}/update_stock`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ product_id: productId, new_stock: newStock })
+        });
+
+        const result = await response.json();
+        alert(result.message);
+
+        if (typeof loadProducts === "function") loadProducts();
+      } catch (err) {
+        console.error("Error updating stock:", err);
+        alert("Failed to update stock.");
+      }
     });
-
-    const result = await response.json();
-    alert(result.message);
-
-    // Optional: refresh product list if you have a table displayed
-    if (typeof loadProducts === "function") loadProducts();
-
-  } catch (err) {
-    console.error("Error updating stock:", err);
-    alert("Failed to update stock.");
   }
 });
+
 
 
 // ---- Apply Holiday Sales ----
-document.getElementById("applySalesBtn").addEventListener("click", async () => {
-  if (!confirm("Apply holiday discounts to all products?")) return;
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("applySalesBtn");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Apply holiday discounts to all products?")) return;
 
-  try {
-    const response = await fetch(`${API_BASE}/apply_sales`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
+      try {
+        const response = await fetch(`${API_BASE}/apply_sales`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+
+        const result = await response.json();
+        alert(result.message);
+
+        if (typeof loadProducts === "function") loadProducts();
+
+      } catch (err) {
+        console.error("Error applying sales:", err);
+        alert("Failed to apply sales updates.");
+      }
     });
-
-    const result = await response.json();
-    alert(result.message);
-
-    if (typeof loadProducts === "function") loadProducts();
-
-  } catch (err) {
-    console.error("Error applying sales:", err);
-    alert("Failed to apply sales updates.");
   }
 });
+
+
 

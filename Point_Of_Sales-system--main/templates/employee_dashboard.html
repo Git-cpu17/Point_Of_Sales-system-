@@ -181,6 +181,11 @@
         <span class="nav-link">Welcome, {{ session.get('username', 'Employee') }}</span>
         <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
         <a href="#" class="nav-link">My Profile</a>
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">0</span>
+        </a>
         <a href="{{ url_for('login') }}" class="nav-link">Logout</a>
       </div>
     </div>
@@ -241,6 +246,10 @@
           <div class="action-btn">
             <span class="action-btn-icon">📝</span>
             <span>Submit Report</span>
+          </div>
+          <div class="action-btn">
+            <button id="updateStockBtn" >Update Stock</button>
+            <button id="applySalesBtn" >Apply Holiday Sales</button>
           </div>
         </div>
       </div>

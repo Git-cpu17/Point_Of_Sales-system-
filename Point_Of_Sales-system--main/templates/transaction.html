@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Transactions</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+      <div class="nav-right">
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2>Transactions</h2>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Transaction ID</th>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Total ($)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for txn in transactions %}
+        <tr>
+          <td>{{ txn.TransactionID }}</td>
+          <td>{{ txn.OrderID }}</td>
+          <td>{{ txn.CustomerName }}</td>
+          <td>{{ txn.Date }}</td>
+          <td>{{ '%.2f'|format(txn.Total) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2024 FreshMart. All rights reserved.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

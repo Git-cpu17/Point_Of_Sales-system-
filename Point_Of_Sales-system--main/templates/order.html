@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Orders</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+      <div class="nav-right">
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <h2>Pending Orders</h2>
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Customer</th>
+          <th>Products</th>
+          <th>Total ($)</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        <tr>
+          <td>{{ order.OrderID }}</td>
+          <td>{{ order.CustomerName }}</td>
+          <td>
+            {% for item in order.items %}
+              {{ item.Name }} x{{ item.Quantity }}<br>
+            {% endfor %}
+          </td>
+          <td>{{ '%.2f'|format(order.Total) }}</td>
+          <td>{{ order.Status }}</td>
+          <td>
+            {% if order.Status != 'Processed' %}
+            <button class="btn primary process-order-btn" data-id="{{ order.OrderID }}">Mark as Processed</button>
+            {% else %}
+            <span>✓ Processed</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2024 FreshMart. All rights reserved.</p>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    document.querySelectorAll('.process-order-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const orderId = btn.dataset.id;
+        try {
+          const res = await fetch("{{ url_for('process_order') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ order_id: orderId })
+          });
+          const result = await res.json();
+          alert(result.message || 'Order updated');
+          if(result.success) location.reload();
+        } catch(err) {
+          console.error(err);
+          alert("Failed to process order");
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+

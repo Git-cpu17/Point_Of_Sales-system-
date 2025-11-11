@@ -63,7 +63,7 @@ def status():
 @with_db
 def get_products(cursor, conn):
     cursor.execute("""
-        SELECT ProductID, Name, Description, Price, QuantityInStock, Barcode, DepartmentID
+        SELECT ProductID, Name, Description, Price, QuantityInStock, Barcode, DepartmentID, OnSale, SalePrice, ImageURL
         FROM Product
     """)
     rows = rows_to_dict_list(cursor)
@@ -199,8 +199,23 @@ def add_product(cursor, conn):
         description = data.get("Description") or ""
         price = data.get("Price")
         department_id = data.get("DepartmentID")
-        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
-        sale_price = data.get("SalePrice")  # optional
+        on_sale = data.get("OnSale")
+        sale_price = data.get("SalePrice")
+        
+        # Get image URL from form
+        image_url = data.get("ImageURL") or ""
+        
+        # If no URL provided, use a category-based default
+        if not image_url:
+            dept_defaults = {
+                '1': "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400",  # Produce
+                '2': "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400",  # Meat
+                '3': "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",  # Dairy
+                '4': "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400",  # Bakery
+                '5': "https://images.unsplash.com/photo-1584313234340-712fe7c4c3e3?w=400",  # Frozen
+                '6': "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400",  # Pantry
+            }
+            image_url = dept_defaults.get(department_id, "https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400")
 
         # Validate required fields
         if not name:
@@ -249,12 +264,12 @@ def add_product(cursor, conn):
             if not cursor.fetchone():
                 break
 
-        # Insert into Product table with defaults
+        # Insert into Product table with image URL
         cursor.execute("""
             INSERT INTO Product
-            (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag))
+            (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale, ImageURL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag, image_url))
         conn.commit()
 
         flash(f"Product '{name}' added successfully!", "success")
@@ -278,6 +293,20 @@ def manage_employees(cursor, conn):
     departments = rows_to_dict_list(cursor)
 
     return render_template('admin_employees.html', employees=employees, departments=departments)
+
+@app.route('/api/products/<int:product_id>/image', methods=['POST'])
+@with_db
+def update_product_image_url(cursor, conn, product_id):
+    if 'role' not in session or session['role'] != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    image_url = data.get('imageUrl', '')
+    
+    cursor.execute("UPDATE Product SET ImageURL = ? WHERE ProductID = ?", (image_url, product_id))
+    conn.commit()
+    
+    return jsonify({"success": True, "imageUrl": image_url})
 
 @app.get("/api/employees/<int:emp_id>")
 @with_db

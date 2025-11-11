@@ -1155,19 +1155,18 @@ def checkout(cursor, conn):
 
         cursor.execute("""
             INSERT INTO SalesTransaction (
-                CustomerID, EmployeeID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
+                CustomerID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
             )
-            VALUES (?, ?, GETDATE(), ?, ?, ?)
-        """, (cust_id, emp_id, grand_total, 'Cash', 'Completed'))
-
-        cursor.execute("SELECT CAST(SCOPE_IDENTITY() AS INT)")
+            OUTPUT INSERTED.TransactionID
+            VALUES (?, GETDATE(), ?, ?, ?)
+        """, (cust_id, grand_total, 'Cash', 'Completed'))
         new_tid = cursor.fetchone()[0]
 
         for pid, qty, price, subtotal in line_items:
             cursor.execute("""
-                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Price)
-                VALUES (?, ?, ?, ?)
-            """, (new_tid, pid, qty, price))
+                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Price, EmployeeID)
+                VALUES (?, ?, ?, ?, ?)
+            """, (new_tid, pid, qty, price, emp_id)) 
             cursor.execute("""
                 UPDATE Product
                 SET QuantityInStock = QuantityInStock - ?

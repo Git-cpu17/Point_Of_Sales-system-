@@ -200,8 +200,10 @@
         <h2 class="section-title">Quick Actions</h2>
         <div class="quick-actions">
           <div class="quick-action-btn">
-            <span class="icon">➕</span>
-            <span>Add Product</span>
+              <a href="{{ url_for('add_product') }}" style="text-decoration: none; color: inherit; display: block;">
+                  <span class="icon">➕</span>
+                  <span>Add Product</span>
+              </a>
           </div>
           <div class="quick-action-btn">
             <a href="{{ url_for('manage_employees') }}" style="text-decoration: none; color: inherit; display: block;">

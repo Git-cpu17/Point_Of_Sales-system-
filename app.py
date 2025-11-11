@@ -1,14 +1,16 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response, flash
 from flask_cors import CORS
 from datetime import datetime
 from db import with_db, rows_to_dict_list, get_db_connection
+import random
+import string
 import os
 import traceback, sys
 
 app = Flask(__name__)
 CORS(app)
 app.secret_key = os.environ.get('SECRET_KEY')
-
+    
 # -----------------------------
 # Routes
 # -----------------------------
@@ -173,6 +175,86 @@ def admin_dashboard(cursor, conn):
         employees=employees,
         admin_name=admin_name
     )
+
+@app.route('/admin/add-product', methods=['GET', 'POST'])
+@with_db
+def add_product(cursor, conn):
+    # Only admins can access
+    if 'role' not in session or session['role'] != 'admin':
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        data = request.form
+
+        name = (data.get("Name") or "").strip()
+        description = data.get("Description") or ""
+        price = data.get("Price")
+        department_id = data.get("DepartmentID")
+        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
+        sale_price = data.get("SalePrice")  # optional
+
+        # Validate required fields
+        if not name:
+            flash("Product name is required.", "danger")
+            return redirect(url_for('add_product'))
+
+        if price is None or price == "":
+            flash("Price is required.", "danger")
+            return redirect(url_for('add_product'))
+        try:
+            price = float(price)
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            flash("Price must be a non-negative number.", "danger")
+            return redirect(url_for('add_product'))
+
+        try:
+            department_id = int(department_id)
+            if department_id <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            flash("Please select a valid department.", "danger")
+            return redirect(url_for('add_product'))
+
+        # Handle sale price if product is on sale
+        on_sale_flag = 1 if on_sale == 'on' else 0
+        final_sale_price = None
+        if on_sale_flag:
+            if sale_price is None or sale_price == "":
+                flash("Sale price must be provided if product is on sale.", "danger")
+                return redirect(url_for('add_product'))
+            try:
+                final_sale_price = float(sale_price)
+                if final_sale_price < 0 or final_sale_price >= price:
+                    flash("Sale price must be non-negative and less than the original price.", "danger")
+                    return redirect(url_for('add_product'))
+            except ValueError:
+                flash("Sale price must be a valid number.", "danger")
+                return redirect(url_for('add_product'))
+
+        # Generate unique 12-digit barcode
+        while True:
+            barcode = ''.join(random.choices(string.digits, k=12))
+            cursor.execute("SELECT 1 FROM Product WHERE Barcode = ?", (barcode,))
+            if not cursor.fetchone():
+                break
+
+        # Insert into Product table with defaults
+        cursor.execute("""
+            INSERT INTO Product
+            (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag))
+        conn.commit()
+
+        flash(f"Product '{name}' added successfully!", "success")
+        return redirect(url_for('admin_dashboard'))
+
+    # GET request -> show form
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = rows_to_dict_list(cursor)
+    return render_template('add_product.html', departments=departments)
 
 @app.route('/employees')
 @with_db

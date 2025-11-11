@@ -263,9 +263,9 @@
           <a href="{{ url_for('customer_orders') }}" class="sidebar-item">
             <span>📦</span> Orders
           </a>
-          <div class="sidebar-item">
+          <a href="{{ url_for('shopping_lists') }}" class="sidebar-item">
             <span>📋</span> Shopping Lists
-          </div>
+          </a>
           <div class="sidebar-item">
             <span>🏠</span> Addresses
           </div>
@@ -334,12 +334,12 @@
             <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 1rem; cursor: pointer; transition: all 0.3s ease;">
               <h4>Weekly Groceries</h4>
               <p style="color: var(--text-light); font-size: 0.9rem; margin-top: 0.5rem;">18 items</p>
-              <button class="btn primary" style="width: 100%; margin-top: 1rem; padding: 0.5rem; font-size: 0.9rem;">Add to Cart</button>
+              <a href="{{ url_for('shopping_lists') }}" class="btn primary" style="width:100%; margin-top:1rem; padding:0.5rem; font-size:0.9rem;">Add to Cart</a>
             </div>
             <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 1rem; cursor: pointer; transition: all 0.3s ease;">
               <h4>Party Supplies</h4>
               <p style="color: var(--text-light); font-size: 0.9rem; margin-top: 0.5rem;">12 items</p>
-              <button class="btn secondary" style="width: 100%; margin-top: 1rem; padding: 0.5rem; font-size: 0.9rem;">View List</button>
+              <a href="{{ url_for('shopping_lists') }}" class="btn secondary" style="width:100%; margin-top:1rem; padding:0.5rem; font-size:0.9rem;">View List</a>
             </div>
             <div style="border: 2px dashed #e0e0e0; border-radius: 12px; padding: 1rem; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center;">
               <div style="font-size: 2rem; color: var(--text-light);">➕</div>

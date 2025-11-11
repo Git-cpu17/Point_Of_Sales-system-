@@ -91,6 +91,7 @@
       font-size: 0.9rem;
       font-weight: 500;
       transition: 0.2s ease;
+      margin-right: 10px;
     }
 
     .btn.primary {
@@ -118,7 +119,7 @@
       margin-bottom: 1rem;
     }
 
-    .data-table {
+    .report-table {
       width: 100%;
       border-collapse: collapse;
       border-radius: var(--radius);
@@ -127,39 +128,38 @@
       margin-top: 1rem;
     }
 
-    .data-table th,
-    .data-table td {
+    .report-table th,
+    .report-table td {
       padding: 1rem;
       text-align: left;
     }
 
-    .data-table th {
+    .report-table th {
       background: var(--secondary);
       color: white;
       font-weight: 600;
+      cursor: pointer;
+      user-select: none;
     }
 
-    .data-table tr:nth-child(even) {
-      background: #f8f8f8;
+    .report-table th:hover {
+      background: #219150;
     }
 
-    .data-table tr:hover {
-      background: #eafaf1;
+    .sortable::after {
+      content: "";
+      margin-left: 5px;
+      font-size: 0.8rem;
     }
 
-    .data-table td {
-      color: var(--text-dark);
-    }
+    .sortable.asc::after { content: "↑"; }
+    .sortable.desc::after { content: "↓"; }
 
-    /* Subtle hover animation */
-    button:hover,
-    select:hover,
-    input:hover {
-      transform: translateY(-1px);
-    }
+    .report-table tr:nth-child(even) { background: #f8f8f8; }
+    .report-table tr:hover { background: #eafaf1; }
+    .report-table td { color: var(--text-dark); }
   </style>
 </head>
-
 <body>
   <main class="report-container">
     <h1>Customer Report</h1>
@@ -170,12 +170,10 @@
         <label>Customer Name</label>
         <input type="text" id="customer_name" placeholder="Search by name" />
       </div>
-
       <div>
         <label>Email</label>
         <input type="text" id="email" placeholder="Search by email" />
       </div>
-
       <div>
         <label>Date Range</label>
         <div class="filter-group">
@@ -184,7 +182,6 @@
           <input type="date" id="date_to" />
         </div>
       </div>
-
       <div>
         <label>Total Spent ($)</label>
         <div class="filter-group">
@@ -203,17 +200,17 @@
     </div>
 
     <!-- Report Table -->
-    <table class="data-table">
+    <table class="report-table">
       <thead>
         <tr>
-          <th>CustomerID</th>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Total Purchases</th>
-          <th>Total Spent</th>
-          <th>Favorite Product</th>
-          <th>Last Purchase Date</th>
-          <th>Membership ID</th>
+          <th class="sortable" data-column="CustomerID">CustomerID</th>
+          <th class="sortable" data-column="Name">Name</th>
+          <th class="sortable" data-column="Email">Email</th>
+          <th class="sortable" data-column="TotalPurchases">Total Purchases</th>
+          <th class="sortable" data-column="TotalSpent">Total Spent</th>
+          <th class="sortable" data-column="FavoriteProduct">Favorite Product</th>
+          <th class="sortable" data-column="LastPurchaseDate">Last Purchase Date</th>
+          <th class="sortable" data-column="MemberID">Membership ID</th>
         </tr>
       </thead>
       <tbody id="customerTableBody">

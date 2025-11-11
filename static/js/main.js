@@ -657,11 +657,14 @@
     const filterBtn = document.getElementById('productFilterBtn');
     const exportBtn = document.getElementById('productExportBtn');
     const printBtn = document.getElementById('productPrintBtn');
+    const sortableHeaders = document.querySelectorAll('.sortable'); // clickable headers
 
     if (!tableBody) return;
 
+    let sortColumn = '';
+    let sortDirection = 'ASC';
+
     async function filterProductsServerSide() {
-      // Base payload from filters
       const payload = {
         department: document.getElementById("department").value,
         product_name: document.getElementById("product_name").value,
@@ -672,23 +675,10 @@
         qty_min: document.getElementById("qty_min").value,
         qty_max: document.getElementById("qty_max").value,
         restock_from: document.getElementById("restock_from").value,
-        restock_to: document.getElementById("restock_to").value
+        restock_to: document.getElementById("restock_to").value,
+        sort_column: sortColumn,
+        sort_direction: sortDirection
       };
-
-      // Capture sort selections
-      const sortSelects = document.querySelectorAll(".sort-select");
-      let sort_column = "";
-      let sort_direction = "";
-      sortSelects.forEach(sel => {
-        if (sel.value) {
-          sort_column = sel.dataset.column;
-          sort_direction = sel.value;
-        }
-      });
-
-      // Add sorting info to payload
-      payload.sort_column = sort_column;
-      payload.sort_direction = sort_direction;
 
       tableBody.innerHTML = '<tr><td colspan="12">Loading…</td></tr>';
 
@@ -709,8 +699,8 @@
       }
     }
 
+    // --- Button handlers ---
     filterBtn.addEventListener('click', filterProductsServerSide);
-
     exportBtn.addEventListener('click', () => {
       const params = new URLSearchParams({
         department: document.getElementById("department").value,
@@ -726,8 +716,28 @@
       });
       window.location.href = `/reports/csv?${params.toString()}`;
     });
-
     printBtn.addEventListener('click', () => window.print());
+
+    // --- Sortable header click logic ---
+    sortableHeaders.forEach(header => {
+      header.addEventListener('click', () => {
+        const column = header.dataset.column;
+        if (sortColumn === column) {
+          sortDirection = sortDirection === 'ASC' ? 'DESC' : 'ASC';
+        } else {
+          sortColumn = column;
+          sortDirection = 'ASC';
+        }
+
+        // Visual feedback (↑ / ↓ arrows)
+        sortableHeaders.forEach(h => {
+          h.textContent = h.textContent.replace(/ ↑| ↓/, '');
+        });
+        header.textContent += sortDirection === 'ASC' ? ' ↑' : ' ↓';
+
+        filterProductsServerSide();
+      });
+    });
   });
 
   // -------------------- Customer Report Filters --------------------
@@ -742,7 +752,7 @@
     let sortColumn = "";
     let sortDirection = "asc";
 
-    async function loadTable() {
+    async function loadCustomerReport() {
       const payload = {
         customer_name: document.getElementById("customer_name").value.trim(),
         email: document.getElementById("email").value.trim(),
@@ -773,27 +783,25 @@
       }
     }
 
-    // Apply Filters button
-    filterBtn.addEventListener("click", loadTable);
+    // Filter button
+    filterBtn.addEventListener("click", loadCustomerReport);
 
-    // Column header click for sorting
-    const headers = document.querySelectorAll("th[data-column]");
+    // Header sorting
+    const headers = document.querySelectorAll(".sortable");
     headers.forEach(th => {
       th.addEventListener("click", () => {
         const column = th.dataset.column;
-
         if (sortColumn === column) {
-          sortDirection = sortDirection === "asc" ? "desc" : "asc"; // toggle
+          sortDirection = sortDirection === "asc" ? "desc" : "asc";
         } else {
           sortColumn = column;
           sortDirection = "asc";
         }
 
-        // Update arrow
-        headers.forEach(h => h.querySelector(".sort-arrow").textContent = "");
-        th.querySelector(".sort-arrow").textContent = sortDirection === "asc" ? "↑" : "↓";
+        headers.forEach(h => h.classList.remove("asc", "desc"));
+        th.classList.add(sortDirection);
 
-        loadTable();
+        loadCustomerReport();
       });
     });
 

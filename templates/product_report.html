@@ -72,6 +72,11 @@
       box-shadow: 0 0 3px var(--primary);
     }
 
+    .filter-section select {
+    position: relative;
+    z-index: 9999;
+    }
+
     .filter-group {
       display: flex;
       align-items: center;
@@ -142,6 +147,26 @@
       background: var(--secondary);
       color: white;
       font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .report-table th:hover {
+      background: #219150;
+    }
+
+    .sortable::after {
+      content: "";
+      margin-left: 5px;
+      font-size: 0.8rem;
+    }
+
+    .sortable.asc::after {
+      content: "↑";
+    }
+
+    .sortable.desc::after {
+      content: "↓";
     }
 
     .report-table tr:nth-child(even) {
@@ -232,102 +257,18 @@
     <table class="report-table">
       <thead>
         <tr>
-          <th>
-            ProductID
-            <select class="sort-select" data-column="ProductID">
-              <option value="">--</option>
-              <option value="asc">↑</option>
-              <option value="desc">↓</option>
-            </select>
-          </th>
-          <th>
-            Product Name
-            <select class="sort-select" data-column="ProductName">
-              <option value="">--</option>
-              <option value="asc">A→Z</option>
-              <option value="desc">Z→A</option>
-            </select>
-          </th>
-          <th>
-            Department
-            <select class="sort-select" data-column="Department">
-              <option value="">--</option>
-              <option value="asc">A→Z</option>
-              <option value="desc">Z→A</option>
-            </select>
-          </th>
-          <th>
-            Price
-            <select class="sort-select" data-column="Price">
-              <option value="">--</option>
-              <option value="asc">Low→High</option>
-              <option value="desc">High→Low</option>
-            </select>
-          </th>
-          <th>
-            Sale Price
-            <select class="sort-select" data-column="SalePrice">
-              <option value="">--</option>
-              <option value="asc">Low→High</option>
-              <option value="desc">High→Low</option>
-            </select>
-          </th>
-          <th>
-            Quantity Available
-            <select class="sort-select" data-column="QuantityAvailable">
-              <option value="">--</option>
-              <option value="asc">Low→High</option>
-              <option value="desc">High→Low</option>
-            </select>
-          </th>
-          <th>
-            Stock Status
-            <select class="sort-select" data-column="StockStatus">
-              <option value="">--</option>
-              <option value="asc">A→Z</option>
-              <option value="desc">Z→A</option>
-            </select>
-          </th>
-          <th>
-            Reorder Level
-            <select class="sort-select" data-column="ReorderLevel">
-              <option value="">--</option>
-              <option value="asc">Low→High</option>
-              <option value="desc">High→Low</option>
-            </select>
-          </th>
-          <th>
-            Last Restock Date
-            <select class="sort-select" data-column="LastRestockDate">
-              <option value="">--</option>
-              <option value="asc">Oldest→Newest</option>
-              <option value="desc">Newest→Oldest</option>
-            </select>
-          </th>
-          <th>
-            On Sale
-            <select class="sort-select" data-column="OnSale">
-              <option value="">--</option>
-              <option value="asc">A→Z</option>
-              <option value="desc">Z→A</option>
-            </select>
-          </th>
-          <th>
-            Total Revenue
-            <select class="sort-select" data-column="TotalRevenue">
-              <option value="">--</option>
-              <option value="asc">Low→High</option>
-              <option value="desc">High→Low</option>
-            </select>
-          </th>
-          <th>
-            Number of Sales
-            <select class="sort-select" data-column="NumberOfSales">
-              <option value="">--</option>
-              <option value="asc">Low→High</option>
-              <option value="desc">High→Low</option>
-            </select>
-          </th>
+          <th class="sortable" data-column="ProductID">Product ID</th>
+          <th class="sortable" data-column="ProductName">Product Name</th>
+          <th class="sortable" data-column="Department">Department</th>
+          <th class="sortable" data-column="Price">Price</th>
+          <th class="sortable" data-column="SalePrice">Sale Price</th>
+          <th class="sortable" data-column="QuantityAvailable">Quantity Available</th>
+          <th class="sortable" data-column="StockStatus">Stock Status</th>
+          <th class="sortable" data-column="ReorderLevel">Reorder Level</th>
+          <th class="sortable" data-column="LastRestockDate">Last Restock Date</th>
+          <th class="sortable" data-column="OnSale">On Sale</th>
+          <th class="sortable" data-column="TotalRevenue">Total Revenue</th>
+          <th class="sortable" data-column="NumberOfSales">Number of Sales</th>
         </tr>
       </thead>
       <tbody id="productTableBody">

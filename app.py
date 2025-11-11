@@ -10,6 +10,15 @@ import traceback, sys
 app = Flask(__name__)
 CORS(app)
 app.secret_key = os.environ.get('SECRET_KEY')
+
+def get_bag_owner_from_session():
+    role = session.get('role')
+    uid  = session.get('user_id')
+    if role == 'customer' and uid:
+        return {'CustomerID': uid, 'EmployeeID': None}
+    if role == 'employee' and uid:
+        return {'CustomerID': None, 'EmployeeID': uid}
+    return None
     
 # -----------------------------
 # Routes
@@ -746,6 +755,152 @@ def bag(cursor, conn):
 
     return render_template('bag.html', user=user)
 
+@app.get("/api/bag")
+@with_db
+def api_get_bag(cursor, conn):
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            SELECT b.BagID, b.ProductID, p.Name, p.Price, b.Quantity, b.AddedAt
+            FROM dbo.Bag b
+            JOIN dbo.Product p ON p.ProductID = b.ProductID
+            WHERE b.CustomerID = ? AND b.EmployeeID IS NULL
+            ORDER BY b.AddedAt DESC
+        """, (owner['CustomerID'],))
+    else:
+        cursor.execute("""
+            SELECT b.BagID, b.ProductID, p.Name, p.Price, b.Quantity, b.AddedAt
+            FROM dbo.Bag b
+            JOIN dbo.Product p ON p.ProductID = b.ProductID
+            WHERE b.EmployeeID = ? AND b.CustomerID IS NULL
+            ORDER BY b.AddedAt DESC
+        """, (owner['EmployeeID'],))
+
+    rows = cursor.fetchall()
+    cols = [c[0] for c in cursor.description]
+    return jsonify([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/bag")
+@with_db
+def api_add_to_bag(cursor, conn):
+    payload = request.get_json(silent=True) or {}
+    try:
+        pid = int(payload.get("product_id") or 0)
+        qty = int(payload.get("quantity") or 1)
+    except Exception:
+        return jsonify({"message": "Bad item"}), 400
+    if pid <= 0 or qty <= 0:
+        return jsonify({"message": "Bad item"}), 400
+
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            MERGE dbo.Bag AS target
+            USING (SELECT ? AS CustomerID, ? AS ProductID) AS src
+            ON target.CustomerID = src.CustomerID
+               AND target.ProductID = src.ProductID
+               AND target.EmployeeID IS NULL
+            WHEN MATCHED THEN UPDATE SET Quantity = target.Quantity + ?
+            WHEN NOT MATCHED THEN
+                INSERT (CustomerID, EmployeeID, ProductID, Quantity)
+                VALUES (src.CustomerID, NULL, src.ProductID, ?);
+        """, (owner['CustomerID'], pid, qty, qty))
+    else:
+        cursor.execute("""
+            MERGE dbo.Bag AS target
+            USING (SELECT ? AS EmployeeID, ? AS ProductID) AS src
+            ON target.EmployeeID = src.EmployeeID
+               AND target.ProductID = src.ProductID
+               AND target.CustomerID IS NULL
+            WHEN MATCHED THEN UPDATE SET Quantity = target.Quantity + ?
+            WHEN NOT MATCHED THEN
+                INSERT (CustomerID, EmployeeID, ProductID, Quantity)
+                VALUES (NULL, src.EmployeeID, src.ProductID, ?);
+        """, (owner['EmployeeID'], pid, qty, qty))
+
+    conn.commit()
+    return jsonify({"message": "Added"}), 201
+
+
+@app.patch("/api/bag/<int:bag_id>")
+@with_db
+def api_set_bag_qty(cursor, conn, bag_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        qty = int(payload.get("quantity") or 0)
+    except Exception:
+        return jsonify({"message": "Bad quantity"}), 400
+    if qty < 0:
+        return jsonify({"message": "Bad quantity"}), 400
+
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            UPDATE dbo.Bag SET Quantity = ?
+            WHERE BagID = ? AND CustomerID = ? AND EmployeeID IS NULL
+        """, (qty, bag_id, owner['CustomerID']))
+    else:
+        cursor.execute("""
+            UPDATE dbo.Bag SET Quantity = ?
+            WHERE BagID = ? AND EmployeeID = ? AND CustomerID IS NULL
+        """, (qty, bag_id, owner['EmployeeID']))
+
+    if cursor.rowcount == 0:
+        return jsonify({"message": "Not found"}), 404
+    conn.commit()
+    return jsonify({"message": "Updated"})
+
+
+@app.delete("/api/bag/<int:bag_id>")
+@with_db
+def api_delete_bag_item(cursor, conn, bag_id):
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            DELETE FROM dbo.Bag
+            WHERE BagID = ? AND CustomerID = ? AND EmployeeID IS NULL
+        """, (bag_id, owner['CustomerID']))
+    else:
+        cursor.execute("""
+            DELETE FROM dbo.Bag
+            WHERE BagID = ? AND EmployeeID = ? AND CustomerID IS NULL
+        """, (bag_id, owner['EmployeeID']))
+
+    if cursor.rowcount == 0:
+        return jsonify({"message": "Not found"}), 404
+    conn.commit()
+    return jsonify({"message": "Deleted"})
+
+
+@app.delete("/api/bag")
+@with_db
+def api_clear_bag(cursor, conn):
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("DELETE FROM dbo.Bag WHERE CustomerID = ? AND EmployeeID IS NULL",
+                       (owner['CustomerID'],))
+    else:
+        cursor.execute("DELETE FROM dbo.Bag WHERE EmployeeID = ? AND CustomerID IS NULL",
+                       (owner['EmployeeID'],))
+    conn.commit()
+    return jsonify({"message": "Cleared"})
+
 #DATA REPORTS theres three of them
 
 @app.route('/employee_report')
@@ -1188,6 +1343,27 @@ def checkout(cursor, conn):
     payload = request.get_json(silent=True) or {}
     items = payload.get("items") or []
     if not items:
+        owner = get_bag_owner_from_session()
+        if not owner:
+            return jsonify({"message": "Login required"}), 401
+
+        if owner['CustomerID'] is not None:
+            cursor.execute("""
+                SELECT ProductID, Quantity
+                FROM dbo.Bag
+                WHERE CustomerID = ? AND EmployeeID IS NULL
+            """, (owner['CustomerID'],))
+        else:
+            cursor.execute("""
+                SELECT ProductID, Quantity
+                FROM dbo.Bag
+                WHERE EmployeeID = ? AND CustomerID IS NULL
+            """, (owner['EmployeeID'],))
+
+        rows = cursor.fetchall()
+        items = [{"product_id": int(r[0]), "quantity": int(r[1])} for r in rows]
+
+    if not items:
         return jsonify({"message": "No items to checkout."}), 400
 
     clean = []
@@ -1254,6 +1430,13 @@ def checkout(cursor, conn):
                 SET QuantityInStock = QuantityInStock - ?
                 WHERE ProductID = ?
             """, (qty, pid))
+
+        if cust_id is not None:
+            cursor.execute("DELETE FROM dbo.Bag WHERE CustomerID = ? AND EmployeeID IS NULL",
+                           (cust_id,))
+        elif emp_id is not None:
+            cursor.execute("DELETE FROM dbo.Bag WHERE EmployeeID = ? AND CustomerID IS NULL",
+                           (emp_id,))
 
         conn.commit()
         conn.autocommit = autocommit_backup

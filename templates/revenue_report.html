@@ -1,213 +1,442 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
 	<title>Revenue Report - FreshMart</title>
 	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 	<style>
 		:root {
 			--primary: #2ecc71;
 			--secondary: #27ae60;
-			--bg-light: #f9f9f9;
-			--text-dark: #333;
-			--text-muted: #777;
-			--radius: 10px;
-			--shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+			--accent: #e8f9ee;
+			--bg: #f7fbf8;
+			--card: #ffffff;
+			--muted: #7a7a7a;
+			--radius: 12px;
+			--shadow: 0 6px 24px rgba(15,20,10,0.06);
 		}
 
-		body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg-light); color: var(--text-dark); margin: 0; padding: 0; }
-		.container { max-width: 1200px; margin: 2rem auto; padding: 1rem; }
-		h1 { text-align: center; margin-bottom: 1rem; color: var(--secondary); }
-		.filter-section, .kpi-cards, .table-card { background: white; padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 2rem; }
-		.filter-section input, .filter-section select, .filter-section button { padding: 0.5rem; margin-right: 0.5rem; margin-bottom: 0.5rem; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9rem; }
-		.filter-section button { background: var(--primary); color: white; border: none; cursor: pointer; }
-		.filter-section button:hover { background: var(--secondary); }
-		.kpi-cards { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; }
-		.kpi-card { flex: 1; min-width: 180px; text-align: center; padding: 1rem; }
-		.kpi-card h5 { margin: 0 0 0.5rem 0; color: var(--text-muted); }
-		.kpi-card p { font-size: 1.25rem; font-weight: 700; margin: 0; }
-		table { width: 100%; border-collapse: collapse; }
-		table th, table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
-		table th { background: var(--secondary); color: white; cursor: pointer; }
-		table tr:nth-child(even) { background: #f8f8f8; }
-		table tr:hover { background: #eafaf1; }
+		body {
+			font-family: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+			background: linear-gradient(180deg, #fbfdfb 0%, var(--bg) 100%);
+			color: #222;
+			margin: 0;
+			padding: 2rem 1rem;
+			-webkit-font-smoothing: antialiased;
+		}
+
+		.page {
+			max-width: 1200px;
+			margin: 0 auto;
+			display: flex;
+			flex-direction: column;
+			gap: 1.5rem;
+		}
+
+		.title {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+		}
+
+		.brand-pill {
+			background: linear-gradient(135deg, var(--primary), var(--secondary));
+			color: white;
+			padding: 0.55rem 0.8rem;
+			border-radius: 10px;
+			font-weight: 700;
+			box-shadow: 0 6px 18px rgba(46,204,113,0.18);
+			font-size: 0.95rem;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: 1.5rem;
+			color: #1f7a44;
+			letter-spacing: -0.2px;
+		}
+
+		.subtitle {
+			color: var(--muted);
+			font-size: 0.95rem;
+		}
+
+		.muted {
+			color: var(--muted);
+			font-size: 0.9rem;
+		}
+
+		.card {
+			background: var(--card);
+			border-radius: var(--radius);
+			padding: 1rem;
+			box-shadow: var(--shadow);
+			border: 1px solid rgba(15,20,10,0.03);
+		}
+
+		.kpis {
+			display: flex;
+			gap: 0.9rem;
+			flex-wrap: wrap;
+		}
+
+		.kpi {
+			flex: 1;
+			min-width: 160px;
+			background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.6));
+			border-radius: 10px;
+			padding: 0.9rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.35rem;
+			transition: transform .18s ease, box-shadow .18s ease;
+			border: 1px solid rgba(0,0,0,0.03);
+		}
+
+		.kpi:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 12px 30px rgba(15,20,10,0.06);
+		}
+
+		.kpi small {
+			color: var(--muted);
+			font-weight: 600;
+		}
+
+		.kpi .value {
+			font-size: 1.25rem;
+			font-weight: 800;
+			color: #0f5132;
+		}
+
+		.chart-card {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.chart-title {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+		}
+
+		canvas {
+			width: 100% !important;
+			height: 320px !important;
+			border-radius: 8px;
+		}
+
+		.filters {
+			display: flex;
+			flex-direction: column;
+			gap: 0.6rem;
+		}
+
+		.filter-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.6rem;
+			align-items: center;
+		}
+
+		input[type="date"], select {
+			padding: 0.55rem 0.7rem;
+			border-radius: 8px;
+			border: 1px solid #dfe7df;
+			background: white;
+			font-size: 0.95rem;
+		}
+
+		.btn {
+			background: linear-gradient(135deg, var(--primary), var(--secondary));
+			color: white;
+			border: none;
+			padding: 0.6rem 0.9rem;
+			border-radius: 8px;
+			cursor: pointer;
+			font-weight: 700;
+			box-shadow: 0 8px 20px rgba(46,204,113,0.12);
+		}
+
+		.btn:active {
+			transform: translateY(1px);
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 0.95rem;
+		}
+
+		th {
+			background: linear-gradient(180deg, #2b6e3b, #2b6e3b);
+			color: white;
+			padding: 0.75rem;
+			text-align: left;
+		}
+
+		td {
+			padding: 0.7rem;
+			border-bottom: 1px solid #f0f3f0;
+		}
+
+		tr:nth-child(even) {
+			background: #fbfdfb;
+		}
+
+		.amount {
+			font-weight: 700;
+			color: #114b32;
+		}
+
+		.filtered-total {
+			text-align: right;
+			margin-top: 0.5rem;
+			font-weight: 700;
+			color: #0f5132;
+		}
+
+		@media(max-width: 600px) {
+			.kpis {
+				flex-direction: column;
+			}
+			canvas {
+				height: 220px !important;
+			}
+		}
 	</style>
 </head>
 <body>
-    <div class="container">
-        <h1>Revenue Report</h1>
+	<div class="page">
 
-        <!-- KPIs -->
-        <div class="kpi-cards">
-            <div class="kpi-card">
-                <h5>Total Revenue</h5>
-                <p id="totalRevenue">$0.00</p>
-            </div>
-            <div class="kpi-card">
-                <h5>Total Orders</h5>
-                <p id="totalOrders">0</p>
-            </div>
-            <div class="kpi-card">
-                <h5>Average Order Value</h5>
-                <p id="avgOrderValue">$0.00</p>
-            </div>
-        </div>
+		<div class="title">
+			<div class="brand-pill">FreshMart</div>
+			<div>
+				<h1>Revenue Report</h1>
+				<div class="subtitle">Comprehensive revenue summary for this month — chart and table below.</div>
+			</div>
+		</div>
 
-        <!-- Revenue Chart -->
-        <div class="table-card">
-            <h4>Revenue Over Time by Department</h4>
-            <canvas id="revenueChart" height="150"></canvas>
-        </div>
+		<div class="muted">Updated: <span id="updatedAt"></span></div>
 
-        <!-- Filters -->
-        <div class="filter-section">
-            <input type="date" id="filterStartDate" placeholder="From">
-            <input type="date" id="filterEndDate" placeholder="To">
-            <select id="filterPaymentMethod">
-                <option value="">All Payment Methods</option>
-                {% for method in payment_methods %}
-                    <option value="{{ method }}">{{ method }}</option>
-                {% endfor %}
-            </select>
-            <select id="filterOrderStatus">
-                <option value="">All Statuses</option>
-                {% for status in order_statuses %}
-                    <option value="{{ status }}">{{ status }}</option>
-                {% endfor %}
-            </select>
-            <button id="applyFilters">Apply Filters</button>
-        </div>
+		<div class="card">
+			<div class="kpis">
+				<div class="kpi">
+					<small>Total Revenue</small>
+					<div class="value" id="totalRevenue">$0.00</div>
+				</div>
+				<div class="kpi">
+					<small>Total Orders</small>
+					<div class="value" id="totalOrders">0</div>
+				</div>
+				<div class="kpi">
+					<small>Average Order Value</small>
+					<div class="value" id="avgOrderValue">$0.00</div>
+				</div>
+			</div>
+		</div>
 
-        <!-- Revenue Table -->
-        <div class="table-card">
-            <h4>Revenue Breakdown</h4>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Transaction ID</th>
-                        <th>Date</th>
-                        <th>Customer</th>
-                        <th>Payment Method</th>
-                        <th>Status</th>
-                        <th>Total Amount</th>
-                    </tr>
-                </thead>
-                <tbody id="revenueTableBody"></tbody>
-            </table>
-        </div>
-    </div>
+		<div class="card chart-card">
+			<div class="chart-title">
+				<strong>Revenue Over Time</strong>
+				<div class="muted">By department — start of month → today</div>
+			</div>
+			<canvas id="revenueChart"></canvas>
+		</div>
 
-	<script>
-		const initialTransactions = {{ transactions|tojson }};
+		<div class="card">
+			<strong>Filters (table only)</strong>
+			<div class="filters" style="margin-top:0.6rem;">
+				<div class="filter-row">
+					<input id="filterStartDate" type="date" />
+					<input id="filterEndDate" type="date" />
+					<select id="filterPaymentMethod">
+						<option value="">All Payment Methods</option>
+						{% for method in payment_methods %}
+							<option value="{{ method }}">{{ method }}</option>
+						{% endfor %}
+					</select>
+					<select id="filterOrderStatus">
+						<option value="">All Statuses</option>
+						{% for status in order_statuses %}
+							<option value="{{ status }}">{{ status }}</option>
+						{% endfor %}
+					</select>
+					<button id="applyFilters" class="btn">Apply Filters</button>
+				</div>
+			</div>
+		</div>
 
-		function populateRevenueData(transactions) {
-			const tbody = document.getElementById('revenueTableBody');
-			tbody.innerHTML = '';
-			let totalRevenue = 0;
+		<div class="card">
+			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+				<strong>Revenue Breakdown</strong>
+				<div class="muted" id="tableSummary">0 rows</div>
+			</div>
 
-			transactions.forEach(t => {
-				totalRevenue += parseFloat(t.TotalAmount);
-				tbody.innerHTML += `
+			<table class="revenue">
+				<thead>
 					<tr>
-						<td>${t.TransactionID}</td>
-						<td>${t.TransactionDate}</td>
-						<td>${t.CustomerName}</td>
-						<td>${t.PaymentMethod}</td>
-						<td>${t.OrderStatus}</td>
-						<td>$${parseFloat(t.TotalAmount).toFixed(2)}</td>
-					</tr>`;
-			});
+						<th>Transaction ID</th>
+						<th>Date</th>
+						<th>Customer</th>
+						<th>Payment Method</th>
+						<th>Status</th>
+						<th style="text-align:right">Total Amount</th>
+					</tr>
+				</thead>
+				<tbody id="revenueTableBody"></tbody>
+				<tfoot>
+					<tr>
+						<td colspan="5" style="text-align:right; font-weight:bold;">Filtered Total:</td>
+						<td id="filteredTotal" style="text-align:right; font-weight:bold;">$0.00</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
 
-			const totalOrders = transactions.length;
-			const avgOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
+    <script>
+        const initialTransactions = {{ transactions|tojson }};
 
-			document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
-			document.getElementById('totalOrders').textContent = totalOrders;
-			document.getElementById('avgOrderValue').textContent = `$${avgOrderValue.toFixed(2)}`;
-		}
+        function toYMD(dateInput) {
+            const dt = new Date(dateInput);
+            if (!isNaN(dt)) return dt.toISOString().split('T')[0];
+            return dateInput;
+        }
 
-		// Initial KPIs and table
-		populateRevenueData(initialTransactions);
+        function populateKPIs(transactions) {
+            let totalRevenue = 0;
+            transactions.forEach(t => totalRevenue += parseFloat(t.TotalAmount) || 0);
+            const totalOrders = transactions.length;
+            const avg = totalOrders ? (totalRevenue / totalOrders) : 0;
 
-		document.getElementById('applyFilters').addEventListener('click', async () => {
-			const startDate = document.getElementById('filterStartDate').value;
-			const endDate = document.getElementById('filterEndDate').value;
-			const payment = document.getElementById('filterPaymentMethod').value;
-			const status = document.getElementById('filterOrderStatus').value;
+            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+            document.getElementById('totalOrders').textContent = totalOrders;
+            document.getElementById('avgOrderValue').textContent = `$${avg.toFixed(2)}`;
+        }
 
-			try {
-				const res = await fetch("/api/revenue_report", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ start_date: startDate, end_date: endDate, payment_method: payment, order_status: status })
-				});
-				const data = await res.json();
-				populateRevenueData(data.transactions);
-			} catch (err) {
-				console.error('Error fetching revenue data:', err);
-			}
+        function populateRevenueData(transactions) {
+            const tbody = document.getElementById('revenueTableBody');
+            tbody.innerHTML = '';
+            let totalFiltered = 0;
 
-			fetchChartData();
-		});
+            transactions.forEach(t => {
+                const amt = parseFloat(t.TotalAmount) || 0;
+                totalFiltered += amt;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${t.TransactionID ?? ''}</td>
+                    <td>${toYMD(t.TransactionDate)}</td>
+                    <td>${t.CustomerName ?? ''}</td>
+                    <td>${t.PaymentMethod ?? ''}</td>
+                    <td>${t.OrderStatus ?? ''}</td>
+                    <td style="text-align:right" class="amount">$${amt.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
 
-		const chartColors = ['#2ecc71','#e74c3c','#3498db','#f1c40f','#9b59b6','#1abc9c','#e67e22','#34495e','#95a5a6','#d35400'];
+            document.getElementById('tableSummary').textContent = `${transactions.length} rows`;
+            document.getElementById('filteredTotal').textContent = `$${totalFiltered.toFixed(2)}`;
+        }
 
-		function assignColors(departments) {
-			const colors = {};
-			departments.forEach((dept, index) => {
-				colors[dept] = chartColors[index % chartColors.length];
-			});
-			return colors;
-		}
+        populateKPIs(initialTransactions || []);
+        populateRevenueData(initialTransactions || []);
+        document.getElementById('updatedAt').textContent = new Date().toISOString().split('T')[0];
 
-		let revenueChart;
-		async function fetchChartData() {
-			const startDate = document.getElementById('filterStartDate').value;
-			const endDate = document.getElementById('filterEndDate').value;
-			const departments = []; // all departments
+        document.getElementById('applyFilters').addEventListener('click', async () => {
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            const payment = document.getElementById('filterPaymentMethod').value;
+            const status = document.getElementById('filterOrderStatus').value;
+            const adjustedEnd = endDate || null;
 
-			try {
-				const res = await fetch("/api/revenue_report_chart", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ start_date: startDate, end_date: endDate, departments })
-				});
-				const data = await res.json();
-				const ctx = document.getElementById('revenueChart').getContext('2d');
+            const res = await fetch("/api/revenue_report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    start_date: startDate || null,
+                    end_date: adjustedEnd || null,
+                    payment_method: payment || null,
+                    order_status: status || null
+                })
+            });
+            const data = await res.json();
+            populateRevenueData(data.transactions || []);
+        });
 
-				if (revenueChart) revenueChart.destroy();
+        let revenueChart;
 
-				const colorMap = assignColors(data.datasets.map(ds => ds.department));
+        function fillMissingDates(labels, datasets) {
+            // Create full date range from first of month to today
+            const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+            const end = new Date();
+            const fullDates = [];
+            for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+                fullDates.push(dt.toISOString().split('T')[0]);
+            }
 
-				revenueChart = new Chart(ctx, {
-					type: 'line',
-					data: {
-						labels: data.labels,
-						datasets: data.datasets.map(ds => ({
-							label: ds.department,
-							data: ds.data,
-							borderColor: colorMap[ds.department],
-							backgroundColor: colorMap[ds.department],
-							fill: false,
-							tension: 0.2
-						}))
-					},
-					options: {
-						responsive: true,
-						plugins: { legend: { position: 'top' } },
-						scales: {
-							x: { title: { display: true, text: 'Date' } },
-							y: { title: { display: true, text: 'Revenue ($)' }, beginAtZero: true }
-						}
-					}
-				});
-			} catch (err) { console.error('Error fetching chart data:', err); }
-		}
+            // For each dataset, fill 0 where date missing
+            datasets.forEach(ds => {
+                const newData = fullDates.map(date => {
+                const index = labels.indexOf(date);
+                return index >= 0 ? ds.data[index] : 0;
+                });
+                ds.data = newData;
+            });
 
-		// Initial chart load
-		fetchChartData();
-	</script>
+            return fullDates;
+        }
+
+        async function fetchChartData() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const res = await fetch("/api/revenue_report_chart", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                start_date: start.toISOString().split('T')[0],
+                end_date: now.toISOString().split('T')[0],
+                departments: []
+                })
+            });
+            const json = await res.json();
+            const fullLabels = fillMissingDates(json.labels, json.datasets);
+            renderChart(fullLabels, json.datasets);
+        }
+
+        function renderChart(labels, datasets) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            const chartColors = ['#2ecc71','#e74c3c','#3498db','#f1c40f','#9b59b6','#1abc9c','#e67e22'];
+            revenueChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: datasets.map((d,i) => ({
+                        label: d.department,
+                        data: d.data,
+                        borderColor: chartColors[i % chartColors.length],
+                        fill: false,
+                        tension: 0.2
+                    }))
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Revenue ($)' } },
+                        x: { title: { display: true, text: 'Date' } }
+                    }
+                }
+            });
+        }
+
+        fetchChartData();
+    </script>
 </body>
 </html>

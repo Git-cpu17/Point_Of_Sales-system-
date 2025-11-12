@@ -1,320 +1,858 @@
 {% extends "admin_dashboard.html" %}
 {% block content %}
-<div class="container mt-4" style="max-width: 1200px;">
+<style>
+:root {
+    --primary: #2ecc71;
+    --secondary: #27ae60;
+    --bg-light: #f9f9f9;
+    --text-dark: #333;
+    --text-muted: #777;
+    --accent-light: #e8f9ee;
+    --radius: 10px;
+    --shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-    <h2 style="color: var(--dark-green); margin-bottom: 1.5rem;">Employee Management</h2>
+/* Page Background */
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8f9ee 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+}
 
-    <!-- Add Employee Form -->
-    <div class="card p-4 mb-5" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <h3 style="margin-bottom: 1rem; color: var(--primary-green);">Add New Employee</h3>
-        <form id="addEmployeeForm" class="form-grid">
-            <input type="text" name="Name" placeholder="Name *" required class="form-input">
-            <input type="text" name="Phone" placeholder="Phone" class="form-input">
-            <input type="email" name="Email" placeholder="Email" class="form-input">
-            <input type="text" name="JobTitle" placeholder="Job Title" class="form-input">
-            <select name="DepartmentID" required class="form-input">
-                <option value="">Select Department *</option>
-                {% for dept in departments %}
-                    <option value="{{ dept.DepartmentID }}">{{ dept.Name }}</option>
-                {% endfor %}
-            </select>
-            <input type="text" name="Username" placeholder="Username *" required class="form-input">
-            <input type="password" name="Password" placeholder="Password *" required class="form-input">
-            <button type="submit" class="btn-primary full-width">Add Employee</button>
-        </form>
+.form-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+    animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Page Header */
+.page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.page-header h2 {
+    color: var(--secondary);
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+}
+
+.page-header p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* Card */
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+    border: 1px solid rgba(46, 204, 113, 0.1);
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+}
+
+.card h4 {
+    color: var(--secondary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--accent-light);
+}
+
+/* Center Add & Manage Sections */
+#addEmployeeSection,
+#manageEmployeeSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* centers the card horizontally */
+    justify-content: center; /* optional: centers vertically */
+    min-height: 60vh;
+    width: 100%;
+    padding: 2rem 1rem; /* optional: spacing around the card */
+}
+
+#addEmployeeSection .card,
+#manageEmployeeSection .card {
+    width: 100%;
+    max-width: 1400px; /* smaller max width for better centering */
+    box-sizing: border-box; /* ensures padding doesn’t break the width */
+}
+
+/* Form Grid */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.full-width {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+}
+
+/* Labels */
+label {
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 0.5rem;
+    display: block;
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+}
+
+/* Required badge */
+.required-badge {
+    display: inline-block;
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+
+/* Form Inputs */
+.form-input, .form-select {
+    width: 100%;
+    padding: 0.85rem 1.1rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    transition: var(--transition);
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.form-input::placeholder {
+    color: #aaa;
+}
+
+.form-input:focus, .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(46,204,113,0.15);
+    outline: none;
+    transform: translateY(-2px);
+}
+
+.form-input:hover:not(:focus), 
+.form-select:hover:not(:focus) {
+    border-color: #999;
+}
+
+/* Buttons - Modern Design */
+.btn-primary, .btn-secondary, .btn-big {
+    border-radius: 10px;
+    padding: 0.85rem 1.8rem;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+    border: none;
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.3px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn-primary:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(46, 204, 113, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: white;
+    border: 2px solid #e0e0e0;
+    color: var(--text-dark);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.btn-secondary:hover {
+    background: #f8f8f8;
+    border-color: #ccc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Big Button Landing Screen */
+.big-choice-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 3rem;
+    min-height: 50vh;
+    margin-bottom: 2rem;
+    animation: fadeIn 0.8s ease-out;
+}
+
+.btn-big {
+    width: 280px;
+    height: 180px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    border-radius: 16px;
+    transition: var(--transition);
+}
+
+.btn-big::after {
+    content: '';
+    display: block;
+    width: 50px;
+    height: 3px;
+    background: currentColor;
+    border-radius: 2px;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: var(--transition);
+}
+
+.btn-big:hover::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.btn-big.btn-primary {
+    box-shadow: 0 8px 30px rgba(46, 204, 113, 0.25);
+}
+
+.btn-big.btn-primary:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(46, 204, 113, 0.35);
+}
+
+.btn-big.btn-secondary {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.btn-big.btn-secondary:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Employee Table */
+.table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.data-table th {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.data-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    background: white;
+    transition: background 0.2s ease;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.data-table tbody tr {
+    transition: var(--transition);
+}
+
+.data-table tbody tr:hover {
+    background-color: var(--accent-light);
+}
+
+.data-table tbody tr:hover td {
+    background-color: var(--accent-light);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.action-buttons-cell {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Action Buttons */
+.btn-edit, .btn-delete {
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: var(--transition);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    min-width: 70px;
+}
+
+.btn-edit { 
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+}
+
+.btn-edit:hover { 
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+}
+
+.btn-delete { 
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn-delete:hover { 
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+    background: #fff;
+    margin: 5% auto;
+    padding: 2.5rem;
+    border-radius: 16px;
+    max-width: 900px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(46, 204, 113, 0.1);
+}
+
+.close {
+    position: absolute;
+    top: 20px;
+    right: 25px;
+    font-size: 32px;
+    cursor: pointer;
+    color: #999;
+    transition: var(--transition);
+    line-height: 1;
+}
+
+.close:hover {
+    color: var(--secondary);
+    transform: rotate(90deg);
+}
+
+/* Back Button */
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 0.6rem 1.2rem;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    color: var(--text-dark);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    align-self: flex-start;
+}
+
+.back-btn::before {
+    content: '←';
+    font-size: 1.2rem;
+    transition: var(--transition);
+}
+
+.back-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateX(-4px);
+}
+
+.back-btn:hover::before {
+    transform: translateX(-4px);
+}
+
+/* Fade-in animation */
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Button groups */
+.button-group {
+    display: flex;
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .form-container {
+        padding: 1.5rem 1rem;
+    }
+    
+    .form-grid { 
+        grid-template-columns: 1fr;
+    }
+    
+    .big-choice-container { 
+        flex-direction: column;
+        min-height: auto;
+        gap: 1.5rem;
+        padding: 2rem 0;
+    }
+    
+    .btn-big {
+        width: 100%;
+        max-width: 320px;
+        height: 140px;
+    }
+    
+    .card {
+        padding: 1.5rem;
+    }
+    
+    .data-table {
+        font-size: 0.85rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .modal-content {
+        margin: 10% 1rem;
+        padding: 2rem;
+    }
+}
+
+/* Loading state for buttons */
+.btn-primary.loading,
+.btn-secondary.loading {
+    pointer-events: none;
+    opacity: 0.7;
+    position: relative;
+}
+
+.btn-primary.loading::after,
+.btn-secondary.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+</style>
+
+<div class="form-container">
+    <div class="page-header">
+        <h2>Employee Management</h2>
+        <p>Add new employees and manage your team efficiently</p>
     </div>
 
-    <!-- Employee Table -->
-    <div class="card p-4" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <h3 style="margin-bottom: 1rem; color: var(--primary-green);">Employee List</h3>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Job Title</th>
-                    <th>Hire Date</th>
-                    <th>Department</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="employeeTableBody">
-                {% for e in employees %}
-                    <tr>
-                        <td>#{{ e.EmployeeID }}</td>
-                        <td>{{ e.Name }}</td>
-                        <td>{{ e.Phone }}</td>
-                        <td>{{ e.Email }}</td>
-                        <td>{{ e.JobTitle }}</td>
-                        <td>{{ e.HireDate }}</td>
-                        <td>{{ e.DepartmentID or 'N/A' }}</td>
-                        <td>
-                            <button class="btn-edit" onclick="editEmployee('{{ e.EmployeeID }}')">Edit</button>
-                            <button class="btn-delete" onclick="deleteEmployee('{{ e.EmployeeID }}')">Delete</button>
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Big Button Landing Screen -->
+    <div id="choiceScreen" class="big-choice-container">
+        <button id="chooseAdd" class="btn-primary btn-big">
+            <span>Add Employee</span>
+        </button>
+        <button id="chooseManage" class="btn-secondary btn-big">
+            <span>Manage Employees</span>
+        </button>
     </div>
 
-    <!-- Edit Employee Modal -->
-    <div id="editEmployeeModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeEditModal()">&times;</span>
-            <h3 style="color: var(--primary-green); margin-bottom: 1rem;">Edit Employee</h3>
-
-            <form id="editEmployeeForm" class="form-grid">
-                <input type="hidden" name="EmployeeID" id="editEmployeeID">
-
-                <input type="text" name="Name" id="editName" placeholder="Name">
-                <input type="text" name="Phone" id="editPhone" placeholder="Phone">
-                <input type="email" name="Email" id="editEmail" placeholder="Email">
-                <input type="text" name="JobTitle" id="editJobTitle" placeholder="Job Title">
-                <input type="date" name="HireDate" id="editHireDate">
-                <select name="DepartmentID" id="editDepartmentID" required>
-                    <option value="">Select Department *</option>
-                    {% for dept in departments %}
-                        <option value="{{ dept.DepartmentID }}">{{ dept.Name }}</option>
-                    {% endfor %}
-                </select>
-                <input type="text" name="Username" id="editUsername" placeholder="Username">
-                <input type="password" name="Password" id="editPassword" placeholder="Password">
-
-                <div class="d-flex gap-2 mt-3 full-width">
-                    <button type="submit" class="btn-primary full-width">Save Changes</button>
-                    <button type="button" class="btn-secondary full-width" onclick="closeEditModal()">Cancel</button>
+    <!-- Add Employee Section -->
+    <div id="addEmployeeSection" style="display:none;">
+        <button id="backFromAdd" class="btn-secondary back-btn">Back to Menu</button>
+        <div class="card">
+            <h4>Add New Employee</h4>
+            <form id="addEmployeeForm" class="form-grid">
+                <div>
+                    <label>Name <span class="required-badge">REQUIRED</span></label>
+                    <input type="text" name="Name" class="form-input" placeholder="Enter full name" required>
+                </div>
+                <div>
+                    <label>Phone</label>
+                    <input type="text" name="Phone" class="form-input" placeholder="(555) 123-4567">
+                </div>
+                <div>
+                    <label>Email</label>
+                    <input type="email" name="Email" class="form-input" placeholder="email@example.com">
+                </div>
+                <div>
+                    <label>Job Title</label>
+                    <input type="text" name="JobTitle" class="form-input" placeholder="Position title">
+                </div>
+                <div>
+                    <label>Department <span class="required-badge">REQUIRED</span></label>
+                    <select name="DepartmentID" class="form-select" required>
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.DepartmentID }}">{{ dept.Name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Username <span class="required-badge">REQUIRED</span></label>
+                    <input type="text" name="Username" class="form-input" placeholder="Username for login" required>
+                </div>
+                <div>
+                    <label>Password <span class="required-badge">REQUIRED</span></label>
+                    <input type="password" name="Password" class="form-input" placeholder="Secure password" required>
+                </div>
+                <div class="full-width">
+                    <button type="submit" class="btn-primary">Add Employee</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Styles -->
-    <style>
-        /* Form Grid Layout */
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .form-input {
-            padding: 0.65rem 0.8rem;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            transition: 0.2s;
-            width: 100%;
-            font-size: 0.95rem;
-        }
-
-        .form-input:focus {
-            border-color: var(--primary-green);
-            box-shadow: 0 0 5px rgba(0,128,0,0.2);
-            outline: none;
-        }
-
-        .full-width {
-            grid-column: 1 / -1;
-            text-align: center;
-        }
-
-        /* Buttons */
-        .btn-primary {
-            background-color: var(--primary-green);
-            color: white;
-            border: none;
-            padding: 0.65rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-weight: 500;
-        }
-
-        .btn-primary:hover {
-            background-color: var(--dark-green);
-        }
-
-        .btn-secondary {
-            background-color: #f0f0f0;
-            color: var(--dark-green);
-            border: 1px solid #ccc;
-            padding: 0.65rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-weight: 500;
-        }
-
-        .btn-secondary:hover {
-            background-color: #e0e0e0;
-        }
-
-        /* Table */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table th {
-            background-color: var(--primary-green);
-            color: white;
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 2px solid var(--dark-green);
-        }
-
-        .data-table td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .data-table tr:hover {
-            background-color: #f8f8f8;
-        }
-
-        .btn-edit {
-            background-color: #ffc107;
-            border: none;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #fff;
-            transition: 0.2s;
-        }
-
-        .btn-edit:hover {
-            background-color: #e0a800;
-        }
-
-        .btn-delete {
-            background-color: #dc3545;
-            border: none;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            cursor: pointer;
-            color: #fff;
-            transition: 0.2s;
-            margin-left: 0.3rem;
-        }
-
-        .btn-delete:hover {
-            background-color: #c82333;
-        }
-
-        /* Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(1px);
-        }
-
-        .modal-content {
-            background: white;
-            margin: 5% auto;
-            padding: 2rem;
-            width: 90%;
-            max-width: 700px;
-            border-radius: 12px;
-            position: relative;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            animation: fadeIn 0.2s ease-out;
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            cursor: pointer;
-            color: #999;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (max-width: 600px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <!-- Manage Employee Section -->
+    <div id="manageEmployeeSection" style="display:none;">
+        <button id="backFromManage" class="btn-secondary back-btn">Back to Menu</button>
+        <div class="card">
+            <h4>Employee List</h4>
+            <div class="table-wrapper">
+                <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th>Job Title</th>
+                        <th>Hire Date</th>
+                        <th>Department</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="employeeTableBody">
+                    {% for e in employees %}
+                    <tr>
+                        <td>#{{ e.EmployeeID }}</td>
+                        <td>{{ e.Name }}</td>
+                        <td>{{ e.Phone or '—' }}</td>
+                        <td>{{ e.Email or '—' }}</td>
+                        <td>{{ e.JobTitle or '—' }}</td>
+                        <td>{{ e.HireDate or '—' }}</td>
+                        <td>{{ e.DepartmentID or 'N/A' }}</td>
+                        <td>
+                            <div class="action-buttons-cell">
+                                <button class="btn-edit" onclick="editEmployee('{{ e.EmployeeID }}')">Edit</button>
+                                <button class="btn-delete" onclick="deleteEmployee('{{ e.EmployeeID }}')">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- Scripts -->
+<!-- Edit Employee Modal -->
+<div id="editEmployeeModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeEditModal()">&times;</span>
+        <h4>Edit Employee Details</h4>
+        <form id="editEmployeeForm" class="form-grid">
+            <input type="hidden" name="EmployeeID" id="editEmployeeID">
+            <div>
+                <label>Name</label>
+                <input type="text" name="Name" id="editName" placeholder="Name" class="form-input">
+            </div>
+            <div>
+                <label>Phone</label>
+                <input type="text" name="Phone" id="editPhone" placeholder="Phone" class="form-input">
+            </div>
+            <div>
+                <label>Email</label>
+                <input type="email" name="Email" id="editEmail" placeholder="Email" class="form-input">
+            </div>
+            <div>
+                <label>Job Title</label>
+                <input type="text" name="JobTitle" id="editJobTitle" placeholder="Job Title" class="form-input">
+            </div>
+            <div>
+                <label>Hire Date</label>
+                <input type="date" name="HireDate" id="editHireDate" class="form-input">
+            </div>
+            <div>
+                <label>Department</label>
+                <select name="DepartmentID" id="editDepartmentID" class="form-select" required>
+                    <option value="">Select Department</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.DepartmentID }}">{{ dept.Name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>Username</label>
+                <input type="text" name="Username" id="editUsername" placeholder="Username" class="form-input">
+            </div>
+            <div>
+                <label>Password</label>
+                <input type="password" name="Password" id="editPassword" placeholder="New Password" class="form-input">
+            </div>
+            <div class="full-width button-group">
+                <button type="submit" class="btn-primary">Save Changes</button>
+                <button type="button" class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-    document.getElementById("addEmployeeForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const formData = Object.fromEntries(new FormData(e.target).entries());
+// Elements
+const choiceScreen = document.getElementById("choiceScreen");
+const addSection = document.getElementById("addEmployeeSection");
+const manageSection = document.getElementById("manageEmployeeSection");
+const chooseAdd = document.getElementById("chooseAdd");
+const chooseManage = document.getElementById("chooseManage");
+const backFromAdd = document.getElementById("backFromAdd");
+const backFromManage = document.getElementById("backFromManage");
+
+// Show/hide sections
+function showSection(section) {
+    if (section === choiceScreen) section.style.display = "flex";
+    else section.style.display = "block";
+    section.classList.remove("fade-in");
+    void section.offsetWidth;
+    section.classList.add("fade-in");
+}
+
+function hideSection(section) { 
+    section.style.display = "none"; 
+}
+
+// Initial: show choice screen
+showSection(choiceScreen);
+hideSection(addSection);
+hideSection(manageSection);
+
+// Choice buttons
+chooseAdd.addEventListener("click", () => {
+    hideSection(choiceScreen);
+    showSection(addSection);
+});
+
+chooseManage.addEventListener("click", () => {
+    hideSection(choiceScreen);
+    showSection(manageSection);
+});
+
+// Back buttons
+backFromAdd.addEventListener("click", () => {
+    hideSection(addSection);
+    showSection(choiceScreen);
+});
+
+backFromManage.addEventListener("click", () => {
+    hideSection(manageSection);
+    showSection(choiceScreen);
+});
+
+// Add Employee
+document.getElementById("addEmployeeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.classList.add('loading');
+    
+    const formData = Object.fromEntries(new FormData(e.target).entries());
+    try {
         const res = await fetch("/api/employees/add", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {"Content-Type":"application/json"},
             body: JSON.stringify(formData)
         });
         const data = await res.json();
         alert(data.message);
-        if (res.ok) location.reload();
-    });
+        if(res.ok) location.reload();
+    } catch(err) {
+        alert("Error adding employee");
+        console.error(err);
+    } finally {
+        submitBtn.classList.remove('loading');
+    }
+});
 
-    async function deleteEmployee(id) {
-        if (!confirm("Delete this employee?")) return;
-        const res = await fetch(`/api/employees/delete/${id}`, { method: "DELETE" });
+// Delete Employee
+async function deleteEmployee(id){
+    if(!confirm("Are you sure you want to delete this employee?")) return;
+    try {
+        const res = await fetch(`/api/employees/delete/${id}`, {method:"DELETE"});
         const data = await res.json();
         alert(data.message);
-        if (res.ok) location.reload();
+        if(res.ok) location.reload();
+    } catch(err) {
+        alert("Error deleting employee");
+        console.error(err);
     }
+}
 
-    async function editEmployee(empID) {
-        try {
-            const res = await fetch(`/api/employees/${empID}`);
-            if (!res.ok) return alert("Failed to fetch employee data");
-            const emp = await res.json();
-
-            document.getElementById("editEmployeeID").value = emp.EmployeeID;
-            document.getElementById("editName").value = emp.Name || '';
-            document.getElementById("editPhone").value = emp.Phone || '';
-            document.getElementById("editEmail").value = emp.Email || '';
-            document.getElementById("editJobTitle").value = emp.JobTitle || '';
-            document.getElementById("editHireDate").value = emp.HireDate || '';
-            document.getElementById("editDepartmentID").value = emp.DepartmentID || '';
-            document.getElementById("editUsername").value = emp.Username || '';
-            document.getElementById("editPassword").value = emp.Password || '';
-
-            document.getElementById("editEmployeeModal").style.display = "block";
-        } catch (err) {
-            console.error(err);
-            alert("Error fetching employee data");
-        }
+// Edit Employee
+async function editEmployee(empID){
+    try{
+        const res = await fetch(`/api/employees/${empID}`);
+        if(!res.ok) return alert("Failed to fetch employee data");
+        const emp = await res.json();
+        document.getElementById("editEmployeeID").value = emp.EmployeeID;
+        document.getElementById("editName").value = emp.Name || '';
+        document.getElementById("editPhone").value = emp.Phone || '';
+        document.getElementById("editEmail").value = emp.Email || '';
+        document.getElementById("editJobTitle").value = emp.JobTitle || '';
+        document.getElementById("editHireDate").value = emp.HireDate || '';
+        document.getElementById("editDepartmentID").value = emp.DepartmentID || '';
+        document.getElementById("editUsername").value = emp.Username || '';
+        document.getElementById("editPassword").value = emp.Password || '';
+        document.getElementById("editEmployeeModal").style.display = "block";
+    } catch(err){
+        console.error(err);
+        alert("Error fetching employee data");
     }
+}
 
-    document.getElementById("editEmployeeForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const formData = Object.fromEntries(new FormData(e.target).entries());
-        const empID = formData.EmployeeID;
-
+// Save Edit
+document.getElementById("editEmployeeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.classList.add('loading');
+    
+    const formData = Object.fromEntries(new FormData(e.target).entries());
+    const empID = formData.EmployeeID;
+    try {
         const res = await fetch(`/api/employees/edit/${empID}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
             body: JSON.stringify(formData)
         });
-
         const data = await res.json();
         alert(data.message);
-        if (res.ok) location.reload();
-    });
-
-    function closeEditModal() {
-        document.getElementById("editEmployeeModal").style.display = "none";
+        if(res.ok) location.reload();
+    } catch(err) {
+        alert("Error updating employee");
+        console.error(err);
+    } finally {
+        submitBtn.classList.remove('loading');
     }
+});
+
+function closeEditModal(){ 
+    document.getElementById("editEmployeeModal").style.display="none"; 
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById("editEmployeeModal");
+    if (event.target === modal) {
+        closeEditModal();
+    }
+}
 </script>
 {% endblock %}

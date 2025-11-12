@@ -1060,9 +1060,9 @@ def _ensure_default_list(cursor, conn, customer_id):
 
     cursor.execute("""
         INSERT INTO dbo.ShoppingList (CustomerID, Name, IsDefault, CreatedAt)
+        OUTPUT Inserted.ListID
         VALUES (?, N'Default', 1, GETDATE())
     """, (customer_id,))
-    cursor.execute("SELECT SCOPE_IDENTITY()")
     new_id = int(cursor.fetchone()[0])
     conn.commit()
     return new_id
@@ -1094,13 +1094,15 @@ def api_lists_all(cursor, conn):
     if not cid: return jsonify({"message":"Login required"}), 401
     _ensure_default_list(cursor, conn, cid)
     cursor.execute("""
-        SELECT l.ListID, l.Name, l.IsDefault,
-               ISNULL(SUM(i.Quantity),0) AS ItemCount
+        SELECT 
+            l.ListID, l.Name, l.IsDefault,
+            ISNULL(SUM(i.Quantity), 0) AS ItemCount,
+            MIN(l.CreatedAt) AS CreatedAt
         FROM dbo.ShoppingList l
         LEFT JOIN dbo.ShoppingListItem i ON i.ListID = l.ListID
-        WHERE l.CustomerID=?
+        WHERE l.CustomerID = ?
         GROUP BY l.ListID, l.Name, l.IsDefault
-        ORDER BY l.IsDefault DESC, l.CreatedAt ASC
+        ORDER BY l.IsDefault DESC, CreatedAt ASC
     """, (cid,))
     return jsonify(rows_to_dict_list(cursor))
 

@@ -955,3 +955,134 @@
   window.updateQuantity = updateQuantity;
   window.clearCart = clearCart;
   window.checkout = checkout;
+
+  // -------------------- Shopping Lists (page logic) --------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.getElementById('listContainer');
+    if (!container) return;
+  
+    let currentListId = null;
+  
+    async function sl_getDefaultListId() {
+      const r = await fetch('/api/lists', { credentials: 'same-origin' });
+      if (r.status === 401) { window.location.href = '/login'; return null; }
+      if (!r.ok) return null;
+      const lists = await r.json();
+      if (!lists.length) return null;
+      const def = lists.find(l => l.IsDefault) || lists[0];
+      return def.ListID;
+    }
+  
+    async function sl_loadItems() {
+      if (!currentListId) return;
+      const r = await fetch(`/api/lists/${currentListId}/items`, { credentials: 'same-origin' });
+      if (!r.ok) return;
+      const items = await r.json();
+      sl_render(items);
+    }
+  
+    function sl_render(items) {
+      const wrap = document.getElementById('listTableWrap');
+      const empty = document.getElementById('emptyListText');
+      if (!items.length) {
+        empty.style.display = '';
+        wrap.innerHTML = '';
+        return;
+      }
+      empty.style.display = 'none';
+      const rows = items.map(it => `
+        <tr data-product-id="${it.ProductID}">
+          <td>${it.Name}</td>
+          <td>$${(Number(it.Price)||0).toFixed(2)}</td>
+          <td class="qtycell">
+            <button class="qty-dec" aria-label="decrease">−</button>
+            <span class="qty">${it.Quantity}</span>
+            <button class="qty-inc" aria-label="increase">+</button>
+          </td>
+          <td><button class="remove">Remove</button></td>
+        </tr>
+      `).join('');
+      wrap.innerHTML = `
+        <table class="table">
+          <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+  
+    // Event delegation for + / − / remove
+    document.getElementById('listTableWrap').addEventListener('click', async (e) => {
+      const row = e.target.closest('tr[data-product-id]');
+      if (!row) return;
+      const pid = row.getAttribute('data-product-id');
+  
+      if (e.target.classList.contains('qty-inc')) {
+        const newQty = Number(row.querySelector('.qty').textContent) + 1;
+        await fetch(`/api/lists/${currentListId}/items/${pid}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ quantity: newQty })
+        });
+        sl_loadItems();
+  
+      } else if (e.target.classList.contains('qty-dec')) {
+        const newQty = Math.max(0, Number(row.querySelector('.qty').textContent) - 1);
+        if (newQty === 0) {
+          await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
+        } else {
+          await fetch(`/api/lists/${currentListId}/items/${pid}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ quantity: newQty })
+          });
+        }
+        sl_loadItems();
+  
+      } else if (e.target.classList.contains('remove')) {
+        await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
+        sl_loadItems();
+      }
+    });
+  
+    document.getElementById('addListToCartBtn').addEventListener('click', async () => {
+      await fetch(`/api/lists/${currentListId}/add-to-bag`, { method: 'POST', credentials: 'same-origin' });
+      if (typeof refreshBag === 'function') {
+        await refreshBag();
+        if (typeof updateCartBadge === 'function') updateCartBadge();
+      }
+    });
+  
+    document.getElementById('clearListBtn').addEventListener('click', async () => {
+      if (!confirm('Clear your list?')) return;
+      await fetch(`/api/lists/${currentListId}/items`, { method: 'DELETE', credentials: 'same-origin' });
+      sl_loadItems();
+    });
+  
+    (async () => {
+      currentListId = await sl_getDefaultListId();
+      await sl_loadItems();
+    })();
+  });
+  
+  // Optional: allow saving from product cards
+  async function addToList(productId, qty = 1) {
+    const r = await fetch('/api/lists', { credentials: 'same-origin' });
+    if (r.status === 401) { window.location.href = '/login'; return; }
+    if (!r.ok) { alert('Failed to load lists'); return; }
+    const lists = await r.json();
+    const def = lists.find(l => l.IsDefault) || lists[0];
+    if (!def) { alert('No shopping list found'); return; }
+    const res = await fetch(`/api/lists/${def.ListID}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ product_id: productId, quantity: qty })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.message || 'Failed to save to list');
+      return;
+    }
+    alert('Saved to list!');

@@ -1,0 +1,320 @@
+{% extends "admin_dashboard.html" %}
+{% block content %}
+<div class="container mt-4" style="max-width: 1200px;">
+
+    <h2 style="color: var(--dark-green); margin-bottom: 1.5rem;">Employee Management</h2>
+
+    <!-- Add Employee Form -->
+    <div class="card p-4 mb-5" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <h3 style="margin-bottom: 1rem; color: var(--primary-green);">Add New Employee</h3>
+        <form id="addEmployeeForm" class="form-grid">
+            <input type="text" name="Name" placeholder="Name *" required class="form-input">
+            <input type="text" name="Phone" placeholder="Phone" class="form-input">
+            <input type="email" name="Email" placeholder="Email" class="form-input">
+            <input type="text" name="JobTitle" placeholder="Job Title" class="form-input">
+            <select name="DepartmentID" required class="form-input">
+                <option value="">Select Department *</option>
+                {% for dept in departments %}
+                    <option value="{{ dept.DepartmentID }}">{{ dept.Name }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="Username" placeholder="Username *" required class="form-input">
+            <input type="password" name="Password" placeholder="Password *" required class="form-input">
+            <button type="submit" class="btn-primary full-width">Add Employee</button>
+        </form>
+    </div>
+
+    <!-- Employee Table -->
+    <div class="card p-4" style="border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <h3 style="margin-bottom: 1rem; color: var(--primary-green);">Employee List</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Email</th>
+                    <th>Job Title</th>
+                    <th>Hire Date</th>
+                    <th>Department</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="employeeTableBody">
+                {% for e in employees %}
+                    <tr>
+                        <td>#{{ e.EmployeeID }}</td>
+                        <td>{{ e.Name }}</td>
+                        <td>{{ e.Phone }}</td>
+                        <td>{{ e.Email }}</td>
+                        <td>{{ e.JobTitle }}</td>
+                        <td>{{ e.HireDate }}</td>
+                        <td>{{ e.DepartmentID or 'N/A' }}</td>
+                        <td>
+                            <button class="btn-edit" onclick="editEmployee('{{ e.EmployeeID }}')">Edit</button>
+                            <button class="btn-delete" onclick="deleteEmployee('{{ e.EmployeeID }}')">Delete</button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Edit Employee Modal -->
+    <div id="editEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h3 style="color: var(--primary-green); margin-bottom: 1rem;">Edit Employee</h3>
+
+            <form id="editEmployeeForm" class="form-grid">
+                <input type="hidden" name="EmployeeID" id="editEmployeeID">
+
+                <input type="text" name="Name" id="editName" placeholder="Name">
+                <input type="text" name="Phone" id="editPhone" placeholder="Phone">
+                <input type="email" name="Email" id="editEmail" placeholder="Email">
+                <input type="text" name="JobTitle" id="editJobTitle" placeholder="Job Title">
+                <input type="date" name="HireDate" id="editHireDate">
+                <select name="DepartmentID" id="editDepartmentID" required>
+                    <option value="">Select Department *</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.DepartmentID }}">{{ dept.Name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="Username" id="editUsername" placeholder="Username">
+                <input type="password" name="Password" id="editPassword" placeholder="Password">
+
+                <div class="d-flex gap-2 mt-3 full-width">
+                    <button type="submit" class="btn-primary full-width">Save Changes</button>
+                    <button type="button" class="btn-secondary full-width" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Styles -->
+    <style>
+        /* Form Grid Layout */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .form-input {
+            padding: 0.65rem 0.8rem;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            transition: 0.2s;
+            width: 100%;
+            font-size: 0.95rem;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary-green);
+            box-shadow: 0 0 5px rgba(0,128,0,0.2);
+            outline: none;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+            text-align: center;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: var(--primary-green);
+            color: white;
+            border: none;
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--dark-green);
+        }
+
+        .btn-secondary {
+            background-color: #f0f0f0;
+            color: var(--dark-green);
+            border: 1px solid #ccc;
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: 500;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            background-color: var(--primary-green);
+            color: white;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 2px solid var(--dark-green);
+        }
+
+        .data-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .data-table tr:hover {
+            background-color: #f8f8f8;
+        }
+
+        .btn-edit {
+            background-color: #ffc107;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #fff;
+            transition: 0.2s;
+        }
+
+        .btn-edit:hover {
+            background-color: #e0a800;
+        }
+
+        .btn-delete {
+            background-color: #dc3545;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #fff;
+            transition: 0.2s;
+            margin-left: 0.3rem;
+        }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(1px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 5% auto;
+            padding: 2rem;
+            width: 90%;
+            max-width: 700px;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</div>
+
+<!-- Scripts -->
+<script>
+    document.getElementById("addEmployeeForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = Object.fromEntries(new FormData(e.target).entries());
+        const res = await fetch("/api/employees/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData)
+        });
+        const data = await res.json();
+        alert(data.message);
+        if (res.ok) location.reload();
+    });
+
+    async function deleteEmployee(id) {
+        if (!confirm("Delete this employee?")) return;
+        const res = await fetch(`/api/employees/delete/${id}`, { method: "DELETE" });
+        const data = await res.json();
+        alert(data.message);
+        if (res.ok) location.reload();
+    }
+
+    async function editEmployee(empID) {
+        try {
+            const res = await fetch(`/api/employees/${empID}`);
+            if (!res.ok) return alert("Failed to fetch employee data");
+            const emp = await res.json();
+
+            document.getElementById("editEmployeeID").value = emp.EmployeeID;
+            document.getElementById("editName").value = emp.Name || '';
+            document.getElementById("editPhone").value = emp.Phone || '';
+            document.getElementById("editEmail").value = emp.Email || '';
+            document.getElementById("editJobTitle").value = emp.JobTitle || '';
+            document.getElementById("editHireDate").value = emp.HireDate || '';
+            document.getElementById("editDepartmentID").value = emp.DepartmentID || '';
+            document.getElementById("editUsername").value = emp.Username || '';
+            document.getElementById("editPassword").value = emp.Password || '';
+
+            document.getElementById("editEmployeeModal").style.display = "block";
+        } catch (err) {
+            console.error(err);
+            alert("Error fetching employee data");
+        }
+    }
+
+    document.getElementById("editEmployeeForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = Object.fromEntries(new FormData(e.target).entries());
+        const empID = formData.EmployeeID;
+
+        const res = await fetch(`/api/employees/edit/${empID}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData)
+        });
+
+        const data = await res.json();
+        alert(data.message);
+        if (res.ok) location.reload();
+    });
+
+    function closeEditModal() {
+        document.getElementById("editEmployeeModal").style.display = "none";
+    }
+</script>
+{% endblock %}

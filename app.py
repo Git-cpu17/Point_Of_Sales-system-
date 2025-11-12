@@ -1,0 +1,1713 @@
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response, flash
+from flask_cors import CORS
+from datetime import datetime
+from db import with_db, rows_to_dict_list, get_db_connection
+import random
+import string
+import os
+import traceback, sys
+
+app = Flask(__name__)
+CORS(app)
+app.secret_key = os.environ.get('SECRET_KEY')
+
+def get_bag_owner_from_session():
+    role = session.get('role')
+    uid  = session.get('user_id')
+    if role == 'customer' and uid:
+        return {'CustomerID': uid, 'EmployeeID': None}
+    if role == 'employee' and uid:
+        return {'CustomerID': None, 'EmployeeID': uid}
+    return None
+
+@app.context_processor
+@with_db
+def inject_bag_count(cursor, conn):
+    owner = get_bag_owner_from_session()
+    count = 0
+    if owner:
+        if owner['CustomerID'] is not None:
+            cursor.execute("SELECT COALESCE(SUM(Quantity),0) FROM dbo.Bag WHERE CustomerID = ? AND EmployeeID IS NULL", (owner['CustomerID'],))
+        else:
+            cursor.execute("SELECT COALESCE(SUM(Quantity),0) FROM dbo.Bag WHERE EmployeeID = ? AND CustomerID IS NULL", (owner['EmployeeID'],))
+        row = cursor.fetchone()
+        count = int(row[0] or 0) if row else 0
+    return {'bag_count': count}
+    
+# -----------------------------
+# Routes
+# -----------------------------
+
+@app.route('/')
+@with_db
+def home(cursor, conn):
+    cursor.execute("SELECT * FROM Product")
+    products = rows_to_dict_list(cursor)
+    cursor.execute("SELECT * FROM Department")
+    departments = rows_to_dict_list(cursor)
+
+    user = None
+    role = session.get('role')
+
+    if role == 'customer':
+        cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
+        record = cursor.fetchone()
+        if record:
+            user = {'Name': record[0], 'role': 'customer'}
+
+    elif role == 'admin':
+        cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
+        record = cursor.fetchone()
+        if record:
+            user = {'Name': record[0], 'role': 'admin'}
+
+    elif role == 'employee':
+        cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+        record = cursor.fetchone()
+        if record:
+            user = {'Name': record[0], 'role': 'employee'}
+
+    return render_template('index.html', products=products, departments=departments, user=user)
+
+@app.route("/api/status", methods=["GET"])
+def status():
+    return jsonify({"message": "Flask API is running and connected to Azure SQL!"})
+
+@app.route("/products", methods=["GET"])
+@with_db
+def get_products(cursor, conn):
+    cursor.execute("""
+        SELECT ProductID, Name, Description, Price, QuantityInStock, Barcode, DepartmentID
+        FROM Product
+    """)
+    rows = rows_to_dict_list(cursor)
+    return jsonify(rows)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or request.form or {}
+        user_id = data.get('user_id') or data.get('username') or ''
+        password = data.get('password') or ''
+
+        if not user_id or not password:
+            return jsonify({"success": False, "message": "Missing credentials"}), 400
+
+        @with_db
+        def check_credentials(cursor, conn):
+            cursor.execute("SELECT * FROM Administrator WHERE Username = ? AND Password = ?", (user_id, password))
+            admin = cursor.fetchone()
+
+            cursor.execute("SELECT * FROM Employee WHERE Username = ? AND Password = ?", (user_id, password))
+            emp = cursor.fetchone()
+
+            cursor.execute("SELECT * FROM Customer WHERE username = ? AND password = ?", (user_id, password))
+            cust = cursor.fetchone()
+
+            if admin:
+                session['user_id'] = admin[0]
+                session['role'] = 'admin'
+                return jsonify({"success": True, "role": "admin", "redirectUrl": "/admin"})
+
+            elif emp:
+                session['user_id'] = emp[0]
+                session['role'] = 'employee'
+                return jsonify({"success": True, "role": "employee", "redirectUrl": "/employee"})
+
+            elif cust:
+                session['user_id'] = cust[0]
+                session['role'] = 'customer'
+                return jsonify({"success": True, "role": "customer", "redirectUrl": "/customer"})
+            else:
+                return jsonify({"success": False, "message": "Invalid ID or Password"}), 401
+
+        return check_credentials()
+
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        name = data.get('name')
+        email = data.get('email')
+        password = data.get('password')
+        phone = data.get('phone')
+        username = data.get('username')
+
+        if not name or not email or not password or not username:
+            return jsonify({"success": False, "message": "Missing required fields"}), 400
+
+        @with_db
+        def do_register(cursor, conn):
+            cursor.execute("SELECT * FROM Customer WHERE Email = ?", (email,))
+            if cursor.fetchone():
+                return jsonify({"success": False, "message": "Email already registered"}), 409
+
+            cursor.execute("SELECT * FROM Customer WHERE username = ?", (username,))
+            if cursor.fetchone():
+                return jsonify({"success": False, "message": "Username already taken"}), 409
+
+            insert_query = """
+                INSERT INTO Customer (username, Name, Phone, Email, password)
+                VALUES (?, ?, ?, ?, ?)
+            """
+            cursor.execute(insert_query, (username, name, phone, email, password))
+            conn.commit()
+            return jsonify({"success": True, "message": "Registration successful!"}), 201
+
+        return do_register()
+
+    return render_template('register.html')
+
+@app.route('/admin')
+@with_db
+def admin_dashboard(cursor, conn):
+    # Stats
+    cursor.execute("SELECT COUNT(*) FROM Product")
+    total_products = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM Customer")
+    total_customers = cursor.fetchone()[0]
+
+    cursor.execute("SELECT SUM(TotalAmount) FROM SalesTransaction WHERE CAST(TransactionDate AS DATE) = CAST(GETDATE() AS DATE)")
+    todays_revenue = cursor.fetchone()[0] or 0
+
+    # Orders today
+    cursor.execute("SELECT COUNT(*) FROM SalesTransaction WHERE CAST(TransactionDate AS DATE) = CAST(GETDATE() AS DATE)")
+    orders_today = cursor.fetchone()[0] or 0
+
+    # Employee list
+    cursor.execute("SELECT EmployeeID, Name, Email, DepartmentID FROM Employee")
+    employees = rows_to_dict_list(cursor)
+
+    # Get admin name from session
+    admin_name = "Admin"  # default fallback
+    if 'user_id' in session and session.get('role') == 'admin':
+        cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
+        record = cursor.fetchone()
+        if record:
+            admin_name = record[0]
+
+    return render_template(
+        'admin_dashboard.html',
+        total_products=total_products,
+        total_customers=total_customers,
+        todays_revenue=todays_revenue,
+        orders_today=orders_today,
+        employees=employees,
+        admin_name=admin_name
+    )
+
+@app.route('/admin/add-product', methods=['GET', 'POST'])
+@with_db
+def add_product(cursor, conn):
+    # Only admins can access
+    if 'role' not in session or session['role'] != 'admin':
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        data = request.form
+
+        name = (data.get("Name") or "").strip()
+        description = data.get("Description") or ""
+        price = data.get("Price")
+        department_id = data.get("DepartmentID")
+        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
+        sale_price = data.get("SalePrice")  # optional
+        image_url = data.get("ImageURL") or ""
+
+        # Validate required fields
+        if not name:
+            flash("Product name is required.", "danger")
+            return redirect(url_for('add_product'))
+
+        if price is None or price == "":
+            flash("Price is required.", "danger")
+            return redirect(url_for('add_product'))
+        try:
+            price = float(price)
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            flash("Price must be a non-negative number.", "danger")
+            return redirect(url_for('add_product'))
+
+        try:
+            department_id = int(department_id)
+            if department_id <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            flash("Please select a valid department.", "danger")
+            return redirect(url_for('add_product'))
+        if not image_url:
+            dept_defaults = {
+                1: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400",  # Produce
+                2: "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400",  # Meat
+                3: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",  # Dairy
+                4: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400",  # Bakery
+            }
+            image_url = dept_defaults.get(int(department_id), "https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400")
+
+        # Handle sale price if product is on sale
+        on_sale_flag = 1 if on_sale == 'on' else 0
+        final_sale_price = None
+        if on_sale_flag:
+            if sale_price is None or sale_price == "":
+                flash("Sale price must be provided if product is on sale.", "danger")
+                return redirect(url_for('add_product'))
+            try:
+                final_sale_price = float(sale_price)
+                if final_sale_price < 0 or final_sale_price >= price:
+                    flash("Sale price must be non-negative and less than the original price.", "danger")
+                    return redirect(url_for('add_product'))
+            except ValueError:
+                flash("Sale price must be a valid number.", "danger")
+                return redirect(url_for('add_product'))
+
+        # Generate unique 12-digit barcode
+        while True:
+            barcode = ''.join(random.choices(string.digits, k=12))
+            cursor.execute("SELECT 1 FROM Product WHERE Barcode = ?", (barcode,))
+            if not cursor.fetchone():
+                break
+
+        # Insert into Product table with defaults
+        cursor.execute("""
+            INSERT INTO Product
+            (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale, ImageURL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag, image_url))
+
+        flash(f"Product '{name}' added successfully!", "success")
+        return redirect(url_for('admin_dashboard'))
+
+    # GET request -> show form
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = rows_to_dict_list(cursor)
+    return render_template('add_product.html', departments=departments)
+
+@app.route('/employees')
+@with_db
+def manage_employees(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+
+    cursor.execute("SELECT * FROM Employee ORDER BY HireDate DESC")
+    employees = rows_to_dict_list(cursor)
+
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = rows_to_dict_list(cursor)
+
+    return render_template('admin_employees.html', employees=employees, departments=departments)
+
+@app.get("/api/employees/<int:emp_id>")
+@with_db
+def get_employee(cursor, conn, emp_id):
+    cursor.execute("""
+        SELECT EmployeeID, Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password
+        FROM Employee
+        WHERE EmployeeID = ?
+    """, (emp_id,))
+    row = cursor.fetchone()
+    if not row:
+        return jsonify({"message": "Employee not found"}), 404
+    columns = [c[0] for c in cursor.description]
+    return jsonify(dict(zip(columns, row)))
+
+@app.post("/api/employees/add")
+@with_db
+def add_employee(cursor, conn):
+    if 'role' not in session or session['role'] != 'admin':
+        return jsonify({"message": "Unauthorized"}), 403
+
+    data = request.get_json()
+    username = data.get("Username")
+    current_date = datetime.now().strftime("%m/%d/%Y")
+
+    # Check for duplicate username
+    cursor.execute("SELECT EmployeeID FROM Employee WHERE Username = ?", (username,))
+    if cursor.fetchone():
+        return jsonify({"message": f"Username '{username}' already exists."}), 409
+
+    # Insert employee
+    cursor.execute("""
+        INSERT INTO Employee (Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        data.get("Name"),
+        data.get("Phone") or None,
+        data.get("Email") or None,
+        data.get("JobTitle") or None,
+        current_date,
+        data.get("DepartmentID"),
+        session.get("user_id"),  # logged-in admin
+        data.get("Username"),
+        data.get("Password")
+    ))
+    conn.commit()
+    return jsonify({"message": "Employee added successfully!"}), 201
+
+@app.post("/api/employees/edit/<int:emp_id>")
+@with_db
+def edit_employee(cursor, conn, emp_id):
+    data = request.get_json()
+
+    # Fetch current hire date
+    cursor.execute("SELECT HireDate FROM Employee WHERE EmployeeID = ?", (emp_id,))
+    current_hiredate = cursor.fetchone()[0]
+
+    # If no new hire date provided, keep current
+    hiredate = data.get("HireDate") or current_hiredate
+
+    cursor.execute("""
+        UPDATE Employee
+        SET Name = ?, Phone = ?, Email = ?, JobTitle = ?, HireDate = ?, DepartmentID = ?, Username = ?, Password = ?
+        WHERE EmployeeID = ?
+    """, (
+        data.get("Name"),
+        data.get("Phone"),
+        data.get("Email"),
+        data.get("JobTitle"),
+        hiredate,
+        data.get("DepartmentID"),
+        data.get("Username"),
+        data.get("Password"),
+        emp_id
+    ))
+    conn.commit()
+    return jsonify({"message": "Employee updated successfully!"}), 200
+
+@app.delete("/api/employees/delete/<int:emp_id>")
+@with_db
+def delete_employee(cursor, conn, emp_id):
+    cursor.execute("DELETE FROM Employee WHERE EmployeeID = ?", (emp_id,))
+    conn.commit()
+    return jsonify({"message": "Employee deleted successfully!"}), 200
+
+@app.route('/employee')
+@with_db
+def employee_dashboard(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'employee':
+        return redirect(url_for('login'))
+
+    # Fetch logged-in employee info
+    cursor.execute("SELECT EmployeeID, Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+    record = cursor.fetchone()
+    user = None
+    if record:
+        user = {'Name': record[1], 'role': 'employee'}  # record[1] = Name
+
+    # Fetch all employees (if needed for dashboard)
+    cursor.execute("SELECT * FROM Employee")
+    employees = rows_to_dict_list(cursor)
+
+    return render_template('employee_dashboard.html', employees=employees, user=user)
+
+@app.get("/reports")
+@with_db
+def reports(cursor, conn):
+    role = session.get('role')
+    if role not in ('employee', 'admin'):
+        return redirect(url_for('login'))
+
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = [{'DepartmentID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
+
+    cursor.execute("""
+        SELECT
+            EmployeeID,
+            COALESCE(NULLIF(LTRIM(RTRIM(Name)), ''), Username) AS Name
+        FROM Employee
+        ORDER BY Name
+    """)
+    employees = [{'EmployeeID': r[0], 'Name': r[1]} for r in cursor.fetchall()]
+
+    return render_template(
+        'reports.html',
+        departments=departments,
+        employees=employees
+    )
+
+def _iso_date(s):
+    if not s:
+        return None
+    s = s.strip()
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+@app.post("/reports/query")
+@with_db
+def reports_query(cur, conn):
+    payload = (request.get_json(silent=True) or request.form.to_dict() or {})
+
+    date_from = _iso_date(payload.get("date_from") or payload.get("from") or payload.get("dateFrom"))
+    date_to   = _iso_date(payload.get("date_to")   or payload.get("to")   or payload.get("dateTo"))
+    group_by  = (payload.get("group_by") or payload.get("groupBy") or "product").strip().lower()
+    department = payload.get("department") or payload.get("department_id")
+    employee   = payload.get("employee") or payload.get("employee_id")
+
+    try:
+        min_units = int(payload.get("min_units") or payload.get("minUnits") or 0)
+    except (TypeError, ValueError):
+        min_units = 0
+
+    if not date_from:
+        date_from = "1900-01-01"
+    if not date_to:
+        date_to = "2100-12-31"
+
+    dept_val = None if (not department or str(department).lower() == "all") else int(department)
+    emp_val  = None if (not employee   or str(employee).lower()   == "all") else int(employee)
+    try:
+        min_val = None if (not min_units or int(min_units) <= 0) else int(min_units)
+    except Exception:
+        min_val = None
+
+    if group_by == "product":
+        select_dim = "p.ProductID AS DimID, p.Name AS DimName"
+        group_dim  = "p.ProductID, p.Name"
+    elif group_by == "department":
+        select_dim = "d.DepartmentID AS DimID, d.Name AS DimName"
+        group_dim  = "d.DepartmentID, d.Name"
+    elif group_by == "employee":
+        select_dim = "e.EmployeeID AS DimID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username) AS DimName"
+        group_dim  = "e.EmployeeID, COALESCE(NULLIF(LTRIM(RTRIM(e.Name)), ''), e.Username)"
+    else:
+        select_dim = "p.ProductID AS DimID, p.Name AS DimName"
+        group_dim  = "p.ProductID, p.Name"
+
+    sql_parts = [
+        "SELECT",
+        f"  {select_dim},",
+        "  SUM(td.Quantity) AS UnitsSold,",
+        "  SUM(CAST(td.Quantity * p.Price AS DECIMAL(18,4))) AS GrossRevenue",
+        "FROM SalesTransaction AS st",
+        "JOIN Transaction_Details AS td ON td.TransactionID = st.TransactionID",
+        "JOIN Product AS p              ON p.ProductID       = td.ProductID",
+        "LEFT JOIN Department_Product AS dp ON dp.ProductID   = p.ProductID",
+        "LEFT JOIN Department AS d          ON d.DepartmentID = dp.DepartmentID",
+        "LEFT JOIN Employee  AS e           ON e.EmployeeID   = st.EmployeeID",
+        "WHERE st.TransactionDate >= ?",
+        "  AND st.TransactionDate < DATEADD(day, 1, ?)",
+        "  AND ( ? IS NULL OR d.DepartmentID = ? )",
+        "  AND ( ? IS NULL OR e.EmployeeID   = ? )",
+        f"GROUP BY {group_dim}",
+        "HAVING ( ? IS NULL OR SUM(td.Quantity) >= ? )",
+        f"ORDER BY {group_dim}",
+    ]
+    
+    sql = "\n".join(sql_parts)
+    
+    params = [
+        date_from, date_to,
+        dept_val, dept_val,
+        emp_val,  emp_val,
+        min_val,  min_val
+    ]
+
+    try:
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    except Exception as e:
+        print("DB error in /reports/query:", e)
+        return "Could not load report. Please check parameter values and try again.", 500
+
+    html = [
+        '<table class="report-table">',
+        '<thead><tr><th>Group</th><th>Units Sold</th><th>Gross Revenue</th></tr></thead>',
+        '<tbody>'
+    ]
+    
+    for r in rows:
+        dim_name = r[1]
+        units    = int(r[2] or 0)
+        revenue  = float(r[3] or 0.0)
+        html.append(f"<tr><td>{dim_name}</td><td>{units}</td><td>${revenue:,.2f}</td></tr>")
+    html.append("</tbody></table>")
+
+    return "".join(html), 200, {"Content-Type": "text/html; charset=utf-8"}
+
+@app.route('/customer')
+@with_db
+def customer_dashboard(cursor, conn):
+    try:
+        # Require login
+        if 'user_id' not in session or session.get('role') != 'customer':
+            return redirect(url_for('login'))
+
+        customer_id = session['user_id']
+
+        # Fetch customer info
+        cursor.execute("SELECT * FROM Customer WHERE CustomerID = ?", (customer_id,))
+        record = cursor.fetchone()
+        if not record:
+            return redirect(url_for('login'))
+        columns = [col[0] for col in cursor.description]
+        customer = dict(zip(columns, record))
+
+        # Fetch customer orders
+        cursor.execute("""
+            SELECT 
+                t.TransactionID,
+                t.TransactionDate,
+                t.TotalAmount,
+                t.OrderStatus,
+                SUM(td.Quantity) AS ItemCount
+            FROM SalesTransaction t
+            JOIN Transaction_Details td ON t.TransactionID = td.TransactionID
+            WHERE t.CustomerID = ?
+            GROUP BY t.TransactionID, t.TransactionDate, t.TotalAmount, t.OrderStatus
+            ORDER BY t.TransactionDate DESC
+        """, (customer_id,))
+        orders = rows_to_dict_list(cursor)
+
+
+        # <<< Place optional quick stats queries here >>>
+        cursor.execute("SELECT SUM(OrderDiscount) FROM SalesTransaction WHERE CustomerID = ?", (customer_id,))
+        total_saved = cursor.fetchone()[0] or 0
+
+        cursor.execute("SELECT COUNT(*) FROM SalesTransaction WHERE CustomerID = ?", (customer_id,))
+        total_orders = cursor.fetchone()[0] or 0
+
+        return render_template(
+            'customer_dashboard.html',
+            customer=customer,
+            orders=orders,
+            total_saved=total_saved,
+            total_orders=total_orders,
+        )
+
+    except Exception as e:
+        print("Error fetching customer dashboard:", e)
+        return render_template('error.html', message="Error loading dashboard")
+
+@app.route('/customer/orders')
+@with_db
+def customer_orders(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return redirect(url_for('login'))
+
+    customer_id = session['user_id']
+
+    # Fetch orders
+    cursor.execute("""
+        SELECT
+            st.TransactionID,
+            st.TransactionDate,
+            COALESCE(st.TotalAmount, 0)   AS TotalAmount,
+            COALESCE(st.OrderStatus, '')  AS OrderStatus,
+            COALESCE(st.PaymentMethod, '') AS PaymentMethod,
+            COALESCE(st.OrderDiscount, 0) AS OrderDiscount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress
+        FROM SalesTransaction AS st
+        WHERE st.CustomerID = ?
+        ORDER BY st.TransactionDate DESC
+    """, (customer_id,))
+    cols = [c[0] for c in cursor.description]
+    orders = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+    for o in orders:
+        # Ensure TotalAmount is set
+        if not o['TotalAmount']:
+            cursor.execute("""
+                SELECT SUM(td.Quantity * p.Price)
+                FROM Transaction_Details td
+                JOIN Product p ON p.ProductID = td.ProductID
+                WHERE td.TransactionID = ?
+            """, (o['TransactionID'],))
+            o['TotalAmount'] = float(cursor.fetchone()[0] or 0)
+
+        # Fetch first 3 items for inline summary
+        cursor.execute("""
+            SELECT TOP 3 td.ProductID, p.Name, td.Quantity
+            FROM Transaction_Details td
+            JOIN Product p ON p.ProductID = td.ProductID
+            WHERE td.TransactionID = ?
+            ORDER BY td.ProductID
+        """, (o['TransactionID'],))
+        item_cols = [c[0] for c in cursor.description]
+        o['items'] = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
+
+    return render_template('customer_orders.html', orders=orders)
+
+@app.route('/customer/orders/json')
+@with_db
+def customer_orders_json(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    customer_id = session['user_id']
+
+    # Get filter parameters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    status = request.args.get('status')
+    min_amount = request.args.get('min_amount')
+    max_amount = request.args.get('max_amount')
+    keyword = request.args.get('keyword', '').strip()
+
+    query = """
+        SELECT
+            st.TransactionID,
+            st.TransactionDate,
+            COALESCE(st.TotalAmount, 0) AS TotalAmount,
+            COALESCE(st.OrderStatus, '') AS OrderStatus,
+            COALESCE(st.PaymentMethod, '') AS PaymentMethod,
+            COALESCE(st.OrderDiscount, 0) AS OrderDiscount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress
+        FROM SalesTransaction st
+        WHERE st.CustomerID = ?
+    """
+    params = [customer_id]
+
+    # Dynamic filters
+    if start_date:
+        query += " AND st.TransactionDate >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND st.TransactionDate <= ?"
+        params.append(end_date)
+    if status:
+        query += " AND st.OrderStatus = ?"
+        params.append(status)
+    if min_amount:
+        query += " AND COALESCE(st.TotalAmount,0) >= ?"
+        params.append(min_amount)
+    if max_amount:
+        query += " AND COALESCE(st.TotalAmount,0) <= ?"
+        params.append(max_amount)
+
+    query += " ORDER BY st.TransactionDate DESC"
+
+    cursor.execute(query, tuple(params))
+    cols = [c[0] for c in cursor.description]
+    orders = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+    # Fetch items for each order and apply keyword filtering
+    for o in orders:
+        cursor.execute("""
+            SELECT td.ProductID, p.Name, td.Quantity, p.Price, (td.Quantity * p.Price) AS Subtotal
+            FROM Transaction_Details td
+            JOIN Product p ON p.ProductID = td.ProductID
+            WHERE td.TransactionID = ?
+        """, (o['TransactionID'],))
+        item_cols = [c[0] for c in cursor.description]
+        items = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
+
+        # Filter items by keyword
+        if keyword:
+            items = [it for it in items if keyword.lower() in it['Name'].lower()]
+
+        o['items'] = items
+        # Recalculate total amount based on filtered items
+        o['TotalAmount'] = sum(it['Subtotal'] or 0 for it in items)
+
+    orders = [o for o in orders if o['items']]
+
+    return jsonify(orders)
+
+@app.route('/customer/orders/<int:transaction_id>')
+@with_db
+def customer_order_detail(cursor, conn, transaction_id):
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return redirect(url_for('login'))
+
+    customer_id = session['user_id']
+
+    cursor.execute("""
+        SELECT
+            st.TransactionID,
+            st.TransactionDate,
+            COALESCE(st.TotalAmount, 0)     AS TotalAmount,
+            COALESCE(st.OrderStatus, '')    AS OrderStatus,
+            COALESCE(st.PaymentMethod, '')  AS PaymentMethod,
+            COALESCE(st.OrderDiscount, 0)   AS OrderDiscount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress,
+            st.EmployeeID,
+            st.CustomerID
+        FROM SalesTransaction st
+        WHERE st.TransactionID = ? AND st.CustomerID = ?
+    """, (transaction_id, customer_id))
+    row = cursor.fetchone()
+    if not row:
+        return render_template('customer_order_detail.html', order=None, items=[])
+
+    cols = [c[0] for c in cursor.description]
+    order = dict(zip(cols, row))
+
+    cursor.execute("""
+        SELECT
+            td.ProductID,
+            p.Name,
+            td.Quantity,
+            p.Price              AS UnitPrice,
+            (td.Quantity * p.Price) AS Subtotal
+        FROM Transaction_Details td
+        JOIN Product p ON p.ProductID = td.ProductID
+        WHERE td.TransactionID = ?
+        ORDER BY td.ProductID
+    """, (transaction_id,))
+    item_cols = [c[0] for c in cursor.description]
+    items = [dict(zip(item_cols, r)) for r in cursor.fetchall()]
+
+    if not order['TotalAmount']:
+        gross = sum((it['Subtotal'] or 0) for it in items)
+        order['TotalAmount'] = float(gross - (order.get('OrderDiscount') or 0))
+
+    return render_template('customer_order_detail.html', order=order, items=items)
+
+@app.route('/customer/orders/<int:transaction_id>/items')
+@with_db
+def customer_order_items_json(cursor, conn, transaction_id):
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return jsonify({"error": "Unauthorized"}), 401
+
+    customer_id = session['user_id']
+
+    # Get items for this transaction
+    cursor.execute("""
+        SELECT
+            td.ProductID,
+            p.Name,
+            td.Quantity,
+            p.Price AS UnitPrice,
+            (td.Quantity * p.Price) AS Subtotal
+        FROM Transaction_Details td
+        JOIN Product p ON p.ProductID = td.ProductID
+        JOIN SalesTransaction st ON st.TransactionID = td.TransactionID
+        WHERE td.TransactionID = ? AND st.CustomerID = ?
+        ORDER BY td.ProductID
+    """, (transaction_id, customer_id))
+
+    cols = [c[0] for c in cursor.description]
+    items = [dict(zip(cols, r)) for r in cursor.fetchall()]
+
+    return jsonify(items)
+
+@app.route('/department')
+@with_db
+def department(cursor, conn):
+    cursor.execute("SELECT * FROM Department")
+    departments = rows_to_dict_list(cursor)
+    return render_template('department_dashboard.html', departments=departments)
+
+@app.route('/transactions')
+@with_db
+def get_transactions(cursor, conn):
+    base_query = """
+        SELECT t.TransactionID, t.TransactionDate, t.TotalAmount, t.EmployeeID, t.CustomerID, t.PaymentMethod,
+               e.Name AS EmployeeName, c.Name AS CustomerName
+        FROM SalesTransaction t
+        JOIN Employee e ON t.EmployeeID = e.EmployeeID
+        JOIN Customer c ON t.CustomerID = c.CustomerID
+    """
+    filters = []
+    params = []
+
+    if request.args.get('employee'):
+        filters.append("e.Name LIKE ?")
+        params.append(f"%{request.args['employee']}%")
+    if request.args.get('payment_method'):
+        filters.append("t.PaymentMethod = ?")
+        params.append(request.args['payment_method'])
+
+    if filters:
+        base_query += " WHERE " + " AND ".join(filters)
+
+    if request.args.get('sort_by') == 'date':
+        base_query += " ORDER BY t.TransactionDate DESC"
+    elif request.args.get('sort_by') == 'amount':
+        base_query += " ORDER BY t.TotalAmount DESC"
+
+    cursor.execute(base_query, params)
+    transactions = rows_to_dict_list(cursor)
+    return jsonify(transactions)
+
+@app.route('/admin/inventory-report', methods=['GET', 'POST'])
+@with_db
+def inventory_report(cursor, conn):
+    cursor.execute("SELECT DepartmentID, Name FROM Department")
+    departments = rows_to_dict_list(cursor)
+
+    if request.method == 'POST':
+        department_id = request.form.get('department')
+        min_price = request.form.get('min_price')
+        max_price = request.form.get('max_price')
+        stock_status = request.form.get('stock_status')
+
+        query = "SELECT * FROM Inventory WHERE 1=1"
+        params = []
+
+        if department_id and department_id != "all":
+            query += " AND DepartmentID = ?"
+            params.append(department_id)
+        if min_price:
+            query += " AND Price >= ?"
+            params.append(min_price)
+        if max_price:
+            query += " AND Price <= ?"
+            params.append(max_price)
+        if stock_status and stock_status != "all":
+            query += " AND StockStatus = ?"
+            params.append(stock_status)
+
+        cursor.execute(query, params)
+        inventory_data = rows_to_dict_list(cursor)
+
+        return render_template('admin_inventory_report.html', 
+                               departments=departments, 
+                               inventory=inventory_data,
+                               filters=request.form)
+
+    return render_template('admin_inventory_report.html', 
+                           departments=departments, 
+                           inventory=[], 
+                           filters={})
+
+@app.route('/bag', endpoint='bag_page')
+@with_db
+def bag(cursor, conn):
+    user = None
+    if 'user_id' in session:
+        role = session.get('role')
+        if role == 'customer':
+            cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
+            record = cursor.fetchone()
+            if record:
+                user = {'Name': record[0], 'role': 'customer'}
+        elif role == 'admin':
+            cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
+            record = cursor.fetchone()
+            if record:
+                user = {'Name': record[0], 'role': 'admin'}
+        elif role == 'employee':
+            cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+            record = cursor.fetchone()
+            if record:
+                user = {'Name': record[0], 'role': 'employee'}
+
+    # You can fetch cart items here if needed
+
+    return render_template('bag.html', user=user)
+
+@app.get("/api/bag")
+@with_db
+def api_get_bag(cursor, conn):
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            SELECT b.BagID, b.ProductID, p.Name, p.Price, b.Quantity, b.AddedAt
+            FROM dbo.Bag b
+            JOIN dbo.Product p ON p.ProductID = b.ProductID
+            WHERE b.CustomerID = ? AND b.EmployeeID IS NULL
+            ORDER BY b.AddedAt DESC
+        """, (owner['CustomerID'],))
+    else:
+        cursor.execute("""
+            SELECT b.BagID, b.ProductID, p.Name, p.Price, b.Quantity, b.AddedAt
+            FROM dbo.Bag b
+            JOIN dbo.Product p ON p.ProductID = b.ProductID
+            WHERE b.EmployeeID = ? AND b.CustomerID IS NULL
+            ORDER BY b.AddedAt DESC
+        """, (owner['EmployeeID'],))
+
+    rows = cursor.fetchall()
+    cols = [c[0] for c in cursor.description]
+    return jsonify([dict(zip(cols, r)) for r in rows])
+
+
+@app.post("/api/bag")
+@with_db
+def api_add_to_bag(cursor, conn):
+    payload = request.get_json(silent=True) or {}
+    try:
+        pid = int(payload.get("product_id") or 0)
+        qty = int(payload.get("quantity") or 1)
+    except Exception:
+        return jsonify({"message": "Bad item"}), 400
+    if pid <= 0 or qty <= 0:
+        return jsonify({"message": "Bad item"}), 400
+
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            MERGE dbo.Bag AS target
+            USING (SELECT ? AS CustomerID, ? AS ProductID) AS src
+            ON target.CustomerID = src.CustomerID
+               AND target.ProductID = src.ProductID
+               AND target.EmployeeID IS NULL
+            WHEN MATCHED THEN UPDATE SET Quantity = target.Quantity + ?
+            WHEN NOT MATCHED THEN
+                INSERT (CustomerID, EmployeeID, ProductID, Quantity)
+                VALUES (src.CustomerID, NULL, src.ProductID, ?);
+        """, (owner['CustomerID'], pid, qty, qty))
+    else:
+        cursor.execute("""
+            MERGE dbo.Bag AS target
+            USING (SELECT ? AS EmployeeID, ? AS ProductID) AS src
+            ON target.EmployeeID = src.EmployeeID
+               AND target.ProductID = src.ProductID
+               AND target.CustomerID IS NULL
+            WHEN MATCHED THEN UPDATE SET Quantity = target.Quantity + ?
+            WHEN NOT MATCHED THEN
+                INSERT (CustomerID, EmployeeID, ProductID, Quantity)
+                VALUES (NULL, src.EmployeeID, src.ProductID, ?);
+        """, (owner['EmployeeID'], pid, qty, qty))
+
+    conn.commit()
+    return jsonify({"message": "Added"}), 201
+
+
+@app.patch("/api/bag/<int:bag_id>")
+@with_db
+def api_set_bag_qty(cursor, conn, bag_id):
+    payload = request.get_json(silent=True) or {}
+    try:
+        qty = int(payload.get("quantity") or 0)
+    except Exception:
+        return jsonify({"message": "Bad quantity"}), 400
+    if qty < 0:
+        return jsonify({"message": "Bad quantity"}), 400
+
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            UPDATE dbo.Bag SET Quantity = ?
+            WHERE BagID = ? AND CustomerID = ? AND EmployeeID IS NULL
+        """, (qty, bag_id, owner['CustomerID']))
+    else:
+        cursor.execute("""
+            UPDATE dbo.Bag SET Quantity = ?
+            WHERE BagID = ? AND EmployeeID = ? AND CustomerID IS NULL
+        """, (qty, bag_id, owner['EmployeeID']))
+
+    if cursor.rowcount == 0:
+        return jsonify({"message": "Not found"}), 404
+    conn.commit()
+    return jsonify({"message": "Updated"})
+
+
+@app.delete("/api/bag/<int:bag_id>")
+@with_db
+def api_delete_bag_item(cursor, conn, bag_id):
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("""
+            DELETE FROM dbo.Bag
+            WHERE BagID = ? AND CustomerID = ? AND EmployeeID IS NULL
+        """, (bag_id, owner['CustomerID']))
+    else:
+        cursor.execute("""
+            DELETE FROM dbo.Bag
+            WHERE BagID = ? AND EmployeeID = ? AND CustomerID IS NULL
+        """, (bag_id, owner['EmployeeID']))
+
+    if cursor.rowcount == 0:
+        return jsonify({"message": "Not found"}), 404
+    conn.commit()
+    return jsonify({"message": "Deleted"})
+
+@app.delete("/api/bag")
+@with_db
+def api_clear_bag(cursor, conn):
+    owner = get_bag_owner_from_session()
+    if not owner:
+        return jsonify({"message": "Login required"}), 401
+
+    if owner['CustomerID'] is not None:
+        cursor.execute("DELETE FROM dbo.Bag WHERE CustomerID = ? AND EmployeeID IS NULL",
+                       (owner['CustomerID'],))
+    else:
+        cursor.execute("DELETE FROM dbo.Bag WHERE EmployeeID = ? AND CustomerID IS NULL",
+                       (owner['EmployeeID'],))
+    conn.commit()
+    return jsonify({"message": "Cleared"})
+
+# ---------- Shopping Lists (default list per customer using dbo.Customer_Product) ----------
+
+@app.get('/shopping-lists', endpoint='shopping_lists')
+@with_db
+def shopping_lists_page(cursor, conn):
+    user = None
+    if 'user_id' in session:
+        role = session.get('role')
+        if role == 'customer':
+            cursor.execute("SELECT Name FROM Customer WHERE CustomerID = ?", (session['user_id'],))
+            r = cursor.fetchone()
+            if r: user = {'Name': r[0], 'role': 'customer'}
+        elif role == 'admin':
+            cursor.execute("SELECT Name FROM Administrator WHERE AdminID = ?", (session['user_id'],))
+            r = cursor.fetchone()
+            if r: user = {'Name': r[0], 'role': 'admin'}
+        elif role == 'employee':
+            cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+            r = cursor.fetchone()
+            if r: user = {'Name': r[0], 'role': 'employee'}
+    return render_template('shopping_lists.html', user=user)
+
+@app.get('/api/list')
+@with_db
+def api_list_get(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    cursor.execute("""
+        SELECT 
+            cp.ProductID,
+            p.Name,
+            p.Price,
+            CONVERT(VARCHAR(19), cp.DateAdded, 120) AS DateAdded
+        FROM dbo.Customer_Product cp
+        JOIN dbo.Product p ON p.ProductID = cp.ProductID
+        WHERE cp.CustomerID = ?
+        ORDER BY cp.DateAdded DESC
+    """, (cid,))
+    return jsonify(rows_to_dict_list(cursor))
+
+@app.post('/api/list/add')
+@with_db
+def api_list_add(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    payload = request.get_json(silent=True) or {}
+    try:
+        pid = int(payload.get('product_id') or 0)
+    except Exception:
+        return jsonify({"message": "Bad product_id"}), 400
+    if pid <= 0:
+        return jsonify({"message": "Bad product_id"}), 400
+
+    cursor.execute("""
+        MERGE dbo.Customer_Product AS target
+        USING (SELECT ? AS CustomerID, ? AS ProductID) AS src
+        ON target.CustomerID = src.CustomerID AND target.ProductID = src.ProductID
+        WHEN NOT MATCHED THEN
+            INSERT (CustomerID, ProductID, DateAdded)
+            VALUES (src.CustomerID, src.ProductID, GETDATE());
+    """, (cid, pid))
+    conn.commit()
+    return jsonify({"message": "Saved"})
+
+@app.delete('/api/list/<int:product_id>')
+@with_db
+def api_list_remove(cursor, conn, product_id):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    cursor.execute("DELETE FROM dbo.Customer_Product WHERE CustomerID = ? AND ProductID = ?", (cid, product_id))
+    conn.commit()
+    return jsonify({"message": "Removed"})
+
+@app.delete('/api/list')
+@with_db
+def api_list_clear(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+    cursor.execute("DELETE FROM dbo.Customer_Product WHERE CustomerID = ?", (cid,))
+    conn.commit()
+    return jsonify({"message": "Cleared"})
+
+@app.post('/api/list/add-to-bag')
+@with_db
+def api_list_add_to_bag(cursor, conn):
+    if session.get('role') != 'customer':
+        return jsonify({"message": "Login required"}), 401
+    cid = session['user_id']
+
+    cursor.execute("SELECT ProductID FROM dbo.Customer_Product WHERE CustomerID = ?", (cid,))
+    rows = cursor.fetchall()
+    if not rows:
+        return jsonify({"message": "List empty"}), 200
+
+    for (pid,) in rows:
+        cursor.execute("""
+            MERGE dbo.Bag AS target
+            USING (SELECT ? AS CustomerID, ? AS ProductID) AS src
+            ON target.CustomerID = src.CustomerID
+               AND target.ProductID = src.ProductID
+               AND target.EmployeeID IS NULL
+            WHEN MATCHED THEN UPDATE SET Quantity = target.Quantity + 1
+            WHEN NOT MATCHED THEN
+                INSERT (CustomerID, EmployeeID, ProductID, Quantity)
+                VALUES (src.CustomerID, NULL, src.ProductID, 1);
+        """, (cid, pid))
+    conn.commit()
+    return jsonify({"message": "Added to cart"})
+
+#DATA REPORTS theres three of them
+
+@app.route('/employee_report')
+@with_db
+def employee_report(cursor, conn):
+    # Fetch employees
+    cursor.execute("""
+        SELECT 
+            e.EmployeeID,
+            e.Name,
+            d.Name AS DepartmentName,
+            e.JobTitle,
+            e.HireDate,
+            ISNULL(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,
+            COUNT(td.TransactionID) AS NumberOfSales,
+            CASE WHEN COUNT(td.TransactionID) > 0 THEN SUM(td.Quantity * td.Price)/COUNT(td.TransactionID) ELSE 0 END AS AverageSaleValue
+        FROM Employee e
+        LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID
+        LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID
+        GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate
+    """)
+    employees = rows_to_dict_list(cursor)
+
+    # Fetch all departments
+    cursor.execute("SELECT Name FROM Department ORDER BY Name")
+    departments = [row[0] for row in cursor.fetchall()]
+
+    # Fetch all unique job titles
+    cursor.execute("SELECT DISTINCT JobTitle FROM Employee ORDER BY JobTitle")
+    job_titles = [row[0] for row in cursor.fetchall() if row[0]]  # ignore nulls
+
+    return render_template('employee_report.html', employees=employees, departments=departments, job_titles=job_titles)
+
+@app.post("/api/employee_report")
+@with_db
+def employee_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    department = payload.get("department")
+    job_title = payload.get("job_title")
+    name = payload.get("name")
+    hire_date_from = _iso_date(payload.get("hire_date_from"))
+    hire_date_to = _iso_date(payload.get("hire_date_to"))
+    active_status = payload.get("active_status")
+    
+    try:
+        revenue_min = float(payload.get("revenue_min") or 0)
+    except:
+        revenue_min = 0
+    try:
+        revenue_max = float(payload.get("revenue_max") or 0)
+    except:
+        revenue_max = 0
+
+    # --- Sorting parameters ---
+    sort_column = payload.get("sort_column")
+    sort_order = payload.get("sort_order", "asc").lower()  # asc/desc from JS
+
+    allowed_columns = [
+        "EmployeeID", "Name", "DepartmentName", "JobTitle",
+        "HireDate", "TotalRevenue", "NumberOfSales", "AverageSaleValue"
+    ]
+    if sort_column not in allowed_columns:
+        sort_column = "Name"  # default column
+    if sort_order not in ["asc", "desc"]:
+        sort_order = "asc"    # default order
+
+    sql_parts = [
+        "SELECT",
+        "  e.EmployeeID,",
+        "  e.Name,",
+        "  d.Name AS DepartmentName,",
+        "  e.JobTitle,",
+        "  e.HireDate,",
+        "  COALESCE(SUM(td.Quantity * p.Price), 0) AS TotalRevenue,",
+        "  COUNT(td.TransactionID) AS NumberOfSales,",
+        "  COALESCE(SUM(td.Quantity * p.Price)/NULLIF(COUNT(td.TransactionID),0), 0) AS AverageSaleValue",
+        "FROM Employee e",
+        "LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID",
+        "LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID",
+        "LEFT JOIN Product p ON p.ProductID = td.ProductID",
+        "WHERE 1=1"
+    ]
+
+    params = []
+
+    if department:
+        placeholders = ",".join("?" for _ in department)
+        sql_parts.append(f"AND d.Name IN ({placeholders})")
+        params.extend(department)
+    if job_title:
+        sql_parts.append("AND e.JobTitle = ?")
+        params.append(job_title)
+    if name:
+        sql_parts.append("AND e.Name LIKE ?")
+        params.append(f"%{name}%")
+    if hire_date_from:
+        sql_parts.append("AND e.HireDate >= ?")
+        params.append(hire_date_from)
+    if hire_date_to:
+        sql_parts.append("AND e.HireDate <= ?")
+        params.append(hire_date_to)
+
+    sql_parts.append("GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate")
+
+    having_clauses = []
+    if revenue_min > 0:
+        having_clauses.append("COALESCE(SUM(td.Quantity * p.Price), 0) >= ?")
+        params.append(revenue_min)
+    if revenue_max > 0:
+        having_clauses.append("COALESCE(SUM(td.Quantity * p.Price), 0) <= ?")
+        params.append(revenue_max)
+
+    if having_clauses:
+        sql_parts.append("HAVING " + " AND ".join(having_clauses))
+
+    # --- Add sorting ---
+    sql_parts.append(f"ORDER BY {sort_column} {sort_order.upper()}")
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    html = ""
+    for r in rows:
+        html += "<tr>"
+        for val in r:
+            if isinstance(val, float):
+                html += f"<td>${val:,.2f}</td>"
+            elif isinstance(val, datetime):
+                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    return jsonify({"html": html})
+
+@app.route('/product_report')
+@with_db
+def product_report(cursor, conn):
+    # Fetch products as before
+    cursor.execute("""
+        SELECT 
+            p.ProductID,
+            p.Name AS ProductName,
+            d.Name AS Department,
+            p.Price,
+            p.SalePrice,
+            i.QuantityAvailable,
+            CASE
+                WHEN i.QuantityAvailable <= 0 THEN 'Out of Stock'
+                WHEN i.QuantityAvailable <= i.ReorderLevel THEN 'Low Stock'
+                ELSE 'In Stock'
+            END AS StockStatus,
+            i.ReorderLevel,
+            i.LastRestockDate,
+            CASE WHEN p.OnSale = 1 THEN 'Yes' ELSE 'No' END AS OnSale,
+            ISNULL(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,
+            COUNT(td.TransactionID) AS NumberOfSales
+        FROM Product p
+        LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID
+        LEFT JOIN Inventory i ON p.ProductID = i.ProductID
+        LEFT JOIN Transaction_Details td ON td.ProductID = p.ProductID
+        GROUP BY 
+            p.ProductID, p.Name, d.Name, p.Price, p.SalePrice, 
+            i.QuantityAvailable, i.ReorderLevel, i.LastRestockDate, p.OnSale
+        ORDER BY p.Name
+    """)
+    products = rows_to_dict_list(cursor)
+
+    # Fetch all departments for the filter
+    cursor.execute("SELECT Name FROM Department ORDER BY Name")
+    departments = [row[0] for row in cursor.fetchall()]
+
+    return render_template('product_report.html', products=products, departments=departments)
+
+@app.post("/api/product_report")
+@with_db
+def product_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    department = payload.get("department")
+    product_name = payload.get("product_name")
+    stock_status = payload.get("stock_status")
+    on_sale = payload.get("on_sale")
+    min_price = payload.get("min_price")
+    max_price = payload.get("max_price")
+    qty_min = payload.get("qty_min")
+    qty_max = payload.get("qty_max")
+    restock_from = payload.get("restock_from")
+    restock_to = payload.get("restock_to")
+
+    sort_column = payload.get("sort_column")
+    sort_direction = payload.get("sort_direction", "ASC").upper()
+
+    allowed_columns = [
+        "ProductID","ProductName","Department","Price","SalePrice",
+        "QuantityAvailable","StockStatus","ReorderLevel",
+        "LastRestockDate","OnSale","TotalRevenue","NumberOfSales"
+    ]
+
+    sql_parts = [
+        "SELECT",
+        "  p.ProductID,",
+        "  p.Name AS ProductName,",
+        "  d.Name AS Department,",
+        "  p.Price,",
+        "  p.SalePrice,",
+        "  i.QuantityAvailable,",
+        "  CASE",
+        "      WHEN i.QuantityAvailable <= 0 THEN 'Out of Stock'",
+        "      WHEN i.QuantityAvailable <= i.ReorderLevel THEN 'Low Stock'",
+        "      ELSE 'In Stock'",
+        "  END AS StockStatus,",
+        "  i.ReorderLevel,",
+        "  i.LastRestockDate,",
+        "  CASE WHEN p.OnSale = 1 THEN 'Yes' ELSE 'No' END AS OnSale,",
+        "  COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,",
+        "  COUNT(td.TransactionID) AS NumberOfSales",
+        "FROM Product p",
+        "LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID",
+        "LEFT JOIN Inventory i ON p.ProductID = i.ProductID",
+        "LEFT JOIN Transaction_Details td ON td.ProductID = p.ProductID",
+        "WHERE 1=1"
+    ]
+
+    params = []
+
+    # Filters
+    # if department is a list
+    if department:
+        if isinstance(department, list):
+            placeholders = ", ".join(["?"] * len(department))
+            sql_parts.append(f"AND d.Name IN ({placeholders})")
+            params.extend(department)
+        else:
+            sql_parts.append("AND d.Name = ?")
+            params.append(department)
+
+    if product_name:
+        sql_parts.append("AND p.Name LIKE ?")
+        params.append(f"%{product_name}%")
+
+    if stock_status and stock_status.lower() != "all":
+        if stock_status.lower() == "in stock":
+            sql_parts.append("AND i.QuantityAvailable > i.ReorderLevel")
+        elif stock_status.lower() == "low stock":
+            sql_parts.append("AND i.QuantityAvailable <= i.ReorderLevel AND i.QuantityAvailable > 0")
+        elif stock_status.lower() == "out of stock":
+            sql_parts.append("AND i.QuantityAvailable <= 0")
+
+    if on_sale and on_sale.lower() != "all":
+        sql_parts.append("AND p.OnSale = ?")
+        params.append(1 if on_sale.lower() == "yes" else 0)
+
+    if min_price not in (None, ""):
+        sql_parts.append("AND p.Price >= ?")
+        params.append(float(min_price))
+    if max_price not in (None, ""):
+        sql_parts.append("AND p.Price <= ?")
+        params.append(float(max_price))
+
+    if qty_min not in (None, ""):
+        sql_parts.append("AND i.QuantityAvailable >= ?")
+        params.append(int(qty_min))
+    if qty_max not in (None, ""):
+        sql_parts.append("AND i.QuantityAvailable <= ?")
+        params.append(int(qty_max))
+
+    if restock_from not in (None, ""):
+        sql_parts.append("AND i.LastRestockDate >= ?")
+        params.append(restock_from)
+    if restock_to not in (None, ""):
+        sql_parts.append("AND i.LastRestockDate <= ?")
+        params.append(restock_to)
+
+    # Grouping
+    sql_parts.append("""
+        GROUP BY 
+            p.ProductID, p.Name, d.Name, p.Price, p.SalePrice, 
+            i.QuantityAvailable, i.ReorderLevel, i.LastRestockDate, p.OnSale
+    """)
+
+    # Sorting
+    if sort_column in allowed_columns:
+        sort_direction = "DESC" if sort_direction == "DESC" else "ASC"
+        sql_parts.append(f"ORDER BY {sort_column} {sort_direction}")
+    else:
+        sql_parts.append("ORDER BY p.Name ASC")  # default sort
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    html = ""
+    for r in rows:
+        html += "<tr>"
+        for val in r:
+            if isinstance(val, float):
+                html += f"<td>${val:,.2f}</td>"
+            elif isinstance(val, datetime):
+                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    return jsonify({"html": html})
+
+@app.route('/customer_report')
+@with_db
+def customer_report(cursor, conn):
+    cursor.execute("""
+        SELECT
+            c.CustomerID,
+            c.Name,
+            c.Email,
+            COUNT(DISTINCT st.TransactionID) AS TotalPurchases,
+            COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalSpent,
+            COALESCE((
+                SELECT TOP 1 p.Name
+                FROM Transaction_Details td2
+                JOIN Product p ON td2.ProductID = p.ProductID
+                JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID
+                WHERE st2.CustomerID = c.CustomerID
+                GROUP BY p.ProductID, p.Name
+                ORDER BY SUM(td2.Quantity) DESC
+            ), 'N/A') AS FavoriteProduct,
+            COALESCE(CONVERT(VARCHAR, MAX(st.TransactionDate), 23), 'N/A') AS LastPurchaseDate,
+            COALESCE(c.MemberID, 'N/A') AS MemberID
+        FROM Customer c
+        LEFT JOIN SalesTransaction st ON c.CustomerID = st.CustomerID
+        LEFT JOIN Transaction_Details td ON st.TransactionID = td.TransactionID
+        GROUP BY c.CustomerID, c.Name, c.Email, c.MemberID
+        ORDER BY c.Name
+    """)
+    customers = rows_to_dict_list(cursor)
+    return render_template('customer_report.html', customers=customers)
+
+@app.post("/api/customer_report")
+@with_db
+def customer_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    customer_name = payload.get("customer_name")
+    email = payload.get("email")
+    date_from = payload.get("date_from")
+    date_to = payload.get("date_to")
+    total_spent_min = payload.get("total_spent_min")
+    total_spent_max = payload.get("total_spent_max")
+    sort_column = payload.get("sort_column")
+    sort_direction = payload.get("sort_direction", "asc").upper()  # default ASC
+
+    # Base SQL
+    sql_parts = [
+        "SELECT",
+        "  c.CustomerID,",
+        "  c.Name,",
+        "  c.Email,",
+        "  COUNT(DISTINCT st.TransactionID) AS TotalPurchases,",
+        "  COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalSpent,",
+        "  COALESCE((",
+        "      SELECT TOP 1 p.Name",
+        "      FROM Transaction_Details td2",
+        "      JOIN Product p ON td2.ProductID = p.ProductID",
+        "      JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID",
+        "      WHERE st2.CustomerID = c.CustomerID",
+        "      GROUP BY p.ProductID, p.Name",
+        "      ORDER BY SUM(td2.Quantity) DESC",
+        "  ), 'N/A') AS FavoriteProduct,",
+        "  COALESCE(CONVERT(VARCHAR, MAX(st.TransactionDate), 23), 'N/A') AS LastPurchaseDate,",
+        "  COALESCE(c.MemberID, 'N/A') AS MemberID",
+        "FROM Customer c",
+        "LEFT JOIN SalesTransaction st ON c.CustomerID = st.CustomerID",
+        "LEFT JOIN Transaction_Details td ON st.TransactionID = td.TransactionID",
+        "WHERE 1=1"
+    ]
+
+    params = []
+
+    # Filters
+    if customer_name:
+        sql_parts.append("AND c.Name LIKE ?")
+        params.append(f"%{customer_name}%")
+    if email:
+        sql_parts.append("AND c.Email LIKE ?")
+        params.append(f"%{email}%")
+    if date_from:
+        sql_parts.append("AND st.TransactionDate >= ?")
+        params.append(date_from)
+    if date_to:
+        sql_parts.append("AND st.TransactionDate <= ?")
+        params.append(date_to)
+
+    # GROUP BY
+    sql_parts.append("GROUP BY c.CustomerID, c.Name, c.Email, c.MemberID")
+
+    # HAVING for TotalSpent min/max
+    having_conditions = []
+    if total_spent_min:
+        having_conditions.append("COALESCE(SUM(td.Quantity * td.Price), 0) >= ?")
+        params.append(float(total_spent_min))
+    if total_spent_max:
+        having_conditions.append("COALESCE(SUM(td.Quantity * td.Price), 0) <= ?")
+        params.append(float(total_spent_max))
+    if having_conditions:
+        sql_parts.append("HAVING " + " AND ".join(having_conditions))
+
+    # Safe ORDER BY
+    allowed_columns = ["CustomerID","Name","Email","TotalPurchases","TotalSpent","FavoriteProduct","LastPurchaseDate","MemberID"]
+    if sort_column in allowed_columns:
+        sort_direction = "DESC" if sort_direction == "DESC" else "ASC"  # sanitize
+        sql_parts.append(f"ORDER BY {sort_column} {sort_direction}")
+    else:
+        sql_parts.append("ORDER BY c.Name ASC")  # default sort
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    # Build HTML with N/A for None
+    html = ""
+    for r in rows:
+        html += "<tr>"
+        for val in r:
+            if val is None:
+                html += "<td>N/A</td>"
+            elif isinstance(val, float):
+                html += f"<td>${val:,.2f}</td>"
+            elif isinstance(val, datetime):
+                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    return jsonify({"html": html})
+
+@app.post("/checkout")
+@with_db
+def checkout(cursor, conn):
+    payload = request.get_json(silent=True) or {}
+    items = payload.get("items") or []
+    if not items:
+        owner = get_bag_owner_from_session()
+        if not owner:
+            return jsonify({"message": "Login required"}), 401
+
+        if owner['CustomerID'] is not None:
+            cursor.execute("""
+                SELECT ProductID, Quantity
+                FROM dbo.Bag
+                WHERE CustomerID = ? AND EmployeeID IS NULL
+            """, (owner['CustomerID'],))
+        else:
+            cursor.execute("""
+                SELECT ProductID, Quantity
+                FROM dbo.Bag
+                WHERE EmployeeID = ? AND CustomerID IS NULL
+            """, (owner['EmployeeID'],))
+
+        rows = cursor.fetchall()
+        items = [{"product_id": int(r[0]), "quantity": int(r[1])} for r in rows]
+
+    if not items:
+        return jsonify({"message": "No items to checkout."}), 400
+
+    clean = []
+    for it in items:
+        try:
+            pid = int(it.get("product_id"))
+            qty = int(it.get("quantity"))
+        except Exception:
+            return jsonify({"message": f"Invalid item: {it}"}), 400
+        if pid <= 0 or qty <= 0:
+            return jsonify({"message": f"Invalid item: {it}"}), 400
+        clean.append((pid, qty))
+
+    role = session.get('role')
+    cust_id = session.get('user_id') if role == 'customer' else None
+    emp_id  = session.get('user_id') if role == 'employee' else None
+
+    if cust_id is None and emp_id is None:
+        return jsonify({"message": "Login required to checkout."}), 401
+
+    autocommit_backup = conn.autocommit
+    conn.autocommit = False
+    try:
+        grand_total = 0.0
+        line_items = []
+
+        for pid, qty in clean:
+            cursor.execute("""
+                SELECT TOP 1 ProductID, Price, QuantityInStock
+                FROM Product WITH (UPDLOCK, ROWLOCK)
+                WHERE ProductID = ?
+            """, (pid,))
+            row = cursor.fetchone()
+            if not row:
+                conn.rollback(); conn.autocommit = autocommit_backup
+                return jsonify({"message": f"Product {pid} not found."}), 404
+
+            _, price, stock = row
+            stock = stock or 0
+            if stock < qty:
+                conn.rollback(); conn.autocommit = autocommit_backup
+                return jsonify({"message": f"Insufficient stock for ProductID {pid}. In stock: {stock}, requested: {qty}"}), 409
+
+            subtotal = float(price) * qty
+            grand_total += subtotal
+            line_items.append((pid, qty, float(price), subtotal))
+
+        cursor.execute("""
+            INSERT INTO SalesTransaction (
+                CustomerID, TransactionDate, TotalAmount, PaymentMethod, OrderStatus
+            )
+            OUTPUT INSERTED.TransactionID
+            VALUES (?, GETDATE(), ?, ?, ?)
+        """, (cust_id, grand_total, 'Cash', 'Completed'))
+        new_tid = cursor.fetchone()[0]
+
+        for pid, qty, price, subtotal in line_items:
+            cursor.execute("""
+                INSERT INTO Transaction_Details (TransactionID, ProductID, Quantity, Price, EmployeeID)
+                VALUES (?, ?, ?, ?, ?)
+            """, (new_tid, pid, qty, price, emp_id)) 
+            cursor.execute("""
+                UPDATE Product
+                SET QuantityInStock = QuantityInStock - ?
+                WHERE ProductID = ?
+            """, (qty, pid))
+
+        if cust_id is not None:
+            cursor.execute("DELETE FROM dbo.Bag WHERE CustomerID = ? AND EmployeeID IS NULL",
+                           (cust_id,))
+        elif emp_id is not None:
+            cursor.execute("DELETE FROM dbo.Bag WHERE EmployeeID = ? AND CustomerID IS NULL",
+                           (emp_id,))
+
+        conn.commit()
+        conn.autocommit = autocommit_backup
+        return jsonify({"transaction_id": new_tid, "total_amount": grand_total}), 201
+
+    except Exception as e:
+        print("DB error (/checkout):", e)
+        traceback.print_exc()
+        conn.rollback()
+        conn.autocommit = autocommit_backup
+        return jsonify({"message": f"Database error: {str(e)}"}), 500
+        
+@app.route('/logout')
+def logout():
+    # Clear all session data
+    session.clear()
+    # Redirect user back to login page
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

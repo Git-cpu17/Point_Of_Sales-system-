@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Report - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <style>
+    :root {
+      --primary: #2ecc71;
+      --secondary: #27ae60;
+      --bg-light: #f9f9f9;
+      --text-dark: #333;
+      --text-muted: #777;
+      --radius: 10px;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    body {
+      background: var(--bg-light);
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      color: var(--text-dark);
+    }
+
+    .report-container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 2rem;
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: var(--secondary);
+    }
+
+    .filter-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      background: #f4fef8;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow);
+    }
+
+    .filter-section label {
+      display: block;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+    }
+
+    .filter-section input,
+    .filter-section select {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+
+    .filter-section input:focus,
+    .filter-section select:focus {
+      border-color: var(--primary);
+      outline: none;
+      box-shadow: 0 0 3px var(--primary);
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .filter-group input[type="number"],
+    .filter-group input[type="date"] {
+      flex: 1;
+    }
+
+    .btn {
+      cursor: pointer;
+      padding: 0.7rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: 0.2s ease;
+      margin-right: 10px;
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn.primary:hover {
+      background: var(--secondary);
+    }
+
+    .btn.secondary {
+      background: #ecf0f1;
+      color: var(--text-dark);
+    }
+
+    .btn.secondary:hover {
+      background: #dfe6e9;
+    }
+
+    .action-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      margin-top: 1rem;
+    }
+
+    .report-table th,
+    .report-table td {
+      padding: 1rem;
+      text-align: left;
+    }
+
+    .report-table th {
+      background: var(--secondary);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .report-table th:hover {
+      background: #219150;
+    }
+
+    .sortable::after {
+      content: "";
+      margin-left: 5px;
+      font-size: 0.8rem;
+    }
+
+    .sortable.asc::after { content: "↑"; }
+    .sortable.desc::after { content: "↓"; }
+
+    .report-table tr:nth-child(even) { background: #f8f8f8; }
+    .report-table tr:hover { background: #eafaf1; }
+    .report-table td { color: var(--text-dark); }
+  </style>
+</head>
+<body>
+  <main class="report-container">
+    <h1>Customer Report</h1>
+
+    <!-- Filters -->
+    <section class="filter-section">
+      <div>
+        <label>Customer Name</label>
+        <input type="text" id="customer_name" placeholder="Search by name" />
+      </div>
+      <div>
+        <label>Email</label>
+        <input type="text" id="email" placeholder="Search by email" />
+      </div>
+      <div>
+        <label>Date Range</label>
+        <div class="filter-group">
+          <input type="date" id="date_from" />
+          <span>-</span>
+          <input type="date" id="date_to" />
+        </div>
+      </div>
+      <div>
+        <label>Total Spent ($)</label>
+        <div class="filter-group">
+          <input type="number" id="total_spent_min" placeholder="Min" />
+          <span>-</span>
+          <input type="number" id="total_spent_max" placeholder="Max" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Action buttons -->
+    <div class="action-buttons">
+      <button class="btn secondary" id="customerExportBtn">📄 Export CSV</button>
+      <button class="btn secondary" id="customerPrintBtn">🖨️ Print</button>
+      <button class="btn primary" id="customerFilterBtn">🔍 Apply Filters</button>
+    </div>
+
+    <!-- Report Table -->
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th class="sortable" data-column="CustomerID">CustomerID</th>
+          <th class="sortable" data-column="Name">Name</th>
+          <th class="sortable" data-column="Email">Email</th>
+          <th class="sortable" data-column="TotalPurchases">Total Purchases</th>
+          <th class="sortable" data-column="TotalSpent">Total Spent</th>
+          <th class="sortable" data-column="FavoriteProduct">Favorite Product</th>
+          <th class="sortable" data-column="LastPurchaseDate">Last Purchase Date</th>
+          <th class="sortable" data-column="MemberID">Membership ID</th>
+        </tr>
+      </thead>
+      <tbody id="customerTableBody">
+        {% for c in customers %}
+        <tr>
+          <td>{{ c.CustomerID or 'N/A' }}</td>
+          <td>{{ c.Name or 'N/A' }}</td>
+          <td>{{ c.Email or 'N/A' }}</td>
+          <td>{{ c.TotalPurchases or 0 }}</td>
+          <td>${{ '%.2f'|format(c.TotalSpent or 0) }}</td>
+          <td>{{ c.FavoriteProduct or 'N/A' }}</td>
+          <td>{{ c.LastPurchaseDate or 'N/A' }}</td>
+          <td>{{ c.MemberID or 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

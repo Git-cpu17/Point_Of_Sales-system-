@@ -2135,13 +2135,13 @@ def delete_product(cursor, conn, product_id):
         
         product_name = product[0]
         
-        # Delete the product
-        cursor.execute("DELETE FROM Product WHERE ProductID = ?", (product_id,))
+        # Soft delete - just mark as inactive
+        cursor.execute("UPDATE Product SET IsActive = 0 WHERE ProductID = ?", (product_id,))
         conn.commit()
         
-        return jsonify({"message": f"Product '{product_name}' deleted successfully"}), 200
+        return jsonify({"message": f"Product '{product_name}' has been deactivated"}), 200
     except Exception as e:
-        return jsonify({"message": f"Error deleting product: {str(e)}"}), 500
+        return jsonify({"message": f"Error deactivating product: {str(e)}"}), 500
 @app.route('/api/low_stock')
 @with_db
 def low_stock(cursor, conn):

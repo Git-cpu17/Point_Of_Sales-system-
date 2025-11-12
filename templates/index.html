@@ -65,6 +65,10 @@
       <section class="categories-section container">
         <div class="section-header"><h2 class="section-title">Shop by Category</h2></div>
         <div class="categories-grid">
+          <div class="category-card active" data-category="all">
+            <div class="category-icon">🌎</div>
+            <div class="category-name">All</div>
+          </div>
           <div class="category-card" data-category="produce"><div class="category-icon">🥬</div><div class="category-name">Fresh Produce</div></div>
           <div class="category-card" data-category="meat"><div class="category-icon">🥩</div><div class="category-name">Meat & Seafood</div></div>
           <div class="category-card" data-category="dairy"><div class="category-icon">🥛</div><div class="category-name">Dairy & Eggs</div></div>
@@ -79,48 +83,65 @@
       <!-- Products Section -->
       <section id="productsSection" class="container">
         <div class="section-header"><h2 class="section-title">Featured Products</h2></div>
-        <div id="productGrid" class="product-grid">
-          {% if products %}
-            {% for p in products %}
-              {% set stock_class = 'in-stock' if p.QuantityInStock > 10 else 'low-stock' %}
-              {% set product_emoji = ['🍎', '🥕', '🥦', '🍊', '🥑', '🍇', '🥬', '🫐'][loop.index0 % 8] %}
-              <div class="product-card" data-product-id="{{ p.ProductID }}" data-name="{{ p.Name }}" data-description="{{ p.Description }}" data-price="{{ p.Price }}">
+          <div id="productGrid" class="product-grid">
+            {% if products %}
+              {% for p in products %}
+                {% set stock_class = 'in-stock' if p.QuantityInStock > 10 else 'low-stock' %}
+                {% set product_emoji = ['🍎', '🥕', '🥦', '🍊', '🥑', '🍇', '🥬', '🫐'][loop.index0 % 8] %}
+        
+        <!-- ✅ Updated: use data-dept-id (matches JS filter) -->
+                <div class="product-card"
+                  data-product-id="{{ p.ProductID }}"
+                  data-name="{{ p.Name }}"
+                  data-description="{{ p.Description }}"
+                  data-price="{{ p.Price }}"
+                  data-dept-id="{{ p.DepartmentID }}">
+          
                 <div class="product-image">
                   {% if p.ImageURL %}
                     <img src="{{ p.ImageURL }}" alt="{{ p.Name }}" style="width: 100%; height: 100%; object-fit: cover;">
                   {% else %}
                     {{ product_emoji }}
                   {% endif %}
-                  {% if p.OnSale %}<span class="sale-badge">SALE</span>{% elif loop.index % 4 == 0 %}<span class="sale-badge">SALE</span>{% endif %}
+            
+                  {% if p.OnSale %}
+                    <span class="sale-badge">SALE</span>
+                  {% elif loop.index % 4 == 0 %}
+                    <span class="sale-badge">SALE</span>
+                  {% endif %}
                 </div>
 
                 <div class="product-details">
                   <div class="product-header"><h3>{{ p.Name }}</h3></div>
                   <p class="product-desc">{{ p.Description or 'Fresh and high quality product' }}</p>
+
                   <div class="product-meta">
                     <div>
                       <span class="price">${{ '%.2f'|format(p.Price) }}</span>
                       <div class="unit-price">per unit</div>
                     </div>
                     <span class="stock {{ stock_class }}">
-                      {% if p.QuantityInStock > 10 %}✓ In Stock{% else %}Only {{ p.QuantityInStock }} left{% endif %}
+                      {% if p.QuantityInStock > 10 %}
+                        ✓ In Stock
+                      {% else %}
+                        Only {{ p.QuantityInStock }} left
+                      {% endif %}
                     </span>
                   </div>
 
-                  <!-- Only show buttons for customers -->
-                  {% if user and user.role == 'customer' %}
-                    <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})">
-                      <span>🛒</span><span>Add to Cart</span>
-                    </button>
-                    <button class="btn secondary" type="button" onclick="addToList({{ p.ProductID }})">
-                      <span>📋</span><span>Save to List</span>
-                    </button>
-                  {% endif %}
+                  <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})">
+                    <span>🛒</span><span>Add to Cart</span>
+                  </button>
+                  <button class="btn secondary" type="button" onclick="addToList({{ p.ProductID }})">
+                    <span>📋</span><span>Save to List</span>
+                  </button>
                 </div>
               </div>
             {% endfor %}
           {% else %}
-            <p style="grid-column: 1/-1; text-align: center; color: var(--text-light);">No products available at the moment. Please check back later!</p>
+            <p style="grid-column: 1/-1; text-align: center; color: var(--text-light);">
+              No products available at the moment. Please check back later!
+            </p>
           {% endif %}
         </div>
       </section>

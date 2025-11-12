@@ -450,15 +450,89 @@
   // -------------------- Category filters --------------------
   function setupCategoryFilters() {
     const categoryCards = document.querySelectorAll('.category-card');
+    const productGrid = document.getElementById('productGrid');
+    const allProducts = window.PRODUCTS || [];
+
     categoryCards.forEach(card => {
-      card.addEventListener('click', e => {
-        const category = e.currentTarget.getAttribute('data-category');
+      card.addEventListener('click', () => {
+        const selectedCategory = card.dataset.category;
+      
+        // Highlight selected card
         categoryCards.forEach(c => c.classList.remove('active'));
-        e.currentTarget.classList.add('active');
-        showNotification(`Filtering by ${category}`, 'info');
+        card.classList.add('active');
+
+        // Filter products
+        const filtered = selectedCategory === 'all'
+          ? allProducts
+          : allProducts.filter(p =>
+              (p.DepartmentName || p.Category || '').toLowerCase() === selectedCategory.toLowerCase()
+           );
+
+        // Re-render product grid
+        renderProducts(filtered);
       });
     });
+
+    function renderProducts(products) {
+      if (!productGrid) return;
+
+      if (!products.length) {
+        productGrid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--text-light)">
+          No products found for this category.
+        </p>`;
+        return;
+      }
+
+      productGrid.innerHTML = products.map(p => {
+        const stockClass = p.QuantityInStock > 10 ? 'in-stock' : 'low-stock';
+        const emojiList = ['🍎','🥕','🥦','🍊','🥑','🍇','🥬','🫐'];
+        const emoji = emojiList[Math.floor(Math.random() * emojiList.length)];
+        const saleBadge = p.OnSale ? `<span class="sale-badge">SALE</span>` : '';
+
+        return `
+          <div class="product-card" data-product-id="${p.ProductID}" data-category="${p.DepartmentName || p.Category}">
+            <div class="product-image">
+              ${p.ImageURL ? `<img src="${p.ImageURL}" alt="${p.Name}" style="width:100%;height:100%;object-fit:cover;">` : emoji}
+              ${saleBadge}
+            </div>
+            <div class="product-details">
+              <div class="product-header"><h3>${p.Name}</h3></div>
+              <p class="product-desc">${p.Description || 'Fresh and high quality product'}</p>
+              <div class="product-meta">
+                <div>
+                  <span class="price">$${p.Price.toFixed(2)}</span>
+                  <div class="unit-price">per unit</div>
+                </div>
+                <span class="stock ${stockClass}">
+                  ${p.QuantityInStock > 10 ? '✓ In Stock' : 'Only ' + p.QuantityInStock + ' left'}
+                </span>
+              </div>
+              <button class="add-btn" type="button" onclick="addToCart(${p.ProductID})"><span>🛒</span><span>Add to Cart</span></button>
+              <button class="btn secondary" type="button" onclick="addToList(${p.ProductID})"><span>📋</span><span>Save to List</span></button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
   }
+  renderProducts(allProducts);
+  categoryCards.forEach(card => {
+    card.addEventListener('click', () => {
+      categoryCards.forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+
+      const deptId = card.getAttribute('data-dept-id');
+
+      if (deptId === 'all') {
+        renderProducts(allProducts);
+      } else {
+        const filtered = allProducts.filter(p => String(p.DepartmentID) === String(deptId));
+        renderProducts(filtered);
+      }
+    });
+  });
+  
+  
 
   // -------------------- Login --------------------
   function setupLoginForm() {

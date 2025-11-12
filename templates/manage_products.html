@@ -450,9 +450,13 @@ function deleteProduct(productId, productName) {
       'Content-Type': 'application/json'
     }
   })
-  .then(response => response.json())
-  .then(data => {
-    if (response.ok) {
+  .then(response => {
+    // Store response status before parsing JSON
+    const isOk = response.ok;
+    return response.json().then(data => ({ isOk, data }));
+  })
+  .then(({ isOk, data }) => {
+    if (isOk) {
       // Show success message
       showNotification(data.message, 'success');
       // Reload page after short delay

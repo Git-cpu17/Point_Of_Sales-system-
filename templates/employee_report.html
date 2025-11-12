@@ -1,419 +1,405 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Employee Report - FreshMart</title>
-		<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-        <style>
-            :root {
-                --primary: #2ecc71;
-                --secondary: #27ae60;
-                --bg-light: #f9f9f9;
-                --text-dark: #333;
-                --text-muted: #777;
-                --radius: 10px;
-                --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            }
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Employee Report - FreshMart</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+	<style>
+		:root {
+			--primary: #2ecc71;
+			--secondary: #27ae60;
+			--bg: #f7fbf8;
+			--card: #ffffff;
+			--muted: #6e7a70;
+			--radius: 12px;
+			--shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+			--gradient: linear-gradient(135deg, var(--primary), var(--secondary));
+		}
 
-            body {
-                background: var(--bg-light);
-                font-family: 'Segoe UI', Roboto, sans-serif;
-                color: var(--text-dark);
-            }
+        body {
+        font-family: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+        background:
+            repeating-linear-gradient(
+            135deg,
+            rgba(30, 60, 40, 0.08),
+            rgba(30, 60, 40, 0.08) 20px,
+            rgba(20, 40, 25, 0.03) 20px,
+            rgba(20, 40, 25, 0.03) 40px
+            );
+        background-color: #f8fbf9;
+        color: #222;
+        margin: 0;
+        padding: 2rem 1rem;
+        -webkit-font-smoothing: antialiased;
+        }
 
-            .report-container {
-                max-width: 1400px;
-                margin: 2rem auto;
-                padding: 2rem;
-                background: white;
-                border-radius: var(--radius);
-                box-shadow: var(--shadow);
-            }
+		.report-container {
+			max-width: 1300px;
+			margin: 0 auto;
+			display: flex;
+			flex-direction: column;
+			gap: 1.5rem;
+		}
 
-            h1 {
-                text-align: center;
-                margin-bottom: 2rem;
-                color: var(--secondary);
-            }
+		/* HEADER */
+		.title {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+		}
 
-            /* --- FILTERS --- */
-            .filter-section {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                gap: 1rem;
-                background: #f4fef8;
-                padding: 1.5rem;
-                border-radius: var(--radius);
-                margin-bottom: 2rem;
-                box-shadow: var(--shadow);
-            }
+		.brand-pill {
+			background: var(--gradient);
+			color: white;
+			padding: 0.55rem 0.8rem;
+			border-radius: 10px;
+			font-weight: 700;
+			box-shadow: 0 6px 18px rgba(46,204,113,0.18);
+			font-size: 0.95rem;
+		}
 
-            .filter-section label {
-                display: block;
-                font-size: 0.9rem;
-                color: var(--text-muted);
-                margin-bottom: 0.3rem;
-            }
+		h1 {
+			margin: 0;
+			font-size: 1.6rem;
+			color: #1f7a44;
+		}
 
-            .filter-section input,
-            .filter-section select {
-                width: 100%;
-                padding: 0.6rem;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                font-size: 0.9rem;
-                transition: all 0.2s ease;
-            }
+		.subtitle {
+			color: var(--muted);
+			font-size: 0.95rem;
+		}
 
-            .filter-section select {
-                position: relative;
-                z-index: 9999;
-            }
+		/* CARD STYLING */
+		.card {
+			background: var(--card);
+			border-radius: var(--radius);
+			padding: 1.25rem;
+			box-shadow: var(--shadow);
+			border: 1px solid rgba(15,20,10,0.03);
+		}
 
-            .filter-section input:focus,
-            .filter-section select:focus {
-                border-color: var(--primary);
-                outline: none;
-                box-shadow: 0 0 3px var(--primary);
-            }
+		/* KPI SECTION */
+		.kpi-section {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 1rem;
+		}
 
-            .filter-group {
-                display: flex;
-                align-items: center;
-                gap: 5px;
-            }
+		.kpi-card {
+			flex: 1;
+			min-width: 250px;
+			padding: 1rem;
+			border-radius: var(--radius);
+			background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.8));
+			box-shadow: 0 2px 8px rgba(15,20,10,0.05);
+			text-align: center;
+			border: 1px solid rgba(0,0,0,0.03);
+			transition: transform 0.18s ease, box-shadow 0.18s ease;
+		}
 
-            /* --- Updated flex for multi-input fields --- */
-            .filter-group input {
-                flex: 1 1 auto;
-            }
+		.kpi-card:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 10px 26px rgba(15,20,10,0.08);
+		}
 
-            .filter-group span {
-                flex: 0 0 auto;
-            }
+		.kpi-card h3 {
+			color: #1f7a44;
+			margin-bottom: 0.6rem;
+			font-size: 1rem;
+		}
 
-            /* --- Ensure dropdowns are full width --- */
-            #departmentDropdown {
-                width: 100%;
-            }
+		.kpi-card p {
+			margin: 0.2rem 0;
+			font-size: 1rem;
+			color: #333;
+		}
 
-            /* --- BUTTONS --- */
-            .btn {
-                cursor: pointer;
-                padding: 0.7rem 1.2rem;
-                border: none;
-                border-radius: 8px;
-                font-size: 0.9rem;
-                font-weight: 500;
-                transition: 0.2s ease;
-                margin-right: 10px;
-            }
+		.kpi-card:nth-child(1) { border-top: 4px solid #2ecc71; }
+		.kpi-card:nth-child(2) { border-top: 4px solid #f1c40f; }
+		.kpi-card:nth-child(3) { border-top: 4px solid #3498db; }
 
-            .btn.primary {
-                background: var(--primary);
-                color: white;
-            }
+		/* FILTERS */
+        .filter-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+        align-items: end;
+        }
 
-            .btn.primary:hover {
-                background: var(--secondary);
-            }
+        .filter-section > div {
+        min-width: 140px;
+        max-width: 220px;
+        }
 
-            .btn.secondary {
-                background: #ecf0f1;
-                color: var(--text-dark);
-            }
+        .filter-section > div:nth-child(4) {
+        margin-left: -5rem;
+        }
 
-            .btn.secondary:hover {
-                background: #dfe6e9;
-            }
+        #job_title {
+        max-width: 160px;
+        }
 
-            .action-buttons {
-                display: flex;
-                justify-content: flex-end;
-                gap: 1rem;
-                margin-bottom: 1rem;
-            }
+		.filter-section label {
+			display: block;
+			font-weight: 600;
+			font-size: 0.9rem;
+			margin-bottom: 0.3rem;
+			color: var(--muted);
+		}
 
-            /* --- REPORT TABLE --- */
-            .report-table {
-                width: 100%;
-                border-collapse: collapse;
-                border-radius: var(--radius);
-                overflow: hidden;
-                box-shadow: var(--shadow);
-                margin-top: 1rem;
-            }
+		.filter-section input,
+		.filter-section select {
+			width: 100%;
+			padding: 0.55rem 0.7rem;
+			border-radius: 8px;
+			border: 1px solid #dfe7df;
+			font-size: 0.9rem;
+			background: white;
+			transition: all 0.2s ease;
+		}
 
-            .report-table th,
-            .report-table td {
-                padding: 1rem;
-                text-align: left;
-            }
+		.filter-section input:focus,
+		.filter-section select:focus {
+			border-color: var(--primary);
+			box-shadow: 0 0 0 2px rgba(46,204,113,0.15);
+			outline: none;
+		}
 
-            .report-table th {
-                background: var(--secondary);
-                color: white;
-                font-weight: 600;
-                cursor: pointer;
-                user-select: none;
-            }
+		.filter-group {
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+		}
 
-            .report-table th:hover {
-                background: #219150;
-            }
+		/* BUTTONS */
+		.btn {
+			cursor: pointer;
+			padding: 0.6rem 1rem;
+			border: none;
+			border-radius: 8px;
+			font-size: 0.9rem;
+			font-weight: 600;
+			transition: all 0.2s ease;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+		}
 
-            .sortable::after {
-                content: "";
-                margin-left: 5px;
-                font-size: 0.8rem;
-            }
+		.btn.primary {
+			background: var(--gradient);
+			color: white;
+			box-shadow: 0 6px 20px rgba(46,204,113,0.15);
+		}
 
-            .sortable.asc::after {
-                content: "↑";
-            }
+		.btn.primary:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 8px 24px rgba(46,204,113,0.25);
+		}
 
-            .sortable.desc::after {
-                content: "↓";
-            }
+		.btn.secondary {
+			background: #ecf5ef;
+			color: #1f5135;
+			border: 1px solid #d4e8da;
+		}
 
-            .report-table tr:nth-child(even) {
-                background: #f8f8f8;
-            }
+		.btn.secondary:hover {
+			background: #e4f3e9;
+		}
 
-            .report-table tr:hover {
-                background: #eafaf1;
-            }
+		.action-buttons {
+			display: flex;
+			justify-content: flex-end;
+			gap: 0.6rem;
+		}
 
-            .report-table td {
-                color: var(--text-dark);
-            }
+		/* TABLE */
+		.report-table {
+			width: 100%;
+			border-collapse: collapse;
+			border-radius: var(--radius);
+			overflow: hidden;
+			box-shadow: var(--shadow);
+			font-size: 0.92rem;
+		}
 
-            /* --- MULTI-SELECT TAGS & DROPDOWNS --- */
-            .ts-control {
-                border-radius: 8px !important;
-                border: 1px solid #ccc !important;
-                padding: 0.4rem 0.6rem !important;
-                font-size: 0.9rem;
-                background: white;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            }
+		.report-table th {
+			background: linear-gradient(180deg, #2b6e3b, #2b6e3b);
+			color: white;
+			padding: 0.8rem;
+			text-align: left;
+			font-weight: 600;
+			cursor: pointer;
+			user-select: none;
+		}
 
-            .ts-wrapper.multi.has-items .ts-control {
-                flex-wrap: wrap;
-                gap: 0.3rem;
-            }
+		.report-table td {
+			padding: 0.75rem;
+			border-bottom: 1px solid #f0f3f0;
+		}
 
-            .ts-wrapper.multi .ts-control .selected-bubble {
-                background: var(--primary);
-                color: white;
-                padding: 4px 8px;
-                border-radius: 12px;
-                display: inline-flex;
-                align-items: center;
-                font-size: 0.85rem;
-                font-weight: 500;
-            }
+		.report-table tr:nth-child(even) {
+			background: #fbfdfb;
+		}
 
-            .ts-wrapper.multi .ts-control .selected-bubble:hover {
-                background: var(--secondary);
-            }
+		.report-table tr:hover {
+			background: #f1fbf5;
+		}
 
-            .dropdown {
-                position: relative;
-                display: inline-block;
-                width: 100%;
-            }
+		.sortable.asc::after { content: " ↑"; }
+		.sortable.desc::after { content: " ↓"; }
 
-            .dropdown-toggle {
-                width: 100%;
-                background: #fff;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                padding: 0.6rem;
-                text-align: left;
-                cursor: pointer;
-                transition: 0.2s ease;
-            }
+		/* DROPDOWN + MINI BUTTONS */
+		.dropdown { position: relative; width: 100%; }
+		.dropdown-toggle {
+			width: 100%;
+			background: #fff;
+			border: 1px solid #dfe7df;
+			border-radius: 8px;
+			padding: 0.6rem;
+			text-align: left;
+			cursor: pointer;
+		}
+		.dropdown-menu {
+			display: none;
+			position: absolute;
+			background: white;
+			border: 1px solid #dfe7df;
+			border-radius: 8px;
+			width: 100%;
+			margin-top: 5px;
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+			z-index: 999;
+			padding: 0.6rem;
+		}
+		.dropdown.open .dropdown-menu { display: block; }
 
-            .dropdown-toggle:hover {
-                background: #f9f9f9;
-            }
+		.dropdown-item {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			padding: 0.4rem 0.5rem;
+			border-radius: 6px;
+			cursor: pointer;
+		}
 
-            .dropdown-menu {
-                opacity: 0;
-                transform: translateY(-5px);
-                transition: opacity 0.2s ease, transform 0.2s ease;
-                display: block;
-                position: absolute;
-                background: white;
-                border: 1px solid #ccc;
-                border-radius: 8px;
-                width: 100%;
-                margin-top: 5px;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-                z-index: 999;
-            }
+		.dropdown-item:hover { background: #e8f9ee; }
 
-            .dropdown.open .dropdown-menu {
-                opacity: 1;
-                transform: translateY(0);
-                pointer-events: auto;
-            }
+		.btn-mini {
+			border: none;
+			border-radius: 6px;
+			padding: 0.3rem 0.7rem;
+			font-size: 0.8rem;
+			cursor: pointer;
+			font-weight: 600;
+		}
+		.btn-mini.success { background: #e8f9ee; color: var(--secondary); }
+		.btn-mini.danger { background: #fdeaea; color: #c0392b; }
+	</style>
+</head>
 
-            .pretty-dropdown {
-                max-height: 240px;
-                overflow-y: auto;
-                border-radius: 10px;
-                background: white;
-                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-                padding: 0.75rem;
-                animation: fadeIn 0.15s ease-in-out;
-            }
+<body>
+	<div class="report-container">
+		<!-- Header -->
+		<div class="title">
+			<div class="brand-pill">FreshMart</div>
+			<div>
+				<h1>Employee Report</h1>
+				<div class="subtitle">Performance and tenure insights across departments.</div>
+			</div>
+		</div>
 
-            .dropdown-actions {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 0.5rem;
-                border-bottom: 1px solid #eee;
-                padding-bottom: 0.4rem;
-            }
+		<!-- KPI Cards -->
+		<div class="card">
+			<section class="kpi-section">
+				<div class="kpi-card">
+					<h3>Total Employees</h3>
+					<p style="font-size:1.8rem; font-weight:700;">{{ employees|length }}</p>
+				</div>
+				<div class="kpi-card">
+					<h3>Average Tenure</h3>
+					<p style="font-size:1.8rem; font-weight:700;">{{ avg_tenure_years }} yrs</p>
+				</div>
+				<div class="kpi-card">
+					<h3>Employee of the Month</h3>
+					{% set top_emp = employees|sort(attribute='NumberOfSales', reverse=True)|first %}
+					<p><strong>{{ top_emp.Name }}</strong></p>
+					<p class="muted">{{ top_emp.NumberOfSales }} Sales — {{ top_emp.DepartmentName }}</p>
+				</div>
+			</section>
+		</div>
 
-            .dropdown-item {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 0.4rem 0.5rem;
-                border-radius: 6px;
-                cursor: pointer;
-                transition: background 0.2s ease, transform 0.1s ease;
-            }
-
-            .dropdown-item:hover {
-                background: #f4fef8;
-                transform: scale(1.01);
-            }
-
-            .dropdown-item input {
-                accent-color: var(--primary);
-            }
-
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-4px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-
-            /* --- Mini buttons --- */
-            .btn-mini {
-                border: none;
-                border-radius: 6px;
-                padding: 0.35rem 0.7rem;
-                font-size: 0.8rem;
-                cursor: pointer;
-                transition: 0.2s ease;
-                font-weight: 500;
-            }
-
-            .btn-mini.success {
-                background: #e8f9ee;
-                color: var(--secondary);
-            }
-
-            .btn-mini.danger {
-                background: #fdeaea;
-                color: #c0392b;
-            }
-
-            .btn-mini.success:hover {
-                background: var(--primary);
-                color: white;
-                box-shadow: 0 2px 6px rgba(46, 204, 113, 0.3);
-            }
-
-            .btn-mini.danger:hover {
-                background: #e74c3c;
-                color: white;
-                box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3);
-            }
-        </style>
-	</head>
-
-	<body>
-		<main class="report-container">
-			<h1>Employee Report</h1>
-
-			<!-- Filters -->
-			<section class="filter-section">
-                <div class="filter-group">
-                    <label for="department" class="form-label">Department</label>
-                    <div id="employeeDepartmentDropdown" class="dropdown">
-                        <button type="button" class="dropdown-toggle btn secondary w-100">
-                            Select Department ▼
-                        </button>
-                        <div class="dropdown-menu pretty-dropdown p-2">
-                            <div class="dropdown-actions">
-                                <button type="button" id="employeeSelectAllDepts" class="btn-mini success">✅ Select All</button>
-                                <button type="button" id="employeeClearAllDepts" class="btn-mini danger">❌ Clear All</button>
-                            </div>
-                            <div class="dropdown-list">
-                                {% for dept in departments %}
-                                <label class="dropdown-item">
-                                    <input type="checkbox" class="employee-dept-option" value="{{ dept }}">
-                                    {{ dept }}
-                                </label>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" id="employeeDepartment" name="department" value="">
-                </div>
+		<!-- Filters -->
+		<div class="card">
+			<strong>Filters</strong>
+			<section class="filter-section" style="margin-top: 0.8rem;">
+				<div>
+					<label>Department</label>
+					<div id="employeeDepartmentDropdown" class="dropdown">
+						<button type="button" class="dropdown-toggle">Select Department ▼</button>
+						<div class="dropdown-menu">
+							<div class="dropdown-actions" style="display:flex;justify-content:space-between;margin-bottom:0.4rem;">
+								<button type="button" id="employeeSelectAllDepts" class="btn-mini success">Select All</button>
+								<button type="button" id="employeeClearAllDepts" class="btn-mini danger">Clear</button>
+							</div>
+							<div class="dropdown-list">
+								{% for dept in departments %}
+									<label class="dropdown-item">
+										<input type="checkbox" class="employee-dept-option" value="{{ dept }}">
+										{{ dept }}
+									</label>
+								{% endfor %}
+							</div>
+						</div>
+					</div>
+					<input type="hidden" id="employeeDepartment" name="department" value="">
+				</div>
 
 				<div>
 					<label>Name</label>
-					<input type="text" id="name" name="name" placeholder="Search by name" />
+					<input type="text" id="name" name="name" placeholder="Search by name">
 				</div>
 
-                <div>
-                    <label>Job Title</label>
-                    <select id="job_title" name="job_title">
-                        <option value="">All</option>
-                        {% for title in job_titles %}
-                            <option value="{{ title }}">{{ title }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+				<div>
+					<label>Job Title</label>
+					<select id="job_title" name="job_title">
+						<option value="">All</option>
+						{% for title in job_titles %}
+							<option value="{{ title }}">{{ title }}</option>
+						{% endfor %}
+					</select>
+				</div>
 
 				<div>
 					<label>Hire Date</label>
 					<div class="filter-group">
-						<input type="date" id="hire_date_from" name="hire_date_from" />
+						<input type="date" id="hire_date_from">
 						<span>-</span>
-						<input type="date" id="hire_date_to" name="hire_date_to" />
+						<input type="date" id="hire_date_to">
 					</div>
 				</div>
 
 				<div>
 					<label>Total Revenue ($)</label>
 					<div class="filter-group">
-						<input type="number" id="revenue_min" placeholder="Min" />
+						<input type="number" id="revenue_min" placeholder="Min">
 						<span>-</span>
-						<input type="number" id="revenue_max" placeholder="Max" />
+						<input type="number" id="revenue_max" placeholder="Max">
 					</div>
 				</div>
 			</section>
 
-			<!-- Action buttons -->
-			<div class="action-buttons">
-				<button class="btn secondary" id="exportBtn">📄 Export CSV</button>
-				<button class="btn secondary" id="printBtn">🖨️ Print</button>
+			<div class="action-buttons" style="margin-top:1rem;">
 				<button class="btn primary" id="filterBtn">🔍 Apply Filters</button>
 			</div>
+		</div>
 
-			<!-- Report Table -->
+		<!-- Table -->
+		<div class="card">
 			<table class="report-table">
 				<thead>
 					<tr>
-						<th class="sortable" data-column="EmployeeID">EmployeeID</th>
+						<th class="sortable" data-column="EmployeeID">Employee ID</th>
 						<th class="sortable" data-column="Name">Name</th>
 						<th class="sortable" data-column="DepartmentName">Department</th>
 						<th class="sortable" data-column="JobTitle">Job Title</th>
@@ -433,13 +419,14 @@
 						<td>{{ emp.HireDate }}</td>
 						<td>${{ '%.2f' | format(emp.TotalRevenue or 0) }}</td>
 						<td>{{ emp.NumberOfSales or 0 }}</td>
-						<td>${{ '%.2f' | format(emp.AverageSaleValue or 0) }}</td>
+						<td>${{ '%.2f' | format(emp.AverageSaleValue | float or 0) }}</td>
 					</tr>
 					{% endfor %}
 				</tbody>
 			</table>
-		</main>
+		</div>
+	</div>
 
-		<script src="{{ url_for('static', filename='js/main.js') }}"></script>
-	</body>
+	<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
 </html>

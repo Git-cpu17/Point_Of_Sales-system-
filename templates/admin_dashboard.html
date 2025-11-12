@@ -285,10 +285,12 @@
 
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
+      
         <span class="notification-bell" onclick="openReorderAlerts()">
           🔔
           <span class="notification-badge" id="reorder-badge">0</span>
         </span>
+
         <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
       </div>
     </div>
@@ -540,56 +542,32 @@
         const data = await response.json();
 
         if (response.ok) {
-          alert(`Successfully restocked with ${quantity} units!`);
+          // Remove the alert item from the UI
+          const alertItem = document.getElementById(`alert-${alertId}`);
+          alertItem.style.opacity = '0';
+          alertItem.style.transform = 'translateX(100%)';
+          alertItem.style.transition = 'all 0.3s';
 
-          // Reload the notification count
-          loadNotificationCount();
+          setTimeout(() => {
+            alertItem.remove();
 
-          // Re-scan and reload all alerts to show updated stock levels
-          setTimeout(async () => {
+            // Check if there are any alerts left
             const container = document.getElementById('alerts-container');
-            container.innerHTML = '<p style="text-align: center; padding: 2rem;">Refreshing...</p>';
-
-            try {
-              // Scan for low stock products again
-              await fetch('/api/reorder_alerts/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-              });
-
-              // Fetch updated alerts
-              const response = await fetch('/api/reorder_alerts');
-              const alerts = await response.json();
-
-              if (alerts.length === 0) {
-                container.innerHTML = `
-                  <div class="empty-alerts">
-                    <div class="empty-alerts-icon">✅</div>
-                    <h3>No Low Stock Alerts</h3>
-                    <p>All products are well-stocked!</p>
-                  </div>
-                `;
-              } else {
-                container.innerHTML = alerts.map(alert => `
-                  <div class="alert-item" id="alert-${alert.AlertID}">
-                    <div class="alert-info">
-                      <h3>${alert.ProductName}</h3>
-                      <div class="alert-details">
-                        <p>Current Stock: <strong>${alert.CurrentStock}</strong> | Reorder Level: <strong>${alert.ReorderLevel}</strong></p>
-                        <p style="font-size: 0.85rem; margin-top: 0.25rem;">Alert Date: ${new Date(alert.AlertDate).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <div class="alert-actions">
-                      <input type="number" class="restock-input" id="qty-${alert.AlertID}" placeholder="Qty" min="1" value="${alert.ReorderLevel * 2}">
-                      <button class="restock-btn" onclick="restockProduct(${alert.AlertID})">Restock</button>
-                    </div>
-                  </div>
-                `).join('');
-              }
-            } catch (error) {
-              console.error('Error refreshing alerts:', error);
+            if (!container.querySelector('.alert-item')) {
+              container.innerHTML = `
+                <div class="empty-alerts">
+                  <div class="empty-alerts-icon">✅</div>
+                  <h3>No Low Stock Alerts</h3>
+                  <p>All products are well-stocked!</p>
+                </div>
+              `;
             }
+
+            // Reload the notification count
+            loadNotificationCount();
           }, 300);
+
+          alert(`Successfully restocked with ${quantity} units!`);
         } else {
           alert(data.error || 'Failed to restock product');
           btn.disabled = false;

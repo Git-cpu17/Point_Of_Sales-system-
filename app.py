@@ -407,6 +407,126 @@ def apply_sales(cursor, conn):
         print("Error executing sale trigger:", e)
         return jsonify({"error": "Failed to apply sales"}), 500
 
+# Reorder Alerts API endpoints
+@app.route('/api/reorder_alerts/count')
+@with_db
+def get_reorder_alerts_count(cursor, conn):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    cursor.execute("SELECT COUNT(*) FROM Reorder_Alerts WHERE AlertStatus = 'PENDING'")
+    count = cursor.fetchone()[0] or 0
+    return jsonify({"count": count})
+
+@app.route('/api/reorder_alerts')
+@with_db
+def get_reorder_alerts(cursor, conn):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    cursor.execute("""
+        SELECT
+            ra.AlertID,
+            ra.ProductID,
+            ra.ProductName,
+            ra.CurrentStock,
+            ra.ReorderLevel,
+            ra.AlertDate,
+            ra.AlertStatus,
+            p.Price,
+            p.DepartmentID
+        FROM Reorder_Alerts ra
+        LEFT JOIN Product p ON ra.ProductID = p.ProductID
+        WHERE ra.AlertStatus = 'PENDING'
+        ORDER BY ra.AlertDate DESC
+    """)
+    alerts = rows_to_dict_list(cursor)
+    return jsonify(alerts)
+
+@app.route('/api/reorder_alerts/<int:alert_id>/restock', methods=['POST'])
+@with_db
+def restock_product(cursor, conn, alert_id):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or {}
+    restock_quantity = data.get('quantity')
+
+    if not restock_quantity:
+        return jsonify({"error": "Quantity is required"}), 400
+
+    try:
+        restock_quantity = int(restock_quantity)
+        if restock_quantity <= 0:
+            return jsonify({"error": "Quantity must be positive"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid quantity"}), 400
+
+    # Get the alert details
+    cursor.execute("SELECT ProductID, AlertStatus FROM Reorder_Alerts WHERE AlertID = ?", (alert_id,))
+    alert = cursor.fetchone()
+
+    if not alert:
+        return jsonify({"error": "Alert not found"}), 404
+
+    if alert[1] != 'PENDING':
+        return jsonify({"error": "Alert already processed"}), 400
+
+    product_id = alert[0]
+
+    # Update the product stock
+    cursor.execute("""
+        UPDATE Product
+        SET QuantityInStock = QuantityInStock + ?
+        WHERE ProductID = ?
+    """, (restock_quantity, product_id))
+
+    # Mark alert as completed
+    cursor.execute("""
+        UPDATE Reorder_Alerts
+        SET AlertStatus = 'COMPLETED'
+        WHERE AlertID = ?
+    """, (alert_id,))
+
+    conn.commit()
+
+    return jsonify({"message": "Product restocked successfully", "quantity": restock_quantity})
+
+@app.route('/api/reorder_alerts/scan', methods=['POST'])
+@with_db
+def scan_low_stock(cursor, conn):
+    """Scan all products and create alerts for any that are currently low stock but don't have pending alerts"""
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # Find products that are low stock but don't have pending alerts
+    cursor.execute("""
+        INSERT INTO Reorder_Alerts (ProductID, ProductName, CurrentStock, ReorderLevel)
+        SELECT
+            p.ProductID,
+            p.Name,
+            p.QuantityInStock,
+            ISNULL(inv.ReorderLevel, 10) as ReorderLevel
+        FROM Product p
+        LEFT JOIN Inventory inv ON p.ProductID = inv.ProductID
+        WHERE p.QuantityInStock <= ISNULL(inv.ReorderLevel, 10) * 1.2
+        AND p.IsActive = 1
+        AND NOT EXISTS (
+            SELECT 1
+            FROM Reorder_Alerts ra
+            WHERE ra.ProductID = p.ProductID
+            AND ra.AlertStatus = 'PENDING'
+        )
+    """)
+
+    rows_inserted = cursor.rowcount
+    conn.commit()
+
+    return jsonify({
+        "message": f"Scan complete. Created {rows_inserted} new alert(s).",
+        "alerts_created": rows_inserted
+    })
+
 @app.route('/admin/add-product', methods=['GET', 'POST'])
 @with_db
 def add_product(cursor, conn):

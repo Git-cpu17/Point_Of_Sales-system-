@@ -82,6 +82,155 @@
       margin-bottom: 0.5rem;
       display: block;
     }
+
+    /* Notification Bell Styles */
+    .notification-bell {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+      font-size: 1.5rem;
+      margin: 0 1rem;
+      color: white;
+      transition: transform 0.2s;
+    }
+
+    .notification-bell:hover {
+      transform: scale(1.1);
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ff4444;
+      color: white;
+      border-radius: 50%;
+      min-width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+      display: none;
+    }
+
+    .notification-badge.active {
+      display: flex;
+    }
+
+    /* Reorder Alerts Modal Styles */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 900px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      background: linear-gradient(135deg, #2196F3, #1976D2);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 2rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 2rem;
+    }
+
+    .alert-item {
+      background: var(--bg-light);
+      border-left: 4px solid #ff4444;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .alert-info h3 {
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+    }
+
+    .alert-details {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+
+    .alert-actions {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .restock-input {
+      padding: 0.5rem;
+      border: 2px solid var(--light-green);
+      border-radius: 6px;
+      width: 80px;
+      font-size: 1rem;
+    }
+
+    .restock-btn {
+      background: var(--primary-green);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s;
+    }
+
+    .restock-btn:hover {
+      background: var(--dark-green);
+    }
+
+    .empty-alerts {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-light);
+    }
+
+    .empty-alerts-icon {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -94,6 +243,10 @@
         {% if user %}
           <span class="welcome-text">Welcome, {{ user.Name }}</span>
           <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
+          <span class="notification-bell" onclick="openReorderAlerts()">
+            🔔
+            <span class="notification-badge" id="reorder-badge">0</span>
+          </span>
           <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
         {% else %}
           <a href="{{ url_for('login') }}" class="nav-link">Account</a>
@@ -166,6 +319,19 @@
     </div>
   </main>
 
+  <!-- Reorder Alerts Modal -->
+  <div class="modal-overlay" id="reorder-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Low Stock Alerts</h2>
+        <button class="modal-close" onclick="closeReorderAlerts()">&times;</button>
+      </div>
+      <div class="modal-body" id="alerts-container">
+        <!-- Alerts will be loaded here -->
+      </div>
+    </div>
+  </div>
+
   <!-- Pass employee info to JS for cart identification -->
   <script>
     window.CURRENT_USER = {
@@ -175,5 +341,163 @@
   </script>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    // Load notification count on page load
+    async function loadNotificationCount() {
+      try {
+        // First scan for any low stock products
+        await fetch('/api/reorder_alerts/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Then get the count
+        const response = await fetch('/api/reorder_alerts/count');
+        const data = await response.json();
+        const badge = document.getElementById('reorder-badge');
+        if (data.count > 0) {
+          badge.textContent = data.count;
+          badge.classList.add('active');
+        } else {
+          badge.classList.remove('active');
+        }
+      } catch (error) {
+        console.error('Error loading notification count:', error);
+      }
+    }
+
+    // Open reorder alerts modal
+    async function openReorderAlerts() {
+      const modal = document.getElementById('reorder-modal');
+      const container = document.getElementById('alerts-container');
+
+      modal.classList.add('active');
+      container.innerHTML = '<p style="text-align: center; padding: 2rem;">Scanning for low stock products...</p>';
+
+      try {
+        // First, scan for any low stock products that don't have alerts yet
+        await fetch('/api/reorder_alerts/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Then fetch all alerts
+        const response = await fetch('/api/reorder_alerts');
+        const alerts = await response.json();
+
+        if (alerts.length === 0) {
+          container.innerHTML = `
+            <div class="empty-alerts">
+              <div class="empty-alerts-icon">✅</div>
+              <h3>No Low Stock Alerts</h3>
+              <p>All products are well-stocked!</p>
+            </div>
+          `;
+        } else {
+          container.innerHTML = alerts.map(alert => `
+            <div class="alert-item" id="alert-${alert.AlertID}">
+              <div class="alert-info">
+                <h3>${alert.ProductName}</h3>
+                <div class="alert-details">
+                  <p>Current Stock: <strong>${alert.CurrentStock}</strong> | Reorder Level: <strong>${alert.ReorderLevel}</strong></p>
+                  <p style="font-size: 0.85rem; margin-top: 0.25rem;">Alert Date: ${new Date(alert.AlertDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div class="alert-actions">
+                <input type="number" class="restock-input" id="qty-${alert.AlertID}" placeholder="Qty" min="1" value="${alert.ReorderLevel * 2}">
+                <button class="restock-btn" onclick="restockProduct(${alert.AlertID})">Restock</button>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (error) {
+        console.error('Error loading alerts:', error);
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: red;">Error loading alerts.</p>';
+      }
+    }
+
+    // Close modal
+    function closeReorderAlerts() {
+      document.getElementById('reorder-modal').classList.remove('active');
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('reorder-modal').addEventListener('click', function(e) {
+      if (e.target === this) {
+        closeReorderAlerts();
+      }
+    });
+
+    // Restock product
+    async function restockProduct(alertId) {
+      const qtyInput = document.getElementById(`qty-${alertId}`);
+      const quantity = parseInt(qtyInput.value);
+
+      if (!quantity || quantity <= 0) {
+        alert('Please enter a valid quantity');
+        return;
+      }
+
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = 'Processing...';
+
+      try {
+        const response = await fetch(`/api/reorder_alerts/${alertId}/restock`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ quantity })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Remove the alert item from the UI
+          const alertItem = document.getElementById(`alert-${alertId}`);
+          alertItem.style.opacity = '0';
+          alertItem.style.transform = 'translateX(100%)';
+          alertItem.style.transition = 'all 0.3s';
+
+          setTimeout(() => {
+            alertItem.remove();
+
+            // Check if there are any alerts left
+            const container = document.getElementById('alerts-container');
+            if (!container.querySelector('.alert-item')) {
+              container.innerHTML = `
+                <div class="empty-alerts">
+                  <div class="empty-alerts-icon">✅</div>
+                  <h3>No Low Stock Alerts</h3>
+                  <p>All products are well-stocked!</p>
+                </div>
+              `;
+            }
+
+            // Reload the notification count
+            loadNotificationCount();
+          }, 300);
+
+          alert(`Successfully restocked with ${quantity} units!`);
+        } else {
+          alert(data.error || 'Failed to restock product');
+          btn.disabled = false;
+          btn.textContent = 'Restock';
+        }
+      } catch (error) {
+        console.error('Error restocking product:', error);
+        alert('Error processing restock request');
+        btn.disabled = false;
+        btn.textContent = 'Restock';
+      }
+    }
+
+    // Load notification count when page loads
+    loadNotificationCount();
+
+    // Refresh notification count every 60 seconds
+    setInterval(loadNotificationCount, 60000);
+  </script>
 </body>
 </html>

@@ -27,8 +27,11 @@
 
   <main class="container" style="max-width: 1100px;">
     <div class="section-header">
-      <h2 class="section-title">My Shopping List</h2>
-      <div style="display:flex; gap:10px;">
+      <h2 class="section-title">Shopping Lists</h2>
+      <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
+        <select id="listSelect" class="input" style="min-width:220px"></select>
+        <button id="createListBtn" class="btn secondary">+ New List</button>
+        <button id="deleteListBtn" class="btn danger secondary" disabled>Delete List</button>
         <button id="addListToCartBtn" class="btn primary">Add All to Cart</button>
         <button id="clearListBtn" class="btn danger secondary">Clear List</button>
       </div>

@@ -27,17 +27,17 @@
 
   <div id="listContainer" class="sl-container">
     <h1>Shopping Lists</h1>
-  
+
     <div class="sl-toolbar">
       <label for="listSelect" class="sr-only">Choose list</label>
       <select id="listSelect" class="sl-select"></select>
-  
+
       <button id="newListBtn" class="btn btn-primary">+ New List</button>
       <button id="deleteListBtn" class="btn btn-danger" disabled>Delete List</button>
     </div>
-  
-    <p id="slEmpty" class="sl-empty" style="display:none;"></p>
-    <div id="listItems" class="sl-grid"></div>
+
+    <p id="emptyListText" style="display:none;"></p>
+    <div id="listTableWrap"></div>
   </div>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>

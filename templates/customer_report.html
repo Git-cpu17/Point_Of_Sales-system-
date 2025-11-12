@@ -1,235 +1,374 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Customer Report - FreshMart</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-  <style>
-    :root {
-      --primary: #2ecc71;
-      --secondary: #27ae60;
-      --bg-light: #f9f9f9;
-      --text-dark: #333;
-      --text-muted: #777;
-      --radius: 10px;
-      --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    }
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Customer Report - FreshMart</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 
+	<style>
+		:root {
+			--primary: #2ecc71;
+			--secondary: #27ae60;
+			--bg: #f7fbf8;
+			--card: #ffffff;
+			--muted: #6e7a70;
+			--radius: 12px;
+			--shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+			--gradient: linear-gradient(135deg, var(--primary), var(--secondary));
+		}
     body {
-      background: var(--bg-light);
-      font-family: 'Segoe UI', Roboto, sans-serif;
-      color: var(--text-dark);
+      font-family: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+      background:
+          repeating-linear-gradient(
+          135deg,
+          rgba(30, 60, 40, 0.08),
+          rgba(30, 60, 40, 0.08) 20px,
+          rgba(20, 40, 25, 0.03) 20px,
+          rgba(20, 40, 25, 0.03) 40px
+        );
+      background-color: #f8fbf9;
+      color: #222;
+      margin: 0;
+      padding: 2rem 1rem;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .report-container {
-      max-width: 1400px;
-      margin: 2rem auto;
-      padding: 2rem;
-      background: white;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
+		.report-container {
+			max-width: 1300px;
+			margin: 0 auto;
+			display: flex;
+			flex-direction: column;
+			gap: 1.5rem;
+		}
 
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-      color: var(--secondary);
-    }
+		/* HEADER */
+		.title {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+		}
 
-    .filter-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1rem;
-      background: #f4fef8;
-      padding: 1.5rem;
-      border-radius: var(--radius);
-      margin-bottom: 2rem;
-      box-shadow: var(--shadow);
-    }
+		.brand-pill {
+			background: var(--gradient);
+			color: white;
+			padding: 0.55rem 0.8rem;
+			border-radius: 10px;
+			font-weight: 700;
+			box-shadow: 0 6px 18px rgba(46,204,113,0.18);
+			font-size: 0.95rem;
+		}
 
-    .filter-section label {
-      display: block;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      margin-bottom: 0.3rem;
-    }
+		h1 {
+			margin: 0;
+			font-size: 1.6rem;
+			color: #1f7a44;
+		}
 
-    .filter-section input,
-    .filter-section select {
-      width: 100%;
-      padding: 0.6rem;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
-    }
+		.subtitle {
+			color: var(--muted);
+			font-size: 0.95rem;
+		}
 
-    .filter-section input:focus,
-    .filter-section select:focus {
-      border-color: var(--primary);
-      outline: none;
-      box-shadow: 0 0 3px var(--primary);
-    }
+		/* CARD BASE */
+		.card {
+			background: var(--card);
+			border-radius: var(--radius);
+			padding: 1.25rem;
+			box-shadow: var(--shadow);
+			border: 1px solid rgba(15,20,10,0.03);
+		}
 
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
+		/* KPI CARDS */
+		.kpi-section {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 1rem;
+		}
 
-    .filter-group input[type="number"],
-    .filter-group input[type="date"] {
-      flex: 1;
-    }
+		.kpi-card {
+			flex: 1;
+			min-width: 220px;
+			padding: 1rem;
+			border-radius: var(--radius);
+			background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.8));
+			text-align: center;
+			border: 1px solid rgba(0,0,0,0.03);
+			box-shadow: 0 2px 8px rgba(15,20,10,0.05);
+			transition: transform 0.18s ease, box-shadow 0.18s ease;
+		}
 
-    .btn {
-      cursor: pointer;
-      padding: 0.7rem 1.2rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      transition: 0.2s ease;
-      margin-right: 10px;
-    }
+		.kpi-card:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 10px 26px rgba(15,20,10,0.08);
+		}
 
-    .btn.primary {
-      background: var(--primary);
-      color: white;
-    }
+		.kpi-card h4 {
+			color: #1f7a44;
+			margin-bottom: 0.5rem;
+			font-size: 1rem;
+		}
 
-    .btn.primary:hover {
-      background: var(--secondary);
-    }
+		.kpi-card p {
+			font-weight: 700;
+			font-size: 1.2rem;
+			color: #114b32;
+			margin: 0;
+		}
 
-    .btn.secondary {
-      background: #ecf0f1;
-      color: var(--text-dark);
-    }
+		/* FILTERS */
+		.filter-section {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+			gap: 1rem;
+		}
 
-    .btn.secondary:hover {
-      background: #dfe6e9;
-    }
+		.filter-section label {
+			display: block;
+			font-weight: 600;
+			font-size: 0.9rem;
+			margin-bottom: 0.3rem;
+			color: var(--muted);
+		}
 
-    .action-buttons {
-      display: flex;
-      justify-content: flex-end;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
+		.filter-section input,
+		.filter-section select {
+			width: 100%;
+			padding: 0.55rem 0.7rem;
+			border-radius: 8px;
+			border: 1px solid #dfe7df;
+			font-size: 0.9rem;
+			background: white;
+			transition: all 0.2s ease;
+		}
 
-    .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      margin-top: 1rem;
-    }
+		.filter-section input:focus,
+		.filter-section select:focus {
+			border-color: var(--primary);
+			box-shadow: 0 0 0 2px rgba(46,204,113,0.15);
+			outline: none;
+		}
 
-    .report-table th,
-    .report-table td {
-      padding: 1rem;
-      text-align: left;
-    }
+		.filter-group {
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+			flex-wrap: wrap;
+		}
 
-    .report-table th {
-      background: var(--secondary);
-      color: white;
-      font-weight: 600;
-      cursor: pointer;
-      user-select: none;
-    }
+		/* BUTTONS */
+		.btn {
+			cursor: pointer;
+			padding: 0.6rem 1rem;
+			border: none;
+			border-radius: 8px;
+			font-size: 0.9rem;
+			font-weight: 600;
+			transition: all 0.2s ease;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.4rem;
+		}
 
-    .report-table th:hover {
-      background: #219150;
-    }
+		.btn.primary {
+			background: var(--gradient);
+			color: white;
+			box-shadow: 0 6px 20px rgba(46,204,113,0.15);
+		}
 
-    .sortable::after {
-      content: "";
-      margin-left: 5px;
-      font-size: 0.8rem;
-    }
+		.btn.primary:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 8px 24px rgba(46,204,113,0.25);
+		}
 
-    .sortable.asc::after { content: "↑"; }
-    .sortable.desc::after { content: "↓"; }
+		.action-buttons {
+			display: flex;
+			justify-content: flex-end;
+			gap: 0.6rem;
+			margin-top: 1rem;
+			flex-wrap: wrap;
+		}
 
-    .report-table tr:nth-child(even) { background: #f8f8f8; }
-    .report-table tr:hover { background: #eafaf1; }
-    .report-table td { color: var(--text-dark); }
-  </style>
+		/* TABLE */
+		.report-table {
+			width: 100%;
+			border-collapse: collapse;
+			border-radius: var(--radius);
+			overflow: hidden;
+			box-shadow: var(--shadow);
+			font-size: 0.92rem;
+		}
+
+		.report-table th {
+			background: linear-gradient(180deg, #2b6e3b, #2b6e3b);
+			color: white;
+			padding: 0.8rem;
+			text-align: left;
+			font-weight: 600;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.report-table td {
+			padding: 0.75rem;
+			border-bottom: 1px solid #f0f3f0;
+		}
+
+		.report-table tr:nth-child(even) {
+			background: #fbfdfb;
+		}
+
+		.report-table tr:hover {
+			background: #f1fbf5;
+		}
+
+		.sortable.asc::after { content: " ↑"; }
+		.sortable.desc::after { content: " ↓"; }
+
+		/* CATEGORY BUBBLES */
+		.category-bubble {
+			display: inline-block;
+			padding: 0.35rem 0.85rem;
+			border-radius: 50px;
+			font-size: 0.85rem;
+			font-weight: 600;
+			color: #fff;
+			text-transform: capitalize;
+			transition: 0.2s;
+		}
+
+		.category-produce { background-color: #2ecc71; }
+		.category-dairy { background-color: #3498db; }
+		.category-meat-and-seafood { background-color: #e67e22; }
+		.category-bakery { background-color: #f1c40f; color: #333; }
+		.category-frozen-foods { background-color: #1abc9c; }
+		.category-beverages { background-color: #9b59b6; }
+		.category-snacks-and-candy { background-color: #e74c3c; }
+		.category-canned-goods { background-color: #95a5a6; }
+		.category-other { background-color: #7f8c8d; }
+
+		@media(max-width: 700px) {
+			.kpi-section { flex-direction: column; }
+			.action-buttons { justify-content: center; }
+		}
+	</style>
 </head>
+
 <body>
-  <main class="report-container">
-    <h1>Customer Report</h1>
+	<div class="report-container">
+		<div class="title">
+			<div class="brand-pill">FreshMart</div>
+			<div>
+				<h1>Customer Report</h1>
+				<div class="subtitle">Overview of customer activity, purchases, and spending patterns.</div>
+			</div>
+		</div>
 
-    <!-- Filters -->
-    <section class="filter-section">
-      <div>
-        <label>Customer Name</label>
-        <input type="text" id="customer_name" placeholder="Search by name" />
-      </div>
-      <div>
-        <label>Email</label>
-        <input type="text" id="email" placeholder="Search by email" />
-      </div>
-      <div>
-        <label>Date Range</label>
-        <div class="filter-group">
-          <input type="date" id="date_from" />
-          <span>-</span>
-          <input type="date" id="date_to" />
-        </div>
-      </div>
-      <div>
-        <label>Total Spent ($)</label>
-        <div class="filter-group">
-          <input type="number" id="total_spent_min" placeholder="Min" />
-          <span>-</span>
-          <input type="number" id="total_spent_max" placeholder="Max" />
-        </div>
-      </div>
-    </section>
+		<!-- KPI CARDS -->
+		<div class="card">
+			<section class="kpi-section">
+				<div class="kpi-card">
+					<h4>Most Purchased Category</h4>
+					<p>{{ customers[0].MostPurchasedCategory if customers else 'N/A' }}</p>
+				</div>
+				<div class="kpi-card">
+					<h4>Largest Single Order</h4>
+					<p>${{ '%.2f'|format(overall_largest_order) }}</p>
+				</div>
+				<div class="kpi-card">
+					<h4>Recent Purchase Date</h4>
+					<p>{{ customers[0].RecentPurchaseDate or 'N/A' }}</p>
+				</div>
+			</section>
+		</div>
 
-    <!-- Action buttons -->
-    <div class="action-buttons">
-      <button class="btn secondary" id="customerExportBtn">📄 Export CSV</button>
-      <button class="btn secondary" id="customerPrintBtn">🖨️ Print</button>
-      <button class="btn primary" id="customerFilterBtn">🔍 Apply Filters</button>
-    </div>
+		<!-- FILTERS -->
+		<div class="card">
+			<strong>Filters</strong>
+			<section class="filter-section" style="margin-top: 0.8rem;">
+				<div>
+					<label>Customer Name</label>
+					<input type="text" id="customer_name" placeholder="Search by name" />
+				</div>
+				<div>
+					<label>Email</label>
+					<input type="text" id="email" placeholder="Search by email" />
+				</div>
+				<div>
+					<label>Date Range</label>
+					<div class="filter-group">
+						<input type="date" id="date_from" />
+						<span>-</span>
+						<input type="date" id="date_to" />
+					</div>
+				</div>
+				<div>
+					<label>Total Spent ($)</label>
+					<div class="filter-group">
+						<input type="number" id="total_spent_min" placeholder="Min" />
+						<span>-</span>
+						<input type="number" id="total_spent_max" placeholder="Max" />
+					</div>
+				</div>
+				<div>
+					<label>Total Purchases</label>
+					<div class="filter-group">
+						<input type="number" id="total_purchases_min" placeholder="Min" />
+						<span>-</span>
+						<input type="number" id="total_purchases_max" placeholder="Max" />
+					</div>
+				</div>
+			</section>
 
-    <!-- Report Table -->
-    <table class="report-table">
-      <thead>
-        <tr>
-          <th class="sortable" data-column="CustomerID">CustomerID</th>
-          <th class="sortable" data-column="Name">Name</th>
-          <th class="sortable" data-column="Email">Email</th>
-          <th class="sortable" data-column="TotalPurchases">Total Purchases</th>
-          <th class="sortable" data-column="TotalSpent">Total Spent</th>
-          <th class="sortable" data-column="FavoriteProduct">Favorite Product</th>
-          <th class="sortable" data-column="LastPurchaseDate">Last Purchase Date</th>
-          <th class="sortable" data-column="MemberID">Membership ID</th>
-        </tr>
-      </thead>
-      <tbody id="customerTableBody">
-        {% for c in customers %}
-        <tr>
-          <td>{{ c.CustomerID or 'N/A' }}</td>
-          <td>{{ c.Name or 'N/A' }}</td>
-          <td>{{ c.Email or 'N/A' }}</td>
-          <td>{{ c.TotalPurchases or 0 }}</td>
-          <td>${{ '%.2f'|format(c.TotalSpent or 0) }}</td>
-          <td>{{ c.FavoriteProduct or 'N/A' }}</td>
-          <td>{{ c.LastPurchaseDate or 'N/A' }}</td>
-          <td>{{ c.MemberID or 'N/A' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </main>
+			<div class="action-buttons">
+				<button class="btn primary" id="customerFilterBtn">🔍 Apply Filters</button>
+			</div>
+		</div>
 
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+		<!-- TABLE -->
+		<div class="card">
+			<table class="report-table">
+				<thead>
+					<tr>
+						<th class="sortable" data-column="CustomerID">Customer ID</th>
+						<th class="sortable" data-column="Name">Name</th>
+						<th class="sortable" data-column="Email">Email</th>
+						<th class="sortable" data-column="TotalPurchases">Total Purchases</th>
+						<th class="sortable" data-column="TotalSpent">Total Spent</th>
+						<th class="sortable" data-column="FavoriteProduct">Favorite Product</th>
+						<th class="sortable" data-column="RecentPurchaseDate">Last Purchase Date</th>
+						<th class="sortable" data-column="LargestSingleOrder">Largest Single Order</th>
+						<th class="sortable" data-column="MostPurchasedCategory">Most Purchased Category</th>
+					</tr>
+				</thead>
+				<tbody id="customerTableBody">
+					{% for c in customers %}
+					<tr>
+						<td>{{ c.CustomerID or 'N/A' }}</td>
+						<td>{{ c.Name or 'N/A' }}</td>
+						<td>{{ c.Email or 'N/A' }}</td>
+						<td>{{ c.TotalPurchases or 0 }}</td>
+						<td>${{ '%.2f'|format(c.TotalSpent or 0) }}</td>
+						<td>{{ c.FavoriteProduct or 'N/A' }}</td>
+						<td>{{ c.RecentPurchaseDate or 'N/A' }}</td>
+						<td>${{ '%.2f'|format(c.LargestSingleOrder or 0) }}</td>
+						<td>
+							{% set cat = (c.MostPurchasedCategory or 'Other')
+								|lower
+								|replace('&', 'and')
+								|replace('/', '-')
+								|replace(' ', '-')
+								|replace('--', '-')
+								|trim %}
+							<span class="category-bubble category-{{ cat }}">{{ c.MostPurchasedCategory or 'N/A' }}</span>
+						</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+	<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

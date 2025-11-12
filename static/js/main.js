@@ -462,45 +462,49 @@
 
   // -------------------- Login --------------------
   function setupLoginForm() {
-    const form = document.getElementById('loginForm');
-    if (!form) return;
+  const form = document.getElementById('loginForm');
+  if (!form) return;
 
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
 
-      const submitBtn = form.querySelector('button[type="submit"]');
-      const originalText = submitBtn.textContent;
-      submitBtn.textContent = 'Signing in...';
-      submitBtn.disabled = true;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Signing in...';
+    submitBtn.disabled = true;
 
-      const user_id = document.getElementById('user_id').value;
-      const password = document.getElementById('password').value;
+    const user_id = document.getElementById('user_id').value.trim();
+    const password = document.getElementById('password').value.trim();
 
-      try {
-        const response = await fetch(`${API_BASE}/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id, password })
-        });
+    try {
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id, password })
+      });
 
-        const data = await response.json();
-        if (data && data.success) {
-          sessionStorage.setItem('role', data.role || '');
-          showNotification('Login successful! Redirecting...', 'success');
-          setTimeout(() => { window.location.href = data.redirectUrl || '/'; }, 1000);
-        } else {
-          showNotification(data.message || 'Invalid credentials', 'error');
-          submitBtn.textContent = originalText;
-          submitBtn.disabled = false;
-        }
-      } catch (err) {
-        console.error('Login error:', err);
-        showNotification('Connection error. Please try again.', 'error');
+      const data = await response.json();
+
+      if (data && data.success) {
+        sessionStorage.setItem('role', data.role || '');
+        showNotification('Login successful! Redirecting...', 'success');
+        setTimeout(() => {
+          window.location.href = data.redirectUrl || '/';
+        }, 1000);
+      } else {
+        showNotification(data.message || 'Invalid credentials', 'error');
         submitBtn.textContent = originalText;
         submitBtn.disabled = false;
       }
-    });
-  }
+    } catch (err) {
+      console.error('Login error:', err);
+      showNotification('Connection error. Please try again.', 'error');
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 
   // -------------------- Animations --------------------
   function addAnimationStyles() {
@@ -1169,3 +1173,43 @@
     }
     alert('Saved to list!');
   }
+document.addEventListener('DOMContentLoaded', () => {
+  const viewLowStockBtn = document.querySelector('.alert-box button');
+  if (viewLowStockBtn) {
+    viewLowStockBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/low_stock');
+        const data = await res.json();
+
+        if (!res.ok || !Array.isArray(data)) {
+          alert('Error fetching low-stock items.');
+          return;
+        }
+
+        if (data.length === 0) {
+          alert('All stocks are sufficient.');
+          return;
+        }
+
+        const list = data.map(i => 
+          `${i.Name} — Stock: ${i.QuantityInStock}`
+        ).join('\n');
+        alert('⚠️ Low Stock Items:\n\n' + list);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to load low-stock list.');
+      }
+    });
+  }
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const saleBtn = document.getElementById('applySalesBtn');
+  if (saleBtn) {
+    saleBtn.addEventListener('click', async () => {
+      if (!confirm('Apply seasonal sale prices now?')) return;
+      const res = await fetch('/apply_sales', { method: 'POST' });
+      const data = await res.json();
+      alert(data.message || 'Operation completed');
+    });
+  }
+});

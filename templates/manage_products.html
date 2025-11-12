@@ -450,24 +450,17 @@ function deleteProduct(productId, productName) {
       'Content-Type': 'application/json'
     }
   })
-  .then(response => {
-    // Store the response status before parsing JSON
-    const isOk = response.ok;
-    return response.json().then(data => ({
-      ok: isOk,
-      data: data
-    }));
-  })
-  .then(result => {
-    if (result.ok) {
+  .then(response => response.json())
+  .then(data => {
+    if (response.ok) {
       // Show success message
-      showNotification(result.data.message, 'success');
+      showNotification(data.message, 'success');
       // Reload page after short delay
       setTimeout(() => {
         window.location.reload();
       }, 1000);
     } else {
-      showNotification(result.data.message || 'Failed to delete product', 'error');
+      showNotification(data.message || 'Failed to delete product', 'error');
     }
   })
   .catch(error => {

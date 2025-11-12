@@ -10,7 +10,7 @@ import traceback, sys
 
 app = Flask(__name__)
 CORS(app)
-app.secret_key = os.environ.get('SECRET_KEY')
+app.secret_key = os.environ.get('SECRET_KEY','dev_secret_123!@#')
 
 def get_bag_owner_from_session():
     role = session.get('role')
@@ -793,10 +793,13 @@ def customer_order_items_json(cursor, conn, transaction_id):
 @app.route('/department')
 @with_db
 def department(cursor, conn):
+    # Restrict access to admin and employee only
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return redirect(url_for('login'))
+
     cursor.execute("SELECT * FROM Department")
     departments = rows_to_dict_list(cursor)
     return render_template('department_dashboard.html', departments=departments)
-
 @app.route('/transactions')
 @with_db
 def get_transactions(cursor, conn):
@@ -1048,20 +1051,14 @@ def _require_customer():
         return None
     return session['user_id']
 
-def _ensure_default_list(cursor, conn, customer_id):
+def _ensure_default_list(cursor, customer_id):
     cursor.execute("SELECT ListID FROM dbo.ShoppingList WHERE CustomerID=? AND IsDefault=1", (customer_id,))
     row = cursor.fetchone()
     if row:
-        return int(row[0])
-
-    cursor.execute("""
-        INSERT INTO dbo.ShoppingList (CustomerID, Name, IsDefault, CreatedAt)
-        VALUES (?, N'Default', 1, GETDATE())
-    """, (customer_id,))
+        return row[0]
+    cursor.execute("INSERT INTO dbo.ShoppingList(CustomerID, Name, IsDefault) VALUES(?, N'Default', 1)", (customer_id,))
     cursor.execute("SELECT SCOPE_IDENTITY()")
-    new_id = int(cursor.fetchone()[0])
-    conn.commit()
-    return new_id
+    return int(cursor.fetchone()[0])
 
 @app.get('/shopping-lists', endpoint='shopping_lists')
 @with_db
@@ -1088,7 +1085,7 @@ def shopping_lists_page(cursor, conn):
 def api_lists_all(cursor, conn):
     cid = _require_customer()
     if not cid: return jsonify({"message":"Login required"}), 401
-    _ensure_default_list(cursor, conn, cid)
+    _ensure_default_list(cursor, cid)
     cursor.execute("""
         SELECT l.ListID, l.Name, l.IsDefault,
                ISNULL(SUM(i.Quantity),0) AS ItemCount
@@ -1109,7 +1106,7 @@ def api_lists_create(cursor, conn):
     if not name or not str(name).strip():
         return jsonify({"message":"Name required"}), 400
     name = str(name).strip()
-    _ensure_default_list(cursor, conn, cid)
+    _ensure_default_list(cursor, cid)
     cursor.execute("INSERT INTO dbo.ShoppingList(CustomerID, Name, IsDefault) VALUES(?, ?, 0)", (cid, name))
     conn.commit()
     return jsonify({"message":"Created"})
@@ -1124,7 +1121,7 @@ def api_lists_delete(cursor, conn, list_id):
     if not row: return jsonify({"message":"Not found"}), 404
     if row[0]: return jsonify({"message":"Default list cannot be deleted"}), 400
     cursor.execute("DELETE FROM dbo.ShoppingListItem WHERE ListID=?", (list_id,))
-    cursor.execute("DELETE FROM dbo.ShoppingList WHERE ListID=? AND CustomerID=?", (list_id, cid))
+    cursor.execute("DELETE FROM dbo.ShoppingList WHERE ListID=?", (list_id,))
     conn.commit()
     return jsonify({"message":"Deleted"})
 
@@ -1161,14 +1158,11 @@ def api_list_items_add(cursor, conn, list_id):
     if pid<=0 or qty<=0: return jsonify({"message":"Bad payload"}), 400
     cursor.execute("""
         MERGE dbo.ShoppingListItem AS t
-        USING (VALUES (?, ?, ?)) AS s(ListID, ProductID, Quantity)
-        ON (t.ListID = s.ListID AND t.ProductID = s.ProductID)
-        WHEN MATCHED THEN
-          UPDATE SET Quantity = t.Quantity + s.Quantity, AddedAt = GETDATE()
-        WHEN NOT MATCHED THEN
-          INSERT (ListID, ProductID, Quantity, AddedAt)
-          VALUES (s.ListID, s.ProductID, s.Quantity, GETDATE());
-        """, (list_id, pid, qty))
+        USING (SELECT ? AS ListID, ? AS ProductID) AS s
+        ON t.ListID=s.ListID AND t.ProductID=s.ProductID
+        WHEN MATCHED THEN UPDATE SET Quantity = t.Quantity + ?
+        WHEN NOT MATCHED THEN INSERT(ListID, ProductID, Quantity) VALUES(s.ListID, s.ProductID, ?);
+    """, (list_id, pid, qty, qty))
     conn.commit()
     return jsonify({"message":"Added"})
 
@@ -1199,19 +1193,6 @@ def api_list_items_delete(cursor, conn, list_id, product_id):
     cursor.execute("DELETE FROM dbo.ShoppingListItem WHERE ListID=? AND ProductID=?", (list_id, product_id))
     conn.commit()
     return jsonify({"message":"Removed"})
-
-@app.delete('/api/lists/<int:list_id>/items')
-@with_db
-def api_list_items_clear(cursor, conn, list_id):
-    cid = _require_customer()
-    if not cid:
-        return jsonify({"message": "Login required"}), 401
-    cursor.execute("SELECT 1 FROM dbo.ShoppingList WHERE ListID=? AND CustomerID=?", (list_id, cid))
-    if not cursor.fetchone():
-        return jsonify({"message": "Not found"}), 404
-    cursor.execute("DELETE FROM dbo.ShoppingListItem WHERE ListID=?", (list_id,))
-    conn.commit()
-    return jsonify({"message": "Cleared"})
 
 @app.post('/api/lists/<int:list_id>/add-to-bag')
 @with_db
@@ -2141,3 +2122,53 @@ def delete_product(cursor, conn, product_id):
         return jsonify({"message": f"Product '{product_name}' deleted successfully"}), 200
     except Exception as e:
         return jsonify({"message": f"Error deleting product: {str(e)}"}), 500
+@app.route('/api/low_stock')
+@with_db
+def low_stock(cursor, conn):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    cursor.execute("""
+        SELECT ProductID, Name, QuantityInStock, DepartmentID
+        FROM Product
+        WHERE QuantityInStock < 10
+        ORDER BY QuantityInStock ASC
+    """)
+    items = rows_to_dict_list(cursor)
+    return jsonify(items)
+@app.route('/api/update_stock', methods=['POST'])
+@with_db
+def update_stock(cursor, conn):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or {}
+    pid = data.get('product_id')
+    new_stock = data.get('new_stock')
+
+    if pid is None or new_stock is None:
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        new_stock = int(new_stock)
+        if new_stock < 0:
+            return jsonify({"error": "Stock cannot be negative"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid stock value"}), 400
+
+    cursor.execute("UPDATE Product SET QuantityInStock = ? WHERE ProductID = ?", (new_stock, pid))
+    conn.commit()
+    return jsonify({"message": "Stock updated successfully"}), 200
+@app.route('/apply_sales', methods=['POST'])
+@with_db
+def apply_sales(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    try:
+        cursor.execute("EXEC ApplyHolidaySales")
+        conn.commit()
+        return jsonify({"message": "Seasonal sale prices applied!"}), 200
+    except Exception as e:
+        print("Error executing sale trigger:", e)
+        return jsonify({"error": "Failed to apply sales"}), 500

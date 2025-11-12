@@ -18,13 +18,12 @@
         </div>
 
         <a href="{{ url_for('department') }}" class="nav-link">Departments</a>
-
+      
         {% if user %}
           <span class="welcome-text">Welcome, {{ user.Name }}</span>
 
           {% if user.role == 'customer' %}
             <a href="{{ url_for('customer_dashboard') }}" class="nav-link">Dashboard</a>
-            <a href="{{ url_for('shopping_lists') }}" class="nav-link">Shopping Lists</a>
           {% elif user.role == 'admin' %}
             <a href="{{ url_for('admin_dashboard') }}" class="nav-link">Dashboard</a>
           {% elif user.role == 'employee' %}
@@ -110,7 +109,6 @@
                     </span>
                   </div>
                   <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})"><span>🛒</span><span>Add to Cart</span></button>
-                  <button class="btn secondary" type="button" onclick="addToList({{ p.ProductID }})"><span>📋</span><span>Save to List</span></button>
                 </div>
               </div>
             {% endfor %}

@@ -1093,7 +1093,7 @@
       await sl_loadItems();
     });
     
-    document.getElementById('createListBtn').addEventListener('click', async () => {
+    document.getElementById('newListBtn').addEventListener('click', async () => {
       const name = prompt('Name for the new list:');
       if (!name || !name.trim()) return;
       const r = await fetch('/api/lists', {

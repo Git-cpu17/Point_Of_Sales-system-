@@ -1021,6 +1021,7 @@
     function sl_render(items) {
       const wrap = document.getElementById('listTableWrap');
       const empty = document.getElementById('emptyListText');
+      if (!wrap || !empty) return;
       if (!items.length) {
         empty.style.display = '';
         wrap.innerHTML = '';
@@ -1048,41 +1049,43 @@
     }
   
     // Event delegation for + / − / remove
-    document.getElementById('listTableWrap').addEventListener('click', async (e) => {
-      const row = e.target.closest('tr[data-product-id]');
-      if (!row) return;
-      const pid = row.getAttribute('data-product-id');
-  
-      if (e.target.classList.contains('qty-inc')) {
-        const newQty = Number(row.querySelector('.qty').textContent) + 1;
-        await fetch(`/api/lists/${currentListId}/items/${pid}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ quantity: newQty })
-        });
-        sl_loadItems();
-  
-      } else if (e.target.classList.contains('qty-dec')) {
-        const newQty = Math.max(0, Number(row.querySelector('.qty').textContent) - 1);
-        if (newQty === 0) {
-          await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
-        } else {
+    const tableWrap = document.getElementById('listTableWrap');
+    if (tableWrap) {
+      tableWrap.addEventListener('click', async (e) => {
+        const row = e.target.closest('tr[data-product-id]');
+        if (!row) return;
+        const pid = row.getAttribute('data-product-id');
+    
+        if (e.target.classList.contains('qty-inc')) {
+          const newQty = Number(row.querySelector('.qty').textContent) + 1;
           await fetch(`/api/lists/${currentListId}/items/${pid}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
             body: JSON.stringify({ quantity: newQty })
           });
+          sl_loadItems();
+    
+        } else if (e.target.classList.contains('qty-dec')) {
+          const newQty = Math.max(0, Number(row.querySelector('.qty').textContent) - 1);
+          if (newQty === 0) {
+            await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
+          } else {
+            await fetch(`/api/lists/${currentListId}/items/${pid}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ quantity: newQty })
+            });
+          }
+          sl_loadItems();
+    
+        } else if (e.target.classList.contains('remove')) {
+          await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
+          sl_loadItems();
         }
-        
-        sl_loadItems();
-  
-      } else if (e.target.classList.contains('remove')) {
-        await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
-        sl_loadItems();
-      }
-    });
+      });
+    }
 
     document.getElementById('listSelect').addEventListener('change', async (e) => {
       currentListId = Number(e.target.value);
@@ -1123,19 +1126,25 @@
       await sl_loadItems();
     });
   
-    document.getElementById('addListToCartBtn').addEventListener('click', async () => {
-      await fetch(`/api/lists/${currentListId}/add-to-bag`, { method: 'POST', credentials: 'same-origin' });
-      if (typeof refreshBag === 'function') {
-        await refreshBag();
-        if (typeof updateCartBadge === 'function') updateCartBadge();
-      }
-    });
+    const addListToCartBtn = document.getElementById('addListToCartBtn');
+    if (addListToCartBtn) {
+      addListToCartBtn.addEventListener('click', async () => {
+        await fetch(`/api/lists/${currentListId}/add-to-bag`, { method: 'POST', credentials: 'same-origin' });
+        if (typeof refreshBag === 'function') {
+          await refreshBag();
+          if (typeof updateCartBadge === 'function') updateCartBadge();
+        }
+      });
+    }
   
-    document.getElementById('clearListBtn').addEventListener('click', async () => {
-      if (!confirm('Clear your list?')) return;
-      await fetch(`/api/lists/${currentListId}/items`, { method: 'DELETE', credentials: 'same-origin' });
-      sl_loadItems();
-    });
+    const clearListBtn = document.getElementById('clearListBtn');
+    if (clearListBtn) {
+      clearListBtn.addEventListener('click', async () => {
+        if (!confirm('Clear your list?')) return;
+        await fetch(`/api/lists/${currentListId}/items`, { method: 'DELETE', credentials: 'same-origin' });
+        sl_loadItems();
+      });
+    }
   
     (async () => {
       await sl_refreshListsUI();

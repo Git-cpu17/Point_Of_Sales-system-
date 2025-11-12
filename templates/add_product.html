@@ -386,44 +386,39 @@ small.form-text {
         
         <div class="form-card">
             <h4><span class="section-icon">🖼️</span>Product Image</h4>
-    
-            <div style="display: flex; gap: 2rem;">
-                <div style="flex: 1;">
+
+            <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                <!-- Image URL Input -->
+                <div style="flex: 1; min-width: 250px;">
                     <label for="imageUrl">Image URL (Optional)</label>
                     <input type="url" class="form-control" id="imageUrl" name="ImageURL" 
-                           placeholder="https://example.com/image.jpg" 
-                           onchange="updateImagePreview()">
-                    <small class="form-text">Paste an image URL or click below for free stock photos</small>
-            
-                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                        <button type="button" onclick="searchStockImages('unsplash')" 
-                                style="padding: 0.4rem 0.8rem; background: #e8f5e9; border: 1px solid #4a9b3e; border-radius: 6px; cursor: pointer;">
-                            Search Unsplash
-                        </button>
-                        <button type="button" onclick="searchStockImages('pexels')" 
-                                style="padding: 0.4rem 0.8rem; background: #e8f5e9; border: 1px solid #4a9b3e; border-radius: 6px; cursor: pointer;">
-                            Search Pexels
-                        </button>
-                        <button type="button" onclick="useDefaultImage()" 
-                                style="padding: 0.4rem 0.8rem; background: #ffc107; border: 1px solid #ff9800; border-radius: 6px; cursor: pointer;">
-                            Use Default
-                        </button>
-                    </div>
+                        placeholder="https://example.com/image.jpg" 
+                        onchange="updateImagePreview()">
+                    <small class="form-text">Leave blank to auto-generate an image or click "Use Default"</small>
+
+                    <!-- Move Use Default button below input -->
+                    <button type="button" class="submit-btn" 
+                        style="padding:0.5rem 1rem; font-size:0.9rem; margin-top:0.5rem; width:auto;"
+                        onclick="useDefaultImage()">
+                        🎨 Use Default
+                    </button>
                 </div>
-        
-                <div>
-                    <label>Preview</label>
-                    <div id="imagePreview" style="width: 150px; height: 150px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; overflow: hidden;">
+
+                <!-- Image Preview -->
+                <div style="width: 150px; height: 150px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; overflow: hidden;">
+                    <div id="imagePreview" style="width: 100%; height: 100%; display:flex; align-items:center; justify-content:center;">
                         <span style="color: #999;">No image</span>
                     </div>
                 </div>
             </div>
         </div>
-        <!-- Pricing & Sale Card -->
+
+        <!-- Pricing & Inventory Card -->
         <div class="form-card">
-            <h4><span class="section-icon">💰</span>Pricing</h4>
+            <h4><span class="section-icon">💰</span>Pricing & Inventory</h4>
             
             <div class="row">
+                <!-- Price Input -->
                 <div class="input-group">
                     <label for="price">
                         Price (USD)
@@ -432,21 +427,25 @@ small.form-text {
                     <input type="number" step="0.01" min="0" class="form-control" id="price" name="Price" placeholder="0.00" required>
                     <small class="form-text">Enter the base price in dollars</small>
                 </div>
-                
+
+                <!-- Quantity in Stock -->
                 <div class="input-group">
-                    <div class="sale-checkbox-container">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="onSale" name="OnSale">
-                            <label class="form-check-label" for="onSale">
-                                🏷️ Put this product on sale
-                            </label>
-                        </div>
-                        <div id="salePriceContainer" style="display:none;">
-                            <label for="salePrice" style="margin-top: 0.75rem;">Sale Price (USD)</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="salePrice" name="SalePrice" placeholder="0.00">
-                            <small class="form-text">Must be less than the regular price</small>
-                        </div>
-                    </div>
+                    <label for="quantityInStock">
+                        Quantity in Stock
+                        <span class="required-badge">REQUIRED</span>
+                    </label>
+                    <input type="number" min="0" class="form-control" id="quantityInStock" name="QuantityInStock" placeholder="0" required>
+                    <small class="form-text">Current stock level for this product</small>
+                </div>
+                
+                <!-- Reorder Level -->
+                <div class="input-group">
+                    <label for="reorderLevel">
+                        Reorder Level
+                        <span class="required-badge">REQUIRED</span>
+                    </label>
+                    <input type="number" min="0" class="form-control" id="reorderLevel" name="ReorderLevel" placeholder="10" required>
+                    <small class="form-text">Stock threshold to trigger reorder</small>
                 </div>
             </div>
         </div>
@@ -460,17 +459,8 @@ small.form-text {
 </div>
 
 <script>
-// Toggle Sale Price field
-document.getElementById('onSale').addEventListener('change', function() {
-    const container = document.getElementById('salePriceContainer');
-    if (this.checked) {
-        container.style.display = 'block';
-    } else {
-        container.style.display = 'none';
-    }
-});
 
-// Character counter with color feedback
+// ----------------------- Character Counter -----------------------
 const description = document.getElementById('description');
 const charCounter = document.getElementById('charCounter');
 
@@ -478,20 +468,29 @@ description.addEventListener('input', () => {
     const count = description.value.length;
     const max = 250;
     charCounter.textContent = `${count} / ${max} characters`;
-    
+
     charCounter.classList.remove('warning', 'danger');
-    
-    if (count > 230) {
-        charCounter.classList.add('danger');
-    } else if (count > 200) {
-        charCounter.classList.add('warning');
-    }
+    if (count > 230) charCounter.classList.add('danger');
+    else if (count > 200) charCounter.classList.add('warning');
 });
 
-// --- NEW: AJAX submit + success toast ---
+// ----------------------- Image Preview -----------------------
+function updateImagePreview(url = null) {
+    const inputUrl = url || document.getElementById('imageUrl').value.trim();
+    const preview = document.getElementById('imagePreview');
+
+    if (inputUrl) {
+        preview.innerHTML = `<img src="${inputUrl}" style="width:100%; height:100%; object-fit:cover;" 
+            onerror="this.parentElement.innerHTML='<span style=color:#999>Invalid URL</span>'">`;
+    } else {
+        preview.innerHTML = '<span style="color: #999;">No image</span>';
+    }
+}
+
+// ----------------------- Form Submission via AJAX -----------------------
 const form = document.getElementById('addProductForm');
 
-// Create a toast div dynamically
+// Create a toast dynamically
 const toast = document.createElement('div');
 toast.id = 'successToast';
 toast.style.cssText = `
@@ -507,11 +506,10 @@ toast.style.cssText = `
     font-weight: 600;
     z-index: 999;
 `;
-toast.innerHTML = '✅ Product added successfully!';
 document.body.appendChild(toast);
 
-form.addEventListener('submit', function(e) {
-    e.preventDefault(); // stop normal submission
+form.addEventListener('submit', async function(e) {
+    e.preventDefault();
 
     const btn = form.querySelector('.submit-btn');
     btn.disabled = true;
@@ -519,52 +517,42 @@ form.addEventListener('submit', function(e) {
 
     const formData = new FormData(form);
 
-    // Send form via fetch/AJAX
-    fetch(form.action, {
-        method: 'POST',
-        body: formData,
-    })
-    .then(response => response.text()) // we can ignore returned HTML
-    .then(() => {
-        btn.innerHTML = '✅ Added!';
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        
+        if (!response.ok) throw new Error('Failed to add product');
+
+        const data = await response.json();
+
+        // Update preview if backend generated an image
+        if (data.image_url) updateImagePreview(data.image_url);
+
+        // Show toast
+        toast.textContent = `✅ Product "${data.product_name}" added successfully!`;
         toast.style.display = 'block';
         toast.animate([{opacity:0},{opacity:1}], {duration:400, fill:'forwards'});
 
+        btn.innerHTML = '✅ Added!';
+        
         setTimeout(() => {
             toast.animate([{opacity:1},{opacity:0}], {duration:400, fill:'forwards'})
                  .onfinish = () => toast.style.display = 'none';
-
-            // Redirect after animation
             window.location.href = "{{ url_for('admin_dashboard') }}";
         }, 1500);
-    })
-    .catch(() => {
+
+    } catch (err) {
+        console.error(err);
         btn.disabled = false;
         btn.innerHTML = '❌ Failed, try again';
         setTimeout(() => btn.innerHTML = '<span class="btn-icon">✓</span> Add Product to Inventory', 2000);
-    });
-});
-//Image Functions
-function updateImagePreview() {
-    const url = document.getElementById('imageUrl').value.trim();
-    const preview = document.getElementById('imagePreview');
-    
-    if (url) {
-        preview.innerHTML = `<img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML='<span style=color:#999>Invalid URL</span>'">`;
-    } else {
-        preview.innerHTML = '<span style="color: #999;">No image</span>';
     }
-}
+});
 
-function searchStockImages(site) {
-    const productName = document.getElementById('name').value || 'grocery';
-    const urls = {
-        'unsplash': `https://unsplash.com/s/photos/${encodeURIComponent(productName)}`,
-        'pexels': `https://www.pexels.com/search/${encodeURIComponent(productName)}`
-    };
-    window.open(urls[site], '_blank');
-}
-
+// ----------------------- Optional Default Image Helper -----------------------
 function useDefaultImage() {
     const dept = document.getElementById('department').value;
     const defaults = {
@@ -575,10 +563,11 @@ function useDefaultImage() {
         '5': 'https://images.unsplash.com/photo-1584313234340-712fe7c4c3e3?w=400',
         '6': 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400'
     };
-    
-    document.getElementById('imageUrl').value = defaults[dept] || 'https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400';
+    document.getElementById('imageUrl').value = defaults[dept] || 'https://via.placeholder.com/400?text=Product';
     updateImagePreview();
 }
-    
+
+// Update preview when manually changing Image URL
+document.getElementById('imageUrl').addEventListener('input', () => updateImagePreview());
 </script>
 {% endblock %}

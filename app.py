@@ -7,6 +7,7 @@ import random
 import string
 import os
 import traceback, sys
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -259,8 +260,6 @@ def edit_product(cursor, conn, product_id):
         description = data.get("Description") or ""
         price = data.get("Price")
         department_id = data.get("DepartmentID")
-        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
-        sale_price = data.get("SalePrice")  # optional
         image_url = data.get("ImageURL") or ""
         quantity_in_stock = data.get("QuantityInStock") or 0
         
@@ -297,30 +296,16 @@ def edit_product(cursor, conn, product_id):
             flash("Quantity must be a non-negative number.", "danger")
             return redirect(url_for('edit_product', product_id=product_id))
         
-        # Handle sale price if product is on sale
-        on_sale_flag = 1 if on_sale == 'on' else 0
-        final_sale_price = None
-        if on_sale_flag:
-            if sale_price is None or sale_price == "":
-                flash("Sale price must be provided if product is on sale.", "danger")
-                return redirect(url_for('edit_product', product_id=product_id))
-            try:
-                final_sale_price = float(sale_price)
-                if final_sale_price < 0 or final_sale_price >= price:
-                    flash("Sale price must be non-negative and less than the original price.", "danger")
-                    return redirect(url_for('edit_product', product_id=product_id))
-            except ValueError:
-                flash("Sale price must be a valid number.", "danger")
-                return redirect(url_for('edit_product', product_id=product_id))
-        
+        if not image_url:
+            image_url = generate_product_image(name) or "https://via.placeholder.com/400?text=Product+Image"
+
         # Update the product
         cursor.execute("""
             UPDATE Product
             SET Name = ?, Description = ?, Price = ?, DepartmentID = ?, 
                 QuantityInStock = ?, SalePrice = ?, OnSale = ?, ImageURL = ?
             WHERE ProductID = ?
-        """, (name, description, price, department_id, quantity_in_stock, 
-              final_sale_price, on_sale_flag, image_url, product_id))
+        """, (name, description, price, department_id, quantity_in_stock, image_url, product_id))
         
         conn.commit()
         flash(f"Product '{name}' updated successfully!", "success")
@@ -372,6 +357,7 @@ def delete_product(cursor, conn, product_id):
         return jsonify({"message": f"Product '{product_name}' has been deactivated"}), 200
     except Exception as e:
         return jsonify({"message": f"Error deactivating product: {str(e)}"}), 500
+        
 @app.route('/api/low_stock')
 @with_db
 def low_stock(cursor, conn):
@@ -437,71 +423,71 @@ def add_product(cursor, conn):
         description = data.get("Description") or ""
         price = data.get("Price")
         department_id = data.get("DepartmentID")
-        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
-        sale_price = data.get("SalePrice")  # optional
         image_url = data.get("ImageURL") or ""
 
-        # Validate required fields
+        # --- Validate fields ---
         if not name:
-            flash("Product name is required.", "danger")
-            return redirect(url_for('add_product'))
-
+            return jsonify({"success": False, "error": "Product name is required."}), 400
         if price is None or price == "":
-            flash("Price is required.", "danger")
-            return redirect(url_for('add_product'))
+            return jsonify({"success": False, "error": "Price is required."}), 400
         try:
             price = float(price)
-            if price < 0:
-                raise ValueError
+            if price < 0: raise ValueError
         except ValueError:
-            flash("Price must be a non-negative number.", "danger")
-            return redirect(url_for('add_product'))
+            return jsonify({"success": False, "error": "Price must be a non-negative number."}), 400
 
         try:
             department_id = int(department_id)
-            if department_id <= 0:
-                raise ValueError
+            if department_id <= 0: raise ValueError
         except (ValueError, TypeError):
-            flash("Please select a valid department.", "danger")
-            return redirect(url_for('add_product'))
-        if not image_url:
-            dept_defaults = {
-                1: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400",  # Produce
-                2: "https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400",  # Meat
-                3: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400",  # Dairy
-                4: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400",  # Bakery
-            }
-            image_url = dept_defaults.get(int(department_id), "https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400")
+            return jsonify({"success": False, "error": "Please select a valid department."}), 400
 
-        # Handle sale price if product is on sale
-        on_sale_flag = 1 if on_sale == 'on' else 0
-        final_sale_price = None
-        if on_sale_flag:
-            if sale_price is None or sale_price == "":
-                flash("Sale price must be provided if product is on sale.", "danger")
-                return redirect(url_for('add_product'))
-            try:
-                final_sale_price = float(sale_price)
-                if final_sale_price < 0 or final_sale_price >= price:
-                    flash("Sale price must be non-negative and less than the original price.", "danger")
-                    return redirect(url_for('add_product'))
-            except ValueError:
-                flash("Sale price must be a valid number.", "danger")
-                return redirect(url_for('add_product'))
-
-        # Generate unique 12-digit barcode
+        # --- Generate unique 12-digit barcode ---
         while True:
             barcode = ''.join(random.choices(string.digits, k=12))
             cursor.execute("SELECT 1 FROM Product WHERE Barcode = ?", (barcode,))
             if not cursor.fetchone():
                 break
 
-        # Insert into Product table with defaults
+        # --- Ensure image URL is set ---
+        if not image_url:
+            image_url = generate_product_image(name) or "https://via.placeholder.com/400?text=Product+Image"
+
+        # --- Set initial inventory values ---
+        quantity_in_stock = int(data.get("QuantityInStock") or 0)
+        reorder_level = int(data.get("ReorderLevel") or 10)  # default reorder level
+        quantity_available = quantity_in_stock  # initially same as stock
+
+        # --- Insert product ---
         cursor.execute("""
             INSERT INTO Product
             (Name, Description, Price, DepartmentID, Barcode, QuantityInStock, SalePrice, OnSale, ImageURL)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, description, price, department_id, barcode, 0, final_sale_price, on_sale_flag, image_url))
+        """, (name, description, price, department_id, barcode, quantity_in_stock, None, 0, image_url))
+        conn.commit()  # commit first
+
+        # --- Get inserted ProductID by barcode ---
+        cursor.execute("SELECT ProductID FROM Product WHERE Barcode = ?", (barcode,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"success": False, "error": "Failed to retrieve inserted ProductID."}), 500
+        product_id = row[0]
+
+        # --- Insert into Inventory table ---
+        cursor.execute("""
+            INSERT INTO Inventory
+            (ProductID, QuantityAvailable, ReorderLevel)
+            VALUES (?, ?, ?)
+        """, (product_id, quantity_available, reorder_level))
+        conn.commit()
+
+        # --- Return JSON for AJAX ---
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({
+                "success": True,
+                "product_name": name,
+                "image_url": image_url
+            })
 
         flash(f"Product '{name}' added successfully!", "success")
         return redirect(url_for('admin_dashboard'))
@@ -510,6 +496,39 @@ def add_product(cursor, conn):
     cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
     departments = rows_to_dict_list(cursor)
     return render_template('add_product.html', departments=departments)
+
+def generate_product_image(product_name: str) -> str:
+    """
+    Generates or fetches a product image based on the product name.
+    Returns the URL of the generated/fetched image.
+    """
+
+    # --- Option 1: Fetch a stock image from Unsplash ---
+    # You need to get an API key from Unsplash and set it in your environment
+    UNSPLASH_ACCESS_KEY = "4YRk506nTWf9lbL1hkJmmXEqG3qtACKUBAWVouGzY5Y"
+
+    if not UNSPLASH_ACCESS_KEY:
+        # fallback if no key is set
+        return "https://via.placeholder.com/400?text=Product+Image"
+
+    try:
+        response = requests.get(
+            "https://api.unsplash.com/photos/random",
+            params={
+                "query": product_name,
+                "orientation": "squarish",
+                "client_id": UNSPLASH_ACCESS_KEY
+            },
+            timeout=5
+        )
+        response.raise_for_status()
+        data = response.json()
+        # return the regular-sized image URL
+        return data.get("urls", {}).get("regular") or "https://via.placeholder.com/400?text=Product+Image"
+    except Exception as e:
+        print("Error fetching image:", e)
+        # fallback placeholder if anything fails
+        return "https://via.placeholder.com/400?text=Product+Image"
 
 @app.route('/employees')
 @with_db

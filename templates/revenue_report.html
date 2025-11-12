@@ -1,239 +1,213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Revenue Report - FreshMart</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-  <style>
-    :root {
-      --primary: #2ecc71;
-      --secondary: #27ae60;
-      --bg-light: #f9f9f9;
-      --text-dark: #333;
-      --text-muted: #777;
-      --radius: 10px;
-      --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    }
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<title>Revenue Report - FreshMart</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<style>
+		:root {
+			--primary: #2ecc71;
+			--secondary: #27ae60;
+			--bg-light: #f9f9f9;
+			--text-dark: #333;
+			--text-muted: #777;
+			--radius: 10px;
+			--shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+		}
 
-    body {
-      font-family: 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-light);
-      color: var(--text-dark);
-      margin: 0;
-      padding: 0;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 2rem auto;
-      padding: 1rem;
-    }
-
-    h1 {
-      text-align: center;
-      margin-bottom: 1rem;
-      color: var(--secondary);
-    }
-
-    .filter-section, .kpi-cards, .table-card {
-      background: white;
-      padding: 1.5rem;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      margin-bottom: 2rem;
-    }
-
-    .filter-section input, .filter-section select, .filter-section button {
-      padding: 0.5rem;
-      margin-right: 0.5rem;
-      margin-bottom: 0.5rem;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 0.9rem;
-    }
-
-    .filter-section button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-
-    .filter-section button:hover {
-      background: var(--secondary);
-    }
-
-    .kpi-cards {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-      justify-content: space-between;
-    }
-
-    .kpi-card {
-      flex: 1;
-      min-width: 180px;
-      text-align: center;
-      padding: 1rem;
-    }
-
-    .kpi-card h5 {
-      margin: 0 0 0.5rem 0;
-      color: var(--text-muted);
-    }
-
-    .kpi-card p {
-      font-size: 1.25rem;
-      font-weight: 700;
-      margin: 0;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    table th, table td {
-      padding: 0.75rem;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-    }
-
-    table th {
-      background: var(--secondary);
-      color: white;
-      cursor: pointer;
-    }
-
-    table tr:nth-child(even) {
-      background: #f8f8f8;
-    }
-
-    table tr:hover {
-      background: #eafaf1;
-    }
-  </style>
+		body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg-light); color: var(--text-dark); margin: 0; padding: 0; }
+		.container { max-width: 1200px; margin: 2rem auto; padding: 1rem; }
+		h1 { text-align: center; margin-bottom: 1rem; color: var(--secondary); }
+		.filter-section, .kpi-cards, .table-card { background: white; padding: 1.5rem; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 2rem; }
+		.filter-section input, .filter-section select, .filter-section button { padding: 0.5rem; margin-right: 0.5rem; margin-bottom: 0.5rem; border-radius: 6px; border: 1px solid #ccc; font-size: 0.9rem; }
+		.filter-section button { background: var(--primary); color: white; border: none; cursor: pointer; }
+		.filter-section button:hover { background: var(--secondary); }
+		.kpi-cards { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; }
+		.kpi-card { flex: 1; min-width: 180px; text-align: center; padding: 1rem; }
+		.kpi-card h5 { margin: 0 0 0.5rem 0; color: var(--text-muted); }
+		.kpi-card p { font-size: 1.25rem; font-weight: 700; margin: 0; }
+		table { width: 100%; border-collapse: collapse; }
+		table th, table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #eee; }
+		table th { background: var(--secondary); color: white; cursor: pointer; }
+		table tr:nth-child(even) { background: #f8f8f8; }
+		table tr:hover { background: #eafaf1; }
+	</style>
 </head>
 <body>
-  <div class="container">
-    <h1>Revenue Report</h1>
+    <div class="container">
+        <h1>Revenue Report</h1>
 
-    <!-- Filters -->
-    <div class="filter-section">
-      <input type="date" id="filterStartDate" placeholder="From">
-      <input type="date" id="filterEndDate" placeholder="To">
-      <select id="filterPaymentMethod">
-        <option value="">All Payment Methods</option>
-        {% for method in payment_methods %}
-            <option value="{{ method }}">{{ method }}</option>
-        {% endfor %}
-      </select>
-      <select id="filterOrderStatus">
-        <option value="">All Statuses</option>
-        {% for status in order_statuses %}
-            <option value="{{ status }}">{{ status }}</option>
-        {% endfor %}
-      </select>
-      <button id="applyFilters">Apply Filters</button>
+        <!-- KPIs -->
+        <div class="kpi-cards">
+            <div class="kpi-card">
+                <h5>Total Revenue</h5>
+                <p id="totalRevenue">$0.00</p>
+            </div>
+            <div class="kpi-card">
+                <h5>Total Orders</h5>
+                <p id="totalOrders">0</p>
+            </div>
+            <div class="kpi-card">
+                <h5>Average Order Value</h5>
+                <p id="avgOrderValue">$0.00</p>
+            </div>
+        </div>
+
+        <!-- Revenue Chart -->
+        <div class="table-card">
+            <h4>Revenue Over Time by Department</h4>
+            <canvas id="revenueChart" height="150"></canvas>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-section">
+            <input type="date" id="filterStartDate" placeholder="From">
+            <input type="date" id="filterEndDate" placeholder="To">
+            <select id="filterPaymentMethod">
+                <option value="">All Payment Methods</option>
+                {% for method in payment_methods %}
+                    <option value="{{ method }}">{{ method }}</option>
+                {% endfor %}
+            </select>
+            <select id="filterOrderStatus">
+                <option value="">All Statuses</option>
+                {% for status in order_statuses %}
+                    <option value="{{ status }}">{{ status }}</option>
+                {% endfor %}
+            </select>
+            <button id="applyFilters">Apply Filters</button>
+        </div>
+
+        <!-- Revenue Table -->
+        <div class="table-card">
+            <h4>Revenue Breakdown</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Transaction ID</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Payment Method</th>
+                        <th>Status</th>
+                        <th>Total Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="revenueTableBody"></tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="kpi-cards">
-      <div class="kpi-card">
-        <h5>Total Revenue</h5>
-        <p id="totalRevenue">$0.00</p>
-      </div>
-      <div class="kpi-card">
-        <h5>Total Orders</h5>
-        <p id="totalOrders">0</p>
-      </div>
-      <div class="kpi-card">
-        <h5>Average Order Value</h5>
-        <p id="avgOrderValue">$0.00</p>
-      </div>
-    </div>
+	<script>
+		const initialTransactions = {{ transactions|tojson }};
 
-    <!-- Revenue Table -->
-    <div class="table-card">
-      <h4>Revenue Breakdown</h4>
-      <table>
-        <thead>
-          <tr>
-            <th>Transaction ID</th>
-            <th>Date</th>
-            <th>Customer</th>
-            <th>Payment Method</th>
-            <th>Status</th>
-            <th>Total Amount</th>
-          </tr>
-        </thead>
-        <tbody id="revenueTableBody">
-          <!-- Rows populated by Flask or JS -->
-        </tbody>
-      </table>
-    </div>
-  </div>
+		function populateRevenueData(transactions) {
+			const tbody = document.getElementById('revenueTableBody');
+			tbody.innerHTML = '';
+			let totalRevenue = 0;
 
-    <script>
-        // Initial data passed from Flask
-        const initialTransactions = {{ transactions|tojson }};
+			transactions.forEach(t => {
+				totalRevenue += parseFloat(t.TotalAmount);
+				tbody.innerHTML += `
+					<tr>
+						<td>${t.TransactionID}</td>
+						<td>${t.TransactionDate}</td>
+						<td>${t.CustomerName}</td>
+						<td>${t.PaymentMethod}</td>
+						<td>${t.OrderStatus}</td>
+						<td>$${parseFloat(t.TotalAmount).toFixed(2)}</td>
+					</tr>`;
+			});
 
-        // Function to populate table and KPIs
-        function populateRevenueData(transactions) {
-            const tbody = document.getElementById('revenueTableBody');
-            tbody.innerHTML = '';
+			const totalOrders = transactions.length;
+			const avgOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
 
-            let totalRevenue = 0;
-            transactions.forEach(t => {
-            totalRevenue += parseFloat(t.TotalAmount);
-            tbody.innerHTML += `
-                <tr>
-                <td>${t.TransactionID}</td>
-                <td>${t.TransactionDate}</td>
-                <td>${t.CustomerName}</td>
-                <td>${t.PaymentMethod}</td>
-                <td>${t.OrderStatus}</td>
-                <td>$${parseFloat(t.TotalAmount).toFixed(2)}</td>
-                </tr>
-            `;
-            });
+			document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+			document.getElementById('totalOrders').textContent = totalOrders;
+			document.getElementById('avgOrderValue').textContent = `$${avgOrderValue.toFixed(2)}`;
+		}
 
-            const totalOrders = transactions.length;
-            const avgOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
+		// Initial KPIs and table
+		populateRevenueData(initialTransactions);
 
-            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
-            document.getElementById('totalOrders').textContent = totalOrders;
-            document.getElementById('avgOrderValue').textContent = `$${avgOrderValue.toFixed(2)}`;
-        }
+		document.getElementById('applyFilters').addEventListener('click', async () => {
+			const startDate = document.getElementById('filterStartDate').value;
+			const endDate = document.getElementById('filterEndDate').value;
+			const payment = document.getElementById('filterPaymentMethod').value;
+			const status = document.getElementById('filterOrderStatus').value;
 
-        // Populate initial data on page load
-        populateRevenueData(initialTransactions);
+			try {
+				const res = await fetch("/api/revenue_report", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ start_date: startDate, end_date: endDate, payment_method: payment, order_status: status })
+				});
+				const data = await res.json();
+				populateRevenueData(data.transactions);
+			} catch (err) {
+				console.error('Error fetching revenue data:', err);
+			}
 
-        // Filter button
-        document.getElementById('applyFilters').addEventListener('click', async () => {
-            const startDate = document.getElementById('filterStartDate').value;
-            const endDate = document.getElementById('filterEndDate').value;
-            const payment = document.getElementById('filterPaymentMethod').value;
-            const status = document.getElementById('filterOrderStatus').value;
+			fetchChartData();
+		});
 
-            try {
-            const res = await fetch("/api/revenue_report", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                start_date: startDate,
-                end_date: endDate,
-                payment_method: payment,
-                order_status: status
-                })
-            });
-            const data = await res.json();
-            populateRevenueData(data.transactions);
-            } catch (err) {
-            console.error('Error fetching revenue data:', err);
-            }
-        });
-    </script>
+		const chartColors = ['#2ecc71','#e74c3c','#3498db','#f1c40f','#9b59b6','#1abc9c','#e67e22','#34495e','#95a5a6','#d35400'];
+
+		function assignColors(departments) {
+			const colors = {};
+			departments.forEach((dept, index) => {
+				colors[dept] = chartColors[index % chartColors.length];
+			});
+			return colors;
+		}
+
+		let revenueChart;
+		async function fetchChartData() {
+			const startDate = document.getElementById('filterStartDate').value;
+			const endDate = document.getElementById('filterEndDate').value;
+			const departments = []; // all departments
+
+			try {
+				const res = await fetch("/api/revenue_report_chart", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ start_date: startDate, end_date: endDate, departments })
+				});
+				const data = await res.json();
+				const ctx = document.getElementById('revenueChart').getContext('2d');
+
+				if (revenueChart) revenueChart.destroy();
+
+				const colorMap = assignColors(data.datasets.map(ds => ds.department));
+
+				revenueChart = new Chart(ctx, {
+					type: 'line',
+					data: {
+						labels: data.labels,
+						datasets: data.datasets.map(ds => ({
+							label: ds.department,
+							data: ds.data,
+							borderColor: colorMap[ds.department],
+							backgroundColor: colorMap[ds.department],
+							fill: false,
+							tension: 0.2
+						}))
+					},
+					options: {
+						responsive: true,
+						plugins: { legend: { position: 'top' } },
+						scales: {
+							x: { title: { display: true, text: 'Date' } },
+							y: { title: { display: true, text: 'Revenue ($)' }, beginAtZero: true }
+						}
+					}
+				});
+			} catch (err) { console.error('Error fetching chart data:', err); }
+		}
+
+		// Initial chart load
+		fetchChartData();
+	</script>
 </body>
 </html>

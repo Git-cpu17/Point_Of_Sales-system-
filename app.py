@@ -52,7 +52,7 @@ def home(cursor, conn):
     products = rows_to_dict_list(cursor)
 
     # Fetch all departments
-    cursor.execute("SELECT DepartmentID, DepartmentName FROM Department")
+    cursor.execute("SELECT DepartmentID,Name FROM Department")
     departments = rows_to_dict_list(cursor)
 
     # Determine user info based on role

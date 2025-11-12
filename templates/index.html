@@ -62,21 +62,42 @@
       </section>
 
       <!-- Categories Section -->
-      <section class="categories-section container">
-        <div class="section-header"><h2 class="section-title">Shop by Category</h2></div>
-        <div class="categories-grid">
-          <div class="category-card active" data-category="all">
-            <div class="category-icon">🌎</div>
-            <div class="category-name">All</div>
-          </div>
-          {% for dept in departments %}
-            <div class="category-card" data-category="{{ dept.DepartmentID }}">
-              <div class="category-icon">📦</div> <!-- Optional: assign emoji based on dept -->
-              <div class="category-name">{{ dept.DepartmentName }}</div>
+        {% set icon_map = {
+          'produce': '🥬',
+          'meat & seafood': '🥩',
+          'dairy ': '🥛',
+          'bakery': '🥖',
+          'frozen foods': '🧊',
+          'pantry': '🥫',
+          'beverages': '🥤',
+          'snacks & candy': '🍿'
+        } %}
+
+        <section class="categories-section container">
+          <div class="section-header"><h2 class="section-title">Shop by Category</h2></div>
+          <div class="categories-grid">
+            <!-- "All" category -->
+            <div class="category-card active" data-category="all" data-dept-id="all">
+              <div class="category-icon">🌎</div>
+              <div class="category-name">All</div>
             </div>
-          {% endfor %}
-        </div>
-      </section>
+
+            <!-- Dynamic departments -->
+            {% for dept in departments %}
+              {% set dept_name_lower = dept.Name|lower|trim %}
+              {% set dept_icon = icon_map.get(dept_name_lower, '📦') %}
+
+              <div class="category-card" 
+                    data-category="{{ dept_name_lower }}" 
+                    data-dept-id="{{ dept.DepartmentID }}">
+                <div class="category-icon">{{ dept_icon }}</div>
+                <div class="category-name">{{ dept.Name }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+
+
 
       <!-- Products Section -->
       <section id="productsSection" class="container">

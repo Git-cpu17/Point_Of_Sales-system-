@@ -1244,33 +1244,12 @@
     const addListToCartBtn = document.getElementById('addListToCartBtn');
     if (addListToCartBtn) {
       addListToCartBtn.addEventListener('click', async () => {
-        if (!currentListId) return;
-        addListToCartBtn.disabled = true;
-    
-        try {
-          const r = await fetch(`/api/lists/${currentListId}/add-to-bag`, {
-            method: 'POST',
-            credentials: 'same-origin'
-          });
-          if (r.status === 401) { window.location.href = '/login'; return; }
-          if (!r.ok) {
-            const data = await r.json().catch(() => ({}));
-            alert(data.message || 'Failed to add to cart');
-            return;
-          }
-    
-          await fetch(`/api/lists/${currentListId}/items`, {
-            method: 'DELETE',
-            credentials: 'same-origin'
-          }).catch(() => {});
-    
-          if (typeof sl_loadItems === 'function') await sl_loadItems();
-          if (typeof refreshBag === 'function') {
-            await refreshBag();
-            if (typeof updateCartBadge === 'function') updateCartBadge();
-          }
-        } finally {
-          addListToCartBtn.disabled = false;
+        await fetch(`/api/lists/${currentListId}/add-to-bag`, { method: 'POST', credentials: 'same-origin' });
+        await fetch(`/api/lists/${currentListId}/items`, { method: 'DELETE', credentials: 'same-origin' });
+        if (typeof sl_loadItems === 'function') sl_loadItems();
+        if (typeof refreshBag === 'function') {
+          await refreshBag();
+          if (typeof updateCartBadge === 'function') updateCartBadge();
         }
       });
     }

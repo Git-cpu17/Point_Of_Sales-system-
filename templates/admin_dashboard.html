@@ -136,19 +136,6 @@
 
       <div class="nav-right">
         <a href="{{ url_for('home') }}" class="nav-link">Store Front</a>
-        <a href="#" class="nav-link">Settings</a>
-
-        <!-- Cart link for admin -->
-        <a href="{{ url_for('bag_page') }}" class="bag-link">
-          <span>🛒</span>
-          <span>Cart</span>
-          <span id="bagCount" class="badge">{{ bag_count }}</span>
-        </a>
-
-        {% if session.get('role') in ['employee','admin'] %}
-          <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
-        {% endif %}
-
         <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
       </div>
     </div>
@@ -194,16 +181,15 @@
           </div>
         </div>
       </div>
-
       <!-- Quick Actions -->
       <div class="admin-section">
         <h2 class="section-title">Quick Actions</h2>
         <div class="quick-actions">
           <div class="quick-action-btn">
-              <a href="{{ url_for('add_product') }}" style="text-decoration: none; color: inherit; display: block;">
-                  <span class="icon">➕</span>
-                  <span>Add Product</span>
-              </a>
+            <a href="{{ url_for('add_product') }}" style="text-decoration: none; color: inherit; display: block;">
+              <span class="icon">➕</span>
+              <span>Add Product</span>
+            </a>
           </div>
           <div class="quick-action-btn">
             <a href="{{ url_for('manage_employees') }}" style="text-decoration: none; color: inherit; display: block;">
@@ -217,22 +203,16 @@
               <span>Manage Products</span>
             </a>
           </div>
+          <!-- Move Apply Seasonal Sale here -->
           <div class="quick-action-btn">
-            <span class="icon">🏷️</span>
-            <span>Manage Promotions</span>
-          </div>
-          <div class="quick-action-btn">
-            <a href="{{ url_for('inventory_report') }}" style="text-decoration: none; color: inherit; display: block;">
-              <span class="icon">📦</span>
-              <span>Inventory</span>
-            </a>
-          </div>
-          <div class="quick-action-btn">
-            <span class="icon">⚙️</span>
-            <span>Settings</span>
+            <button id="applySalesBtn" style="background:none; border:none; padding:0; cursor:pointer; color:inherit; width:100%; height:100%;">
+              <span class="icon">💲</span>
+              <span>Apply Seasonal Sale</span>
+            </button>
           </div>
         </div>
       </div>
+
 
       <!-- Reports Section -->
       <div class="admin-section">
@@ -264,7 +244,6 @@
             </a>
           </div>
           <button id="applySalesBtn" class="btn secondary">💲 Apply Seasonal Sale</button>
-
         </div>
       </div>
 

@@ -16,8 +16,6 @@
         <div class="search-wrap">
           <input id="searchInput" type="search" placeholder="Search for products..." aria-label="Search products">
         </div>
-
-        <a href="{{ url_for('department') }}" class="nav-link">Departments</a>
       
         {% if user %}
           <span class="welcome-text">Welcome, {{ user.Name }}</span>
@@ -31,16 +29,14 @@
             <a href="{{ url_for('employee_dashboard') }}" class="nav-link">Dashboard</a>
           {% endif %}
 
-          {% if session.get('role') in ['employee','admin'] %} <a href="{{ url_for('reports') }}" class="nav-link">Reports
-            </a> 
-          {% endif %}
-
           <!-- Show Cart for all logged-in users -->
+        {% if user and user.role == 'customer' %}
           <a href="{{ url_for('bag_page') }}" class="bag-link">
             <span>🛒</span>
             <span>Cart</span>
             <span id="bagCount" class="badge">{{ bag_count }}</span>
           </a>
+        {% endif %}
 
           <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
         {% else %}
@@ -97,6 +93,7 @@
                   {% endif %}
                   {% if p.OnSale %}<span class="sale-badge">SALE</span>{% elif loop.index % 4 == 0 %}<span class="sale-badge">SALE</span>{% endif %}
                 </div>
+
                 <div class="product-details">
                   <div class="product-header"><h3>{{ p.Name }}</h3></div>
                   <p class="product-desc">{{ p.Description or 'Fresh and high quality product' }}</p>
@@ -109,8 +106,16 @@
                       {% if p.QuantityInStock > 10 %}✓ In Stock{% else %}Only {{ p.QuantityInStock }} left{% endif %}
                     </span>
                   </div>
-                  <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})"><span>🛒</span><span>Add to Cart</span></button>
-                  <button class="btn secondary" type="button" onclick="addToList({{ p.ProductID }})"><span>📋</span><span>Save to List</span></button>
+
+                  <!-- Only show buttons for customers -->
+                  {% if user and user.role == 'customer' %}
+                    <button class="add-btn" type="button" onclick="addToCart({{ p.ProductID }})">
+                      <span>🛒</span><span>Add to Cart</span>
+                    </button>
+                    <button class="btn secondary" type="button" onclick="addToList({{ p.ProductID }})">
+                      <span>📋</span><span>Save to List</span>
+                    </button>
+                  {% endif %}
                 </div>
               </div>
             {% endfor %}

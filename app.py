@@ -74,17 +74,6 @@ def home(cursor, conn):
 def status():
     return jsonify({"message": "Flask API is running and connected to Azure SQL!"})
 
-@app.route("/products", methods=["GET"])
-@with_db
-def get_products(cursor, conn):
-    cursor.execute("""
-        SELECT ProductID, Name, Description, Price, QuantityInStock, Barcode, DepartmentID
-        FROM Product
-        WHERE IsActive = 1
-    """)
-    rows = rows_to_dict_list(cursor)
-    return jsonify(rows)
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -200,6 +189,239 @@ def admin_dashboard(cursor, conn):
         employees=employees,
         admin_name=admin_name
     )
+
+@app.route('/admin/products')
+@with_db
+def manage_products(cursor, conn):
+    # Only admins and employees can access
+    if 'role' not in session or session['role'] not in ['admin', 'employee']:
+        return redirect(url_for('login'))
+    
+    # Get filter parameters
+    search = request.args.get('search', '')
+    department = request.args.get('department', '')
+    
+    # Build query
+    query = """
+        SELECT 
+            p.ProductID,
+            p.Name,
+            p.Description,
+            p.Price,
+            p.SalePrice,
+            p.OnSale,
+            p.QuantityInStock,
+            p.Barcode,
+            d.Name as DepartmentName,
+            p.DepartmentID,
+            p.ImageURL
+        FROM Product p
+        LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID
+        WHERE p.IsActive = 1
+    """
+    params = []
+    
+    if search:
+        query += " AND (p.Name LIKE ? OR p.Description LIKE ? OR p.Barcode LIKE ?)"
+        search_param = f"%{search}%"
+        params.extend([search_param, search_param, search_param])
+    
+    if department:
+        query += " AND p.DepartmentID = ?"
+        params.append(department)
+    
+    query += " ORDER BY p.Name"
+    
+    cursor.execute(query, params)
+    products = rows_to_dict_list(cursor)
+    
+    # Get departments for filter
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = rows_to_dict_list(cursor)
+    
+    return render_template('manage_products.html', 
+                          products=products, 
+                          departments=departments,
+                          search=search,
+                          selected_dept=department)
+
+@app.route('/admin/edit-product/<int:product_id>', methods=['GET', 'POST'])
+@with_db
+def edit_product(cursor, conn, product_id):
+    # Only admins and employees can access
+    if 'role' not in session or session['role'] not in ['admin', 'employee']:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        data = request.form
+        
+        name = (data.get("Name") or "").strip()
+        description = data.get("Description") or ""
+        price = data.get("Price")
+        department_id = data.get("DepartmentID")
+        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
+        sale_price = data.get("SalePrice")  # optional
+        image_url = data.get("ImageURL") or ""
+        quantity_in_stock = data.get("QuantityInStock") or 0
+        
+        # Validate required fields
+        if not name:
+            flash("Product name is required.", "danger")
+            return redirect(url_for('edit_product', product_id=product_id))
+        
+        if price is None or price == "":
+            flash("Price is required.", "danger")
+            return redirect(url_for('edit_product', product_id=product_id))
+        
+        try:
+            price = float(price)
+            if price < 0:
+                raise ValueError
+        except ValueError:
+            flash("Price must be a non-negative number.", "danger")
+            return redirect(url_for('edit_product', product_id=product_id))
+        
+        try:
+            department_id = int(department_id)
+            if department_id <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            flash("Please select a valid department.", "danger")
+            return redirect(url_for('edit_product', product_id=product_id))
+        
+        try:
+            quantity_in_stock = int(quantity_in_stock)
+            if quantity_in_stock < 0:
+                raise ValueError
+        except ValueError:
+            flash("Quantity must be a non-negative number.", "danger")
+            return redirect(url_for('edit_product', product_id=product_id))
+        
+        # Handle sale price if product is on sale
+        on_sale_flag = 1 if on_sale == 'on' else 0
+        final_sale_price = None
+        if on_sale_flag:
+            if sale_price is None or sale_price == "":
+                flash("Sale price must be provided if product is on sale.", "danger")
+                return redirect(url_for('edit_product', product_id=product_id))
+            try:
+                final_sale_price = float(sale_price)
+                if final_sale_price < 0 or final_sale_price >= price:
+                    flash("Sale price must be non-negative and less than the original price.", "danger")
+                    return redirect(url_for('edit_product', product_id=product_id))
+            except ValueError:
+                flash("Sale price must be a valid number.", "danger")
+                return redirect(url_for('edit_product', product_id=product_id))
+        
+        # Update the product
+        cursor.execute("""
+            UPDATE Product
+            SET Name = ?, Description = ?, Price = ?, DepartmentID = ?, 
+                QuantityInStock = ?, SalePrice = ?, OnSale = ?, ImageURL = ?
+            WHERE ProductID = ?
+        """, (name, description, price, department_id, quantity_in_stock, 
+              final_sale_price, on_sale_flag, image_url, product_id))
+        
+        conn.commit()
+        flash(f"Product '{name}' updated successfully!", "success")
+        return redirect(url_for('manage_products'))
+    
+    # GET request - fetch product data
+    cursor.execute("""
+        SELECT * FROM Product WHERE ProductID = ?
+    """, (product_id,))
+    product = cursor.fetchone()
+    
+    if not product:
+        flash("Product not found.", "danger")
+        return redirect(url_for('manage_products'))
+    
+    # Convert to dict
+    columns = [col[0] for col in cursor.description]
+    product = dict(zip(columns, product))
+    
+    # Get departments for dropdown
+    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
+    departments = rows_to_dict_list(cursor)
+    
+    return render_template('edit_product.html', 
+                          product=product, 
+                          departments=departments)
+
+@app.route('/api/products/<int:product_id>', methods=['DELETE'])
+@with_db
+def delete_product(cursor, conn, product_id):
+    # Only admins can delete
+    if 'role' not in session or session['role'] != 'admin':
+        return jsonify({"message": "Unauthorized"}), 403
+    
+    try:
+        # Check if product exists
+        cursor.execute("SELECT Name FROM Product WHERE ProductID = ?", (product_id,))
+        product = cursor.fetchone()
+        
+        if not product:
+            return jsonify({"message": "Product not found"}), 404
+        
+        product_name = product[0]
+        
+        # Soft delete - just mark as inactive
+        cursor.execute("UPDATE Product SET IsActive = 0 WHERE ProductID = ?", (product_id,))
+        conn.commit()
+        
+        return jsonify({"message": f"Product '{product_name}' has been deactivated"}), 200
+    except Exception as e:
+        return jsonify({"message": f"Error deactivating product: {str(e)}"}), 500
+@app.route('/api/low_stock')
+@with_db
+def low_stock(cursor, conn):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    cursor.execute("""
+        SELECT ProductID, Name, QuantityInStock, DepartmentID
+        FROM Product
+        WHERE QuantityInStock < 10
+        ORDER BY QuantityInStock ASC
+    """)
+    items = rows_to_dict_list(cursor)
+    return jsonify(items)
+@app.route('/api/update_stock', methods=['POST'])
+@with_db
+def update_stock(cursor, conn):
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    data = request.get_json(silent=True) or {}
+    pid = data.get('product_id')
+    new_stock = data.get('new_stock')
+
+    if pid is None or new_stock is None:
+        return jsonify({"error": "Missing fields"}), 400
+
+    try:
+        new_stock = int(new_stock)
+        if new_stock < 0:
+            return jsonify({"error": "Stock cannot be negative"}), 400
+    except ValueError:
+        return jsonify({"error": "Invalid stock value"}), 400
+
+    cursor.execute("UPDATE Product SET QuantityInStock = ? WHERE ProductID = ?", (new_stock, pid))
+    conn.commit()
+    return jsonify({"message": "Stock updated successfully"}), 200
+@app.route('/apply_sales', methods=['POST'])
+@with_db
+def apply_sales(cursor, conn):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    try:
+        cursor.execute("EXEC ApplyHolidaySales")
+        conn.commit()
+        return jsonify({"message": "Seasonal sale prices applied!"}), 200
+    except Exception as e:
+        print("Error executing sale trigger:", e)
+        return jsonify({"error": "Failed to apply sales"}), 500
 
 @app.route('/admin/add-product', methods=['GET', 'POST'])
 @with_db
@@ -390,21 +612,45 @@ def delete_employee(cursor, conn, emp_id):
 @app.route('/employee')
 @with_db
 def employee_dashboard(cursor, conn):
-    if 'user_id' not in session or session.get('role') != 'employee':
-        return redirect(url_for('login'))
+    user_id = session['user_id']
 
-    # Fetch logged-in employee info
-    cursor.execute("SELECT EmployeeID, Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
-    record = cursor.fetchone()
-    user = None
-    if record:
-        user = {'Name': record[1], 'role': 'employee'}  # record[1] = Name
+    # Get employee info
+    cursor.execute("SELECT * FROM Employee WHERE EmployeeID = ?", (user_id,))
+    user = cursor.fetchone()
 
-    # Fetch all employees (if needed for dashboard)
-    cursor.execute("SELECT * FROM Employee")
-    employees = rows_to_dict_list(cursor)
+    # 1. Number of orders employee processed today
+    cursor.execute("""
+        SELECT COUNT(*) 
+        FROM Transaction_Details
+        WHERE EmployeeID = ? AND CAST(datetime AS DATE) = CAST(GETDATE() AS DATE)
+    """, (user_id,))
+    orders_today = cursor.fetchone()[0]
 
-    return render_template('employee_dashboard.html', employees=employees, user=user)
+    # 2. Revenue generated by employee today
+    cursor.execute("""
+        SELECT SUM(Subtotal) 
+        FROM Transaction_Details
+        WHERE EmployeeID = ? AND CAST(datetime AS DATE) = CAST(GETDATE() AS DATE)
+    """, (user_id,))
+    revenue_today = cursor.fetchone()[0] or 0
+
+    # 3. Low-stock products in employee's department
+    cursor.execute("""
+        SELECT COUNT(*) 
+        FROM Inventory i
+        JOIN Employee e ON e.DepartmentID = i.DepartmentID
+        WHERE e.EmployeeID = ? AND i.QuantityAvailable <= i.ReorderLevel
+    """, (user_id,))
+    low_stock_products = cursor.fetchone()[0]
+
+    return render_template(
+        'employee_dashboard.html',
+        user=user,
+        current_date=datetime.now().strftime("%A, %B %d, %Y"),
+        orders_today=orders_today,
+        revenue_today=revenue_today,
+        low_stock_products=low_stock_products
+    )
 
 @app.get("/reports")
 @with_db
@@ -2112,236 +2358,3 @@ def logout():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
-
-@app.route('/admin/products')
-@with_db
-def manage_products(cursor, conn):
-    # Only admins and employees can access
-    if 'role' not in session or session['role'] not in ['admin', 'employee']:
-        return redirect(url_for('login'))
-    
-    # Get filter parameters
-    search = request.args.get('search', '')
-    department = request.args.get('department', '')
-    
-    # Build query
-    query = """
-        SELECT 
-            p.ProductID,
-            p.Name,
-            p.Description,
-            p.Price,
-            p.SalePrice,
-            p.OnSale,
-            p.QuantityInStock,
-            p.Barcode,
-            d.Name as DepartmentName,
-            p.DepartmentID,
-            p.ImageURL
-        FROM Product p
-        LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID
-        WHERE p.IsActive = 1
-    """
-    params = []
-    
-    if search:
-        query += " AND (p.Name LIKE ? OR p.Description LIKE ? OR p.Barcode LIKE ?)"
-        search_param = f"%{search}%"
-        params.extend([search_param, search_param, search_param])
-    
-    if department:
-        query += " AND p.DepartmentID = ?"
-        params.append(department)
-    
-    query += " ORDER BY p.Name"
-    
-    cursor.execute(query, params)
-    products = rows_to_dict_list(cursor)
-    
-    # Get departments for filter
-    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
-    departments = rows_to_dict_list(cursor)
-    
-    return render_template('manage_products.html', 
-                          products=products, 
-                          departments=departments,
-                          search=search,
-                          selected_dept=department)
-
-@app.route('/admin/edit-product/<int:product_id>', methods=['GET', 'POST'])
-@with_db
-def edit_product(cursor, conn, product_id):
-    # Only admins and employees can access
-    if 'role' not in session or session['role'] not in ['admin', 'employee']:
-        return redirect(url_for('login'))
-    
-    if request.method == 'POST':
-        data = request.form
-        
-        name = (data.get("Name") or "").strip()
-        description = data.get("Description") or ""
-        price = data.get("Price")
-        department_id = data.get("DepartmentID")
-        on_sale = data.get("OnSale")  # will be 'on' if checked, None if unchecked
-        sale_price = data.get("SalePrice")  # optional
-        image_url = data.get("ImageURL") or ""
-        quantity_in_stock = data.get("QuantityInStock") or 0
-        
-        # Validate required fields
-        if not name:
-            flash("Product name is required.", "danger")
-            return redirect(url_for('edit_product', product_id=product_id))
-        
-        if price is None or price == "":
-            flash("Price is required.", "danger")
-            return redirect(url_for('edit_product', product_id=product_id))
-        
-        try:
-            price = float(price)
-            if price < 0:
-                raise ValueError
-        except ValueError:
-            flash("Price must be a non-negative number.", "danger")
-            return redirect(url_for('edit_product', product_id=product_id))
-        
-        try:
-            department_id = int(department_id)
-            if department_id <= 0:
-                raise ValueError
-        except (ValueError, TypeError):
-            flash("Please select a valid department.", "danger")
-            return redirect(url_for('edit_product', product_id=product_id))
-        
-        try:
-            quantity_in_stock = int(quantity_in_stock)
-            if quantity_in_stock < 0:
-                raise ValueError
-        except ValueError:
-            flash("Quantity must be a non-negative number.", "danger")
-            return redirect(url_for('edit_product', product_id=product_id))
-        
-        # Handle sale price if product is on sale
-        on_sale_flag = 1 if on_sale == 'on' else 0
-        final_sale_price = None
-        if on_sale_flag:
-            if sale_price is None or sale_price == "":
-                flash("Sale price must be provided if product is on sale.", "danger")
-                return redirect(url_for('edit_product', product_id=product_id))
-            try:
-                final_sale_price = float(sale_price)
-                if final_sale_price < 0 or final_sale_price >= price:
-                    flash("Sale price must be non-negative and less than the original price.", "danger")
-                    return redirect(url_for('edit_product', product_id=product_id))
-            except ValueError:
-                flash("Sale price must be a valid number.", "danger")
-                return redirect(url_for('edit_product', product_id=product_id))
-        
-        # Update the product
-        cursor.execute("""
-            UPDATE Product
-            SET Name = ?, Description = ?, Price = ?, DepartmentID = ?, 
-                QuantityInStock = ?, SalePrice = ?, OnSale = ?, ImageURL = ?
-            WHERE ProductID = ?
-        """, (name, description, price, department_id, quantity_in_stock, 
-              final_sale_price, on_sale_flag, image_url, product_id))
-        
-        conn.commit()
-        flash(f"Product '{name}' updated successfully!", "success")
-        return redirect(url_for('manage_products'))
-    
-    # GET request - fetch product data
-    cursor.execute("""
-        SELECT * FROM Product WHERE ProductID = ?
-    """, (product_id,))
-    product = cursor.fetchone()
-    
-    if not product:
-        flash("Product not found.", "danger")
-        return redirect(url_for('manage_products'))
-    
-    # Convert to dict
-    columns = [col[0] for col in cursor.description]
-    product = dict(zip(columns, product))
-    
-    # Get departments for dropdown
-    cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
-    departments = rows_to_dict_list(cursor)
-    
-    return render_template('edit_product.html', 
-                          product=product, 
-                          departments=departments)
-
-@app.route('/api/products/<int:product_id>', methods=['DELETE'])
-@with_db
-def delete_product(cursor, conn, product_id):
-    # Only admins can delete
-    if 'role' not in session or session['role'] != 'admin':
-        return jsonify({"message": "Unauthorized"}), 403
-    
-    try:
-        # Check if product exists
-        cursor.execute("SELECT Name FROM Product WHERE ProductID = ?", (product_id,))
-        product = cursor.fetchone()
-        
-        if not product:
-            return jsonify({"message": "Product not found"}), 404
-        
-        product_name = product[0]
-        
-        # Soft delete - just mark as inactive
-        cursor.execute("UPDATE Product SET IsActive = 0 WHERE ProductID = ?", (product_id,))
-        conn.commit()
-        
-        return jsonify({"message": f"Product '{product_name}' has been deactivated"}), 200
-    except Exception as e:
-        return jsonify({"message": f"Error deactivating product: {str(e)}"}), 500
-@app.route('/api/low_stock')
-@with_db
-def low_stock(cursor, conn):
-    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
-        return jsonify({"error": "Unauthorized"}), 403
-
-    cursor.execute("""
-        SELECT ProductID, Name, QuantityInStock, DepartmentID
-        FROM Product
-        WHERE QuantityInStock < 10
-        ORDER BY QuantityInStock ASC
-    """)
-    items = rows_to_dict_list(cursor)
-    return jsonify(items)
-@app.route('/api/update_stock', methods=['POST'])
-@with_db
-def update_stock(cursor, conn):
-    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
-        return jsonify({"error": "Unauthorized"}), 403
-
-    data = request.get_json(silent=True) or {}
-    pid = data.get('product_id')
-    new_stock = data.get('new_stock')
-
-    if pid is None or new_stock is None:
-        return jsonify({"error": "Missing fields"}), 400
-
-    try:
-        new_stock = int(new_stock)
-        if new_stock < 0:
-            return jsonify({"error": "Stock cannot be negative"}), 400
-    except ValueError:
-        return jsonify({"error": "Invalid stock value"}), 400
-
-    cursor.execute("UPDATE Product SET QuantityInStock = ? WHERE ProductID = ?", (new_stock, pid))
-    conn.commit()
-    return jsonify({"message": "Stock updated successfully"}), 200
-@app.route('/apply_sales', methods=['POST'])
-@with_db
-def apply_sales(cursor, conn):
-    if 'user_id' not in session or session.get('role') != 'admin':
-        return jsonify({"error": "Unauthorized"}), 403
-
-    try:
-        cursor.execute("EXEC ApplyHolidaySales")
-        conn.commit()
-        return jsonify({"message": "Seasonal sale prices applied!"}), 200
-    except Exception as e:
-        print("Error executing sale trigger:", e)
-        return jsonify({"error": "Failed to apply sales"}), 500

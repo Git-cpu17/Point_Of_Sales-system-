@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Revenue Report - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <style>
+    :root {
+      --primary: #2ecc71;
+      --secondary: #27ae60;
+      --bg-light: #f9f9f9;
+      --text-dark: #333;
+      --text-muted: #777;
+      --radius: 10px;
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+      color: var(--secondary);
+    }
+
+    .filter-section, .kpi-cards, .table-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+    }
+
+    .filter-section input, .filter-section select, .filter-section button {
+      padding: 0.5rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 0.9rem;
+    }
+
+    .filter-section button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .filter-section button:hover {
+      background: var(--secondary);
+    }
+
+    .kpi-cards {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: space-between;
+    }
+
+    .kpi-card {
+      flex: 1;
+      min-width: 180px;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .kpi-card h5 {
+      margin: 0 0 0.5rem 0;
+      color: var(--text-muted);
+    }
+
+    .kpi-card p {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table th, table td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+
+    table th {
+      background: var(--secondary);
+      color: white;
+      cursor: pointer;
+    }
+
+    table tr:nth-child(even) {
+      background: #f8f8f8;
+    }
+
+    table tr:hover {
+      background: #eafaf1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Revenue Report</h1>
+
+    <!-- Filters -->
+    <div class="filter-section">
+      <input type="date" id="filterStartDate" placeholder="From">
+      <input type="date" id="filterEndDate" placeholder="To">
+      <select id="filterPaymentMethod">
+        <option value="">All Payment Methods</option>
+        {% for method in payment_methods %}
+            <option value="{{ method }}">{{ method }}</option>
+        {% endfor %}
+      </select>
+      <select id="filterOrderStatus">
+        <option value="">All Statuses</option>
+        {% for status in order_statuses %}
+            <option value="{{ status }}">{{ status }}</option>
+        {% endfor %}
+      </select>
+      <button id="applyFilters">Apply Filters</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-cards">
+      <div class="kpi-card">
+        <h5>Total Revenue</h5>
+        <p id="totalRevenue">$0.00</p>
+      </div>
+      <div class="kpi-card">
+        <h5>Total Orders</h5>
+        <p id="totalOrders">0</p>
+      </div>
+      <div class="kpi-card">
+        <h5>Average Order Value</h5>
+        <p id="avgOrderValue">$0.00</p>
+      </div>
+    </div>
+
+    <!-- Revenue Table -->
+    <div class="table-card">
+      <h4>Revenue Breakdown</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Transaction ID</th>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Payment Method</th>
+            <th>Status</th>
+            <th>Total Amount</th>
+          </tr>
+        </thead>
+        <tbody id="revenueTableBody">
+          <!-- Rows populated by Flask or JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+    <script>
+        // Initial data passed from Flask
+        const initialTransactions = {{ transactions|tojson }};
+
+        // Function to populate table and KPIs
+        function populateRevenueData(transactions) {
+            const tbody = document.getElementById('revenueTableBody');
+            tbody.innerHTML = '';
+
+            let totalRevenue = 0;
+            transactions.forEach(t => {
+            totalRevenue += parseFloat(t.TotalAmount);
+            tbody.innerHTML += `
+                <tr>
+                <td>${t.TransactionID}</td>
+                <td>${t.TransactionDate}</td>
+                <td>${t.CustomerName}</td>
+                <td>${t.PaymentMethod}</td>
+                <td>${t.OrderStatus}</td>
+                <td>$${parseFloat(t.TotalAmount).toFixed(2)}</td>
+                </tr>
+            `;
+            });
+
+            const totalOrders = transactions.length;
+            const avgOrderValue = totalOrders ? totalRevenue / totalOrders : 0;
+
+            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+            document.getElementById('totalOrders').textContent = totalOrders;
+            document.getElementById('avgOrderValue').textContent = `$${avgOrderValue.toFixed(2)}`;
+        }
+
+        // Populate initial data on page load
+        populateRevenueData(initialTransactions);
+
+        // Filter button
+        document.getElementById('applyFilters').addEventListener('click', async () => {
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            const payment = document.getElementById('filterPaymentMethod').value;
+            const status = document.getElementById('filterOrderStatus').value;
+
+            try {
+            const res = await fetch("/api/revenue_report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+                payment_method: payment,
+                order_status: status
+                })
+            });
+            const data = await res.json();
+            populateRevenueData(data.transactions);
+            } catch (err) {
+            console.error('Error fetching revenue data:', err);
+            }
+        });
+    </script>
+</body>
+</html>

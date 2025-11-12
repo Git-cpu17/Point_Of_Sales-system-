@@ -1497,6 +1497,104 @@ def customer_report_filter(cursor, conn):
 
     return jsonify({"html": html})
 
+@app.route('/revenue_report')
+@with_db
+def revenue_report(cursor, conn):
+    # Fetch initial revenue transactions
+    cursor.execute("""
+        SELECT 
+            st.TransactionID,
+            st.TransactionDate,
+            c.Name AS CustomerName,
+            st.PaymentMethod,
+            st.OrderStatus,
+            st.TotalAmount
+        FROM SalesTransaction st
+        LEFT JOIN Customer c ON st.CustomerID = c.CustomerID
+        ORDER BY st.TransactionDate DESC
+    """)
+    transactions = rows_to_dict_list(cursor)
+
+    # Fetch unique payment methods and order statuses for filters
+    cursor.execute("SELECT DISTINCT PaymentMethod FROM SalesTransaction")
+    payment_methods = [row[0] for row in cursor.fetchall()]
+
+    cursor.execute("SELECT DISTINCT OrderStatus FROM SalesTransaction")
+    order_statuses = [row[0] for row in cursor.fetchall()]
+
+    return render_template(
+        'revenue_report.html',
+        transactions=transactions,
+        payment_methods=payment_methods,
+        order_statuses=order_statuses
+    )
+
+@app.post("/api/revenue_report")
+@with_db
+def revenue_report_filter(cursor, conn):
+    payload = request.get_json() or {}
+
+    start_date = payload.get("start_date")
+    end_date = payload.get("end_date")
+    payment_method = payload.get("payment_method")
+    order_status = payload.get("order_status")
+
+    sql_parts = [
+        "SELECT st.TransactionID, st.TransactionDate, c.Name AS CustomerName,",
+        "st.PaymentMethod, st.OrderStatus, st.TotalAmount",
+        "FROM SalesTransaction st",
+        "LEFT JOIN Customer c ON st.CustomerID = c.CustomerID",
+        "WHERE 1=1"
+    ]
+    params = []
+
+    # Filters
+    if start_date:
+        sql_parts.append("AND st.TransactionDate >= ?")
+        params.append(start_date)
+    if end_date:
+        sql_parts.append("AND st.TransactionDate <= ?")
+        params.append(end_date)
+    if payment_method and payment_method.lower() != "all":
+        sql_parts.append("AND st.PaymentMethod = ?")
+        params.append(payment_method)
+    if order_status and order_status.lower() != "all":
+        sql_parts.append("AND st.OrderStatus = ?")
+        params.append(order_status)
+
+    # Sorting
+    sort_column = payload.get("sort_column", "TransactionDate")
+    sort_direction = "DESC" if payload.get("sort_direction", "DESC").upper() == "DESC" else "ASC"
+    sql_parts.append(f"ORDER BY {sort_column} {sort_direction}")
+
+    sql = "\n".join(sql_parts)
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+
+    # Calculate KPIs
+    total_revenue = sum(r[5] for r in rows)  # TotalAmount column
+    total_orders = len(rows)
+    avg_order_value = total_revenue / total_orders if total_orders else 0
+
+    # Build transactions list
+    transactions = []
+    for r in rows:
+        transactions.append({
+            "TransactionID": r[0],
+            "TransactionDate": r[1].strftime("%Y-%m-%d") if isinstance(r[1], datetime) else r[1],
+            "CustomerName": r[2],
+            "PaymentMethod": r[3],
+            "OrderStatus": r[4],
+            "TotalAmount": r[5]
+        })
+
+    return jsonify({
+        "transactions": transactions,
+        "totalRevenue": total_revenue,
+        "totalOrders": total_orders,
+        "avgOrderValue": avg_order_value
+    })
+
 @app.post("/checkout")
 @with_db
 def checkout(cursor, conn):

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response, flash
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from db import with_db, rows_to_dict_list, get_db_connection
 import random
@@ -1657,12 +1657,30 @@ def revenue_report(cursor, conn):
     # Fetch initial revenue transactions
     cursor.execute("""
         SELECT st.TransactionID, st.TransactionDate, c.Name AS CustomerName,
-               st.PaymentMethod, st.OrderStatus, st.TotalAmount
+            st.PaymentMethod, st.OrderStatus, st.TotalAmount
         FROM SalesTransaction st
         LEFT JOIN Customer c ON st.CustomerID = c.CustomerID
         ORDER BY st.TransactionDate DESC
     """)
-    transactions = rows_to_dict_list(cursor)
+    rows = cursor.fetchall()
+
+    transactions = []
+    for r in rows:
+        transaction_date = r[1]
+        if isinstance(transaction_date, str):
+            # sometimes already string
+            date_str = transaction_date.split("T")[0]
+        else:
+            date_str = transaction_date.strftime("%Y-%m-%d")
+
+        transactions.append({
+            "TransactionID": r[0],
+            "TransactionDate": date_str,
+            "CustomerName": r[2],
+            "PaymentMethod": r[3],
+            "OrderStatus": r[4],
+            "TotalAmount": r[5]
+        })
 
     # Fetch unique payment methods and order statuses for filters
     cursor.execute("SELECT DISTINCT PaymentMethod FROM SalesTransaction")
@@ -1706,8 +1724,10 @@ def revenue_report_filter(cursor, conn):
         sql_parts.append("AND st.TransactionDate >= ?")
         params.append(start_date)
     if end_date:
-        sql_parts.append("AND st.TransactionDate <= ?")
-        params.append(end_date)
+        # Convert to datetime and add 1 day for inclusive comparison
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+        sql_parts.append("AND st.TransactionDate < ?")
+        params.append(end_dt.strftime("%Y-%m-%d"))
     if payment_method and payment_method.lower() != "all":
         sql_parts.append("AND st.PaymentMethod = ?")
         params.append(payment_method)

@@ -606,6 +606,7 @@ label {
                     <input type="password" name="Password" class="form-input" placeholder="Secure password" required>
                 </div>
                 <div class="full-width">
+                    <div id="addEmployeeMessage" style="margin-bottom: 1rem; font-weight: 600;"></div>
                     <button type="submit" class="btn-primary">Add Employee</button>
                 </div>
             </form>
@@ -762,6 +763,8 @@ backFromManage.addEventListener("click", () => {
 document.getElementById("addEmployeeForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const submitBtn = e.target.querySelector('button[type="submit"]');
+    const messageDiv = document.getElementById("addEmployeeMessage");
+    messageDiv.textContent = ""; // clear previous message
     submitBtn.classList.add('loading');
     
     const formData = Object.fromEntries(new FormData(e.target).entries());
@@ -772,10 +775,18 @@ document.getElementById("addEmployeeForm").addEventListener("submit", async (e) 
             body: JSON.stringify(formData)
         });
         const data = await res.json();
-        alert(data.message);
-        if(res.ok) location.reload();
+
+        if(res.ok){
+            messageDiv.style.color = "green";
+            messageDiv.textContent = data.message;
+            setTimeout(() => location.reload(), 1000); // reload after short delay
+        } else {
+            messageDiv.style.color = "red";
+            messageDiv.textContent = data.message;
+        }
     } catch(err) {
-        alert("Error adding employee");
+        messageDiv.style.color = "red";
+        messageDiv.textContent = "Error adding employee.";
         console.error(err);
     } finally {
         submitBtn.classList.remove('loading');

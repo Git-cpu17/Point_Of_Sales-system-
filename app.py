@@ -64,7 +64,7 @@ def home(cursor, conn):
             user = {'Name': record[0], 'role': 'admin'}
 
     elif role == 'employee':
-        cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ?", (session['user_id'],))
+        cursor.execute("SELECT Name FROM Employee WHERE EmployeeID = ? AND IsActive = 1", (session['user_id'],))
         record = cursor.fetchone()
         if record:
             user = {'Name': record[0], 'role': 'employee'}
@@ -170,7 +170,7 @@ def admin_dashboard(cursor, conn):
     orders_today = cursor.fetchone()[0] or 0
 
     # Employee list
-    cursor.execute("SELECT EmployeeID, Name, Email, DepartmentID FROM Employee")
+    cursor.execute("SELECT EmployeeID, Name, Email, DepartmentID FROM Employee WHERE IsActive = 1")
     employees = rows_to_dict_list(cursor)
 
     # Get admin name from session
@@ -249,89 +249,87 @@ def manage_products(cursor, conn):
 @app.route('/admin/edit-product/<int:product_id>', methods=['GET', 'POST'])
 @with_db
 def edit_product(cursor, conn, product_id):
-    # Only admins and employees can access
+    # Access control
     if 'role' not in session or session['role'] not in ['admin', 'employee']:
         return redirect(url_for('login'))
     
     if request.method == 'POST':
         data = request.form
-        
+
+        # --- Extract fields ---
         name = (data.get("Name") or "").strip()
         description = data.get("Description") or ""
         price = data.get("Price")
         department_id = data.get("DepartmentID")
         image_url = data.get("ImageURL") or ""
         quantity_in_stock = data.get("QuantityInStock") or 0
-        
-        # Validate required fields
+
+        # --- Validation ---
         if not name:
             flash("Product name is required.", "danger")
             return redirect(url_for('edit_product', product_id=product_id))
-        
-        if price is None or price == "":
-            flash("Price is required.", "danger")
-            return redirect(url_for('edit_product', product_id=product_id))
-        
+
         try:
             price = float(price)
             if price < 0:
                 raise ValueError
-        except ValueError:
-            flash("Price must be a non-negative number.", "danger")
+        except (TypeError, ValueError):
+            flash("Price must be a valid non-negative number.", "danger")
             return redirect(url_for('edit_product', product_id=product_id))
-        
+
         try:
             department_id = int(department_id)
             if department_id <= 0:
                 raise ValueError
-        except (ValueError, TypeError):
+        except (TypeError, ValueError):
             flash("Please select a valid department.", "danger")
             return redirect(url_for('edit_product', product_id=product_id))
-        
+
         try:
             quantity_in_stock = int(quantity_in_stock)
             if quantity_in_stock < 0:
                 raise ValueError
-        except ValueError:
-            flash("Quantity must be a non-negative number.", "danger")
+        except (TypeError, ValueError):
+            flash("Quantity must be a valid non-negative integer.", "danger")
             return redirect(url_for('edit_product', product_id=product_id))
-        
+
+        # --- Handle image generation if missing ---
         if not image_url:
             image_url = generate_product_image(name) or "https://via.placeholder.com/400?text=Product+Image"
 
-        # Update the product
+        # --- Update the product ---
         cursor.execute("""
             UPDATE Product
             SET Name = ?, Description = ?, Price = ?, DepartmentID = ?, 
-                QuantityInStock = ?, SalePrice = ?, OnSale = ?, ImageURL = ?
+                QuantityInStock = ?, ImageURL = ?
             WHERE ProductID = ?
         """, (name, description, price, department_id, quantity_in_stock, image_url, product_id))
-        
+
         conn.commit()
         flash(f"Product '{name}' updated successfully!", "success")
         return redirect(url_for('manage_products'))
-    
-    # GET request - fetch product data
-    cursor.execute("""
-        SELECT * FROM Product WHERE ProductID = ?
-    """, (product_id,))
+
+    # --- GET request: load product info ---
+    cursor.execute("SELECT * FROM Product WHERE ProductID = ?", (product_id,))
     product = cursor.fetchone()
-    
+
     if not product:
         flash("Product not found.", "danger")
         return redirect(url_for('manage_products'))
-    
+
     # Convert to dict
     columns = [col[0] for col in cursor.description]
     product = dict(zip(columns, product))
-    
-    # Get departments for dropdown
+
+    # --- Fetch department list for dropdown ---
     cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
     departments = rows_to_dict_list(cursor)
-    
-    return render_template('edit_product.html', 
-                          product=product, 
-                          departments=departments)
+
+    return render_template(
+        'edit_product.html',
+        product=product,
+        departments=departments
+    )
 
 @app.route('/api/products/<int:product_id>', methods=['DELETE'])
 @with_db
@@ -536,7 +534,7 @@ def manage_employees(cursor, conn):
     if 'user_id' not in session or session.get('role') != 'admin':
         return redirect(url_for('login'))
 
-    cursor.execute("SELECT * FROM Employee ORDER BY HireDate DESC")
+    cursor.execute("SELECT * FROM Employee WHERE IsActive = 1 ORDER BY HireDate DESC")
     employees = rows_to_dict_list(cursor)
 
     cursor.execute("SELECT DepartmentID, Name FROM Department ORDER BY Name")
@@ -550,7 +548,7 @@ def get_employee(cursor, conn, emp_id):
     cursor.execute("""
         SELECT EmployeeID, Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password
         FROM Employee
-        WHERE EmployeeID = ?
+        WHERE EmployeeID = ? AND IsActive = 1
     """, (emp_id,))
     row = cursor.fetchone()
     if not row:
@@ -566,6 +564,7 @@ def add_employee(cursor, conn):
 
     data = request.get_json()
     username = data.get("Username")
+    department_id = data.get("DepartmentID")
     current_date = datetime.now().strftime("%m/%d/%Y")
 
     # Check for duplicate username
@@ -573,17 +572,26 @@ def add_employee(cursor, conn):
     if cursor.fetchone():
         return jsonify({"message": f"Username '{username}' already exists."}), 409
 
+    # Check if department already has an active employee
+    cursor.execute("""
+        SELECT EmployeeID 
+        FROM Employee 
+        WHERE DepartmentID = ? AND IsActive = 1
+    """, (department_id,))
+    if cursor.fetchone():
+        return jsonify({"message": f"Department already has an active employee."}), 409
+
     # Insert employee
     cursor.execute("""
-        INSERT INTO Employee (Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO Employee (Name, Phone, Email, JobTitle, HireDate, DepartmentID, AdminID, Username, Password, IsActive)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     """, (
         data.get("Name"),
         data.get("Phone") or None,
         data.get("Email") or None,
         data.get("JobTitle") or None,
         current_date,
-        data.get("DepartmentID"),
+        department_id,
         session.get("user_id"),  # logged-in admin
         data.get("Username"),
         data.get("Password")
@@ -624,7 +632,7 @@ def edit_employee(cursor, conn, emp_id):
 @app.delete("/api/employees/delete/<int:emp_id>")
 @with_db
 def delete_employee(cursor, conn, emp_id):
-    cursor.execute("DELETE FROM Employee WHERE EmployeeID = ?", (emp_id,))
+    cursor.execute("UPDATE Employee SET IsActive = 0 WHERE EmployeeID = ?", (emp_id,))
     conn.commit()
     return jsonify({"message": "Employee deleted successfully!"}), 200
 
@@ -1525,6 +1533,7 @@ def employee_report(cursor, conn):
         LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID
         LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID
         LEFT JOIN Product p ON p.ProductID = td.ProductID
+        WHERE e.IsActive = 1
         GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate
     """)
     employees = rows_to_dict_list(cursor)
@@ -1624,7 +1633,7 @@ def employee_report_filter(cursor, conn):
         "LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID",
         "LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID",
         "LEFT JOIN Product p ON p.ProductID = td.ProductID",
-        "WHERE 1=1"
+        "WHERE e.IsActive = 1"
     ]
 
     params = []

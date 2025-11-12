@@ -221,9 +221,11 @@
 </head>
 <body>
 	<div class="page">
-
-		<div class="title">
-			<div class="brand-pill">FreshMart</div>
+		<div class="title" style="justify-content: space-between; align-items: center;">
+			<div style="display: flex; align-items: center; gap: 1rem;">
+				<a href="{{ url_for('admin_dashboard') }}" class="btn secondary">← Back</a>
+				<div class="brand-pill">FreshMart</div>
+			</div>
 			<div>
 				<h1>Revenue Report</h1>
 				<div class="subtitle">Comprehensive revenue summary for this month — chart and table below.</div>

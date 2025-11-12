@@ -347,8 +347,11 @@
 
 <body>
 	<div class="report-container">
-		<div class="title">
-			<div class="brand-pill">FreshMart</div>
+		<div class="title" style="justify-content: space-between; align-items: center;">
+			<div style="display: flex; align-items: center; gap: 1rem;">
+				<a href="{{ url_for('admin_dashboard') }}" class="btn secondary">← Back</a>
+				<div class="brand-pill">FreshMart</div>
+			</div>
 			<div>
 				<h1>Product Overview Report</h1>
 				<div class="subtitle">Insight into stock levels, performance, and sales trends.</div>

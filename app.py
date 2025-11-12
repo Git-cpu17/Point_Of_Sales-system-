@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response, flash
 from flask_cors import CORS
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from collections import defaultdict
 from db import with_db, rows_to_dict_list, get_db_connection
 import random
@@ -1245,7 +1245,7 @@ def api_list_add_to_bag(cursor, conn, list_id):
 @app.route('/employee_report')
 @with_db
 def employee_report(cursor, conn):
-    # Fetch employees
+    # Fetch employees with revenue info
     cursor.execute("""
         SELECT 
             e.EmployeeID,
@@ -1253,59 +1253,97 @@ def employee_report(cursor, conn):
             d.Name AS DepartmentName,
             e.JobTitle,
             e.HireDate,
-            ISNULL(SUM(td.Quantity * td.Price), 0) AS TotalRevenue,
+            COALESCE(SUM(td.Quantity * p.Price), 0) AS TotalRevenue,
             COUNT(td.TransactionID) AS NumberOfSales,
-            CASE WHEN COUNT(td.TransactionID) > 0 THEN SUM(td.Quantity * td.Price)/COUNT(td.TransactionID) ELSE 0 END AS AverageSaleValue
+            COALESCE(SUM(td.Quantity * p.Price)/NULLIF(COUNT(td.TransactionID),0), 0) AS AverageSaleValue
         FROM Employee e
         LEFT JOIN Department d ON e.DepartmentID = d.DepartmentID
         LEFT JOIN Transaction_Details td ON td.EmployeeID = e.EmployeeID
+        LEFT JOIN Product p ON p.ProductID = td.ProductID
         GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate
     """)
     employees = rows_to_dict_list(cursor)
 
-    # Fetch all departments
+    # Calculate average tenure
+    total_days = 0
+    valid_employees = []
+
+    for e in employees:
+        hire = e.get("HireDate")
+        hire_date = None
+
+        # Handle different types
+        if isinstance(hire, datetime):
+            hire_date = hire.date()
+        elif isinstance(hire, date):
+            hire_date = hire
+        elif isinstance(hire, str):
+            try:
+                hire_date = datetime.strptime(hire[:10], "%Y-%m-%d").date()
+            except ValueError:
+                hire_date = None
+
+        # Exclude placeholder or invalid dates (before 1901)
+        if hire_date and hire_date.year > 1900:
+            days_since_hire = (date.today() - hire_date).days
+            e["DaysSinceHire"] = days_since_hire
+            total_days += days_since_hire
+            valid_employees.append(e)
+        else:
+            e["DaysSinceHire"] = None
+
+    avg_tenure_years = round(total_days / len(valid_employees) / 365, 1) if valid_employees else 0
+
+    # Fetch departments and job titles
     cursor.execute("SELECT Name FROM Department ORDER BY Name")
     departments = [row[0] for row in cursor.fetchall()]
 
-    # Fetch all unique job titles
     cursor.execute("SELECT DISTINCT JobTitle FROM Employee ORDER BY JobTitle")
-    job_titles = [row[0] for row in cursor.fetchall() if row[0]]  # ignore nulls
+    job_titles = [row[0] for row in cursor.fetchall() if row[0]]
 
-    return render_template('employee_report.html', employees=employees, departments=departments, job_titles=job_titles)
+    return render_template(
+        "employee_report.html",
+        employees=employees,
+        departments=departments,
+        job_titles=job_titles,
+        avg_tenure_years=avg_tenure_years
+    )
 
 @app.post("/api/employee_report")
 @with_db
 def employee_report_filter(cursor, conn):
     payload = request.get_json() or {}
 
-    department = payload.get("department")
+    department = payload.get("department") or []
     job_title = payload.get("job_title")
     name = payload.get("name")
     hire_date_from = _iso_date(payload.get("hire_date_from"))
     hire_date_to = _iso_date(payload.get("hire_date_to"))
-    active_status = payload.get("active_status")
-    
-    try:
-        revenue_min = float(payload.get("revenue_min") or 0)
-    except:
-        revenue_min = 0
-    try:
-        revenue_max = float(payload.get("revenue_max") or 0)
-    except:
-        revenue_max = 0
 
-    # --- Sorting parameters ---
+    # Revenue filtering
+    revenue_min = payload.get("revenue_min")
+    revenue_max = payload.get("revenue_max")
+    try:
+        revenue_min = float(revenue_min) if revenue_min not in [None, ""] else None
+    except ValueError:
+        revenue_min = None
+    try:
+        revenue_max = float(revenue_max) if revenue_max not in [None, ""] else None
+    except ValueError:
+        revenue_max = None
+
+    # Sorting
     sort_column = payload.get("sort_column")
-    sort_order = payload.get("sort_order", "asc").lower()  # asc/desc from JS
+    sort_order = payload.get("sort_order", "asc").lower()
 
     allowed_columns = [
         "EmployeeID", "Name", "DepartmentName", "JobTitle",
         "HireDate", "TotalRevenue", "NumberOfSales", "AverageSaleValue"
     ]
     if sort_column not in allowed_columns:
-        sort_column = "Name"  # default column
+        sort_column = "Name"
     if sort_order not in ["asc", "desc"]:
-        sort_order = "asc"    # default order
+        sort_order = "asc"
 
     sql_parts = [
         "SELECT",
@@ -1330,6 +1368,7 @@ def employee_report_filter(cursor, conn):
         placeholders = ",".join("?" for _ in department)
         sql_parts.append(f"AND d.Name IN ({placeholders})")
         params.extend(department)
+
     if job_title:
         sql_parts.append("AND e.JobTitle = ?")
         params.append(job_title)
@@ -1345,18 +1384,18 @@ def employee_report_filter(cursor, conn):
 
     sql_parts.append("GROUP BY e.EmployeeID, e.Name, d.Name, e.JobTitle, e.HireDate")
 
+    # HAVING clause for revenue
     having_clauses = []
-    if revenue_min > 0:
+    if revenue_min is not None:
         having_clauses.append("COALESCE(SUM(td.Quantity * p.Price), 0) >= ?")
         params.append(revenue_min)
-    if revenue_max > 0:
+    if revenue_max is not None:
         having_clauses.append("COALESCE(SUM(td.Quantity * p.Price), 0) <= ?")
         params.append(revenue_max)
-
     if having_clauses:
         sql_parts.append("HAVING " + " AND ".join(having_clauses))
 
-    # --- Add sorting ---
+    # Sorting
     sql_parts.append(f"ORDER BY {sort_column} {sort_order.upper()}")
 
     sql = "\n".join(sql_parts)
@@ -1548,6 +1587,46 @@ def product_report_filter(cursor, conn):
 
     return jsonify({"html": html})
 
+@app.route('/api/product_kpis')
+@with_db
+def product_kpis(cursor, conn):
+    # Top 3 most sold products (by number of sales)
+    cursor.execute("""
+        SELECT TOP 3 p.Name, COUNT(td.TransactionID) AS NumberOfSales
+        FROM Product p
+        LEFT JOIN Transaction_Details td ON td.ProductID = p.ProductID
+        GROUP BY p.Name
+        ORDER BY NumberOfSales DESC
+    """)
+    top_sold = cursor.fetchall()
+
+    # Bottom 3 slow-moving products (fewest sales, but at least 1 sale)
+    cursor.execute("""
+        SELECT TOP 3 p.Name, COUNT(td.TransactionID) AS NumberOfSales
+        FROM Product p
+        LEFT JOIN Transaction_Details td ON td.ProductID = p.ProductID
+        GROUP BY p.Name
+        HAVING COUNT(td.TransactionID) > 0
+        ORDER BY NumberOfSales ASC
+    """)
+    slow_moving = cursor.fetchall()
+
+    # Products low in stock (QuantityAvailable <= ReorderLevel)
+    cursor.execute("""
+        SELECT TOP 3 p.Name, i.QuantityAvailable, i.ReorderLevel
+        FROM Product p
+        JOIN Inventory i ON i.ProductID = p.ProductID
+        WHERE i.QuantityAvailable <= i.ReorderLevel
+        ORDER BY i.QuantityAvailable ASC
+    """)
+    low_stock = cursor.fetchall()
+
+    return jsonify({
+        "top_sold": [{"name": r[0], "sales": r[1]} for r in top_sold],
+        "slow_moving": [{"name": r[0], "sales": r[1]} for r in slow_moving],
+        "low_stock": [{"name": r[0], "qty": r[1], "reorder": r[2]} for r in low_stock]
+    })
+
 @app.route('/customer_report')
 @with_db
 def customer_report(cursor, conn):
@@ -1557,7 +1636,9 @@ def customer_report(cursor, conn):
             c.Name,
             c.Email,
             COUNT(DISTINCT st.TransactionID) AS TotalPurchases,
-            COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalSpent,
+            COALESCE(SUM(st.TotalAmount), 0) AS TotalSpent,
+            
+            -- Favorite product
             COALESCE((
                 SELECT TOP 1 p.Name
                 FROM Transaction_Details td2
@@ -1567,16 +1648,49 @@ def customer_report(cursor, conn):
                 GROUP BY p.ProductID, p.Name
                 ORDER BY SUM(td2.Quantity) DESC
             ), 'N/A') AS FavoriteProduct,
-            COALESCE(CONVERT(VARCHAR, MAX(st.TransactionDate), 23), 'N/A') AS LastPurchaseDate,
-            COALESCE(c.MemberID, 'N/A') AS MemberID
+            
+            -- Recent purchase (correlated subquery)
+            COALESCE((
+                SELECT TOP 1 CONVERT(VARCHAR, st2.TransactionDate, 23)
+                FROM SalesTransaction st2
+                WHERE st2.CustomerID = c.CustomerID
+                ORDER BY st2.TransactionDate DESC
+            ), 'N/A') AS RecentPurchaseDate,
+            
+            -- Largest single order per customer
+            COALESCE((
+                SELECT MAX(st2.TotalAmount)
+                FROM SalesTransaction st2
+                WHERE st2.CustomerID = c.CustomerID
+            ), 0) AS LargestSingleOrder,
+            
+            -- Most purchased category (using Department)
+            COALESCE((
+                SELECT TOP 1 d.Name
+                FROM Transaction_Details td2
+                JOIN Product p ON td2.ProductID = p.ProductID
+                JOIN Department d ON p.DepartmentID = d.DepartmentID
+                JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID
+                WHERE st2.CustomerID = c.CustomerID
+                GROUP BY d.Name
+                ORDER BY SUM(td2.Quantity) DESC
+            ), 'N/A') AS MostPurchasedCategory
+
         FROM Customer c
         LEFT JOIN SalesTransaction st ON c.CustomerID = st.CustomerID
-        LEFT JOIN Transaction_Details td ON st.TransactionID = td.TransactionID
-        GROUP BY c.CustomerID, c.Name, c.Email, c.MemberID
+        GROUP BY c.CustomerID, c.Name, c.Email
         ORDER BY c.Name
     """)
     customers = rows_to_dict_list(cursor)
-    return render_template('customer_report.html', customers=customers)
+
+    # Compute overall largest single order across all customers
+    overall_largest_order = max(c['LargestSingleOrder'] for c in customers) if customers else 0
+
+    return render_template(
+        'customer_report.html',
+        customers=customers,
+        overall_largest_order=overall_largest_order
+    )
 
 @app.post("/api/customer_report")
 @with_db
@@ -1590,36 +1704,46 @@ def customer_report_filter(cursor, conn):
     total_spent_min = payload.get("total_spent_min")
     total_spent_max = payload.get("total_spent_max")
     sort_column = payload.get("sort_column")
-    sort_direction = payload.get("sort_direction", "asc").upper()  # default ASC
+    sort_direction = payload.get("sort_direction", "asc").upper()
+    total_purchases_min = payload.get("total_purchases_min")
+    total_purchases_max = payload.get("total_purchases_max")
 
-    # Base SQL
     sql_parts = [
         "SELECT",
         "  c.CustomerID,",
         "  c.Name,",
         "  c.Email,",
         "  COUNT(DISTINCT st.TransactionID) AS TotalPurchases,",
-        "  COALESCE(SUM(td.Quantity * td.Price), 0) AS TotalSpent,",
-        "  COALESCE((",
-        "      SELECT TOP 1 p.Name",
-        "      FROM Transaction_Details td2",
-        "      JOIN Product p ON td2.ProductID = p.ProductID",
-        "      JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID",
-        "      WHERE st2.CustomerID = c.CustomerID",
-        "      GROUP BY p.ProductID, p.Name",
-        "      ORDER BY SUM(td2.Quantity) DESC",
-        "  ), 'N/A') AS FavoriteProduct,",
-        "  COALESCE(CONVERT(VARCHAR, MAX(st.TransactionDate), 23), 'N/A') AS LastPurchaseDate,",
-        "  COALESCE(c.MemberID, 'N/A') AS MemberID",
+        "  COALESCE(SUM(st.TotalAmount), 0) AS TotalSpent,",
+        "  COALESCE((SELECT TOP 1 p.Name",
+        "           FROM Transaction_Details td2",
+        "           JOIN Product p ON td2.ProductID = p.ProductID",
+        "           JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID",
+        "           WHERE st2.CustomerID = c.CustomerID",
+        "           GROUP BY p.ProductID, p.Name",
+        "           ORDER BY SUM(td2.Quantity) DESC), 'N/A') AS FavoriteProduct,",
+        "  COALESCE((SELECT TOP 1 CONVERT(VARCHAR, st2.TransactionDate, 23)",
+        "           FROM SalesTransaction st2",
+        "           WHERE st2.CustomerID = c.CustomerID",
+        "           ORDER BY st2.TransactionDate DESC), 'N/A') AS RecentPurchaseDate,",
+        "  COALESCE((SELECT MAX(st2.TotalAmount)",
+        "           FROM SalesTransaction st2",
+        "           WHERE st2.CustomerID = c.CustomerID), 0) AS LargestSingleOrder,",
+        "  COALESCE((SELECT TOP 1 d.Name",
+        "           FROM Transaction_Details td2",
+        "           JOIN Product p ON td2.ProductID = p.ProductID",
+        "           JOIN Department d ON p.DepartmentID = d.DepartmentID",
+        "           JOIN SalesTransaction st2 ON td2.TransactionID = st2.TransactionID",
+        "           WHERE st2.CustomerID = c.CustomerID",
+        "           GROUP BY d.Name",
+        "           ORDER BY SUM(td2.Quantity) DESC), 'N/A') AS MostPurchasedCategory",
         "FROM Customer c",
         "LEFT JOIN SalesTransaction st ON c.CustomerID = st.CustomerID",
-        "LEFT JOIN Transaction_Details td ON st.TransactionID = td.TransactionID",
         "WHERE 1=1"
     ]
 
     params = []
 
-    # Filters
     if customer_name:
         sql_parts.append("AND c.Name LIKE ?")
         params.append(f"%{customer_name}%")
@@ -1633,45 +1757,49 @@ def customer_report_filter(cursor, conn):
         sql_parts.append("AND st.TransactionDate <= ?")
         params.append(date_to)
 
-    # GROUP BY
-    sql_parts.append("GROUP BY c.CustomerID, c.Name, c.Email, c.MemberID")
+    sql_parts.append("GROUP BY c.CustomerID, c.Name, c.Email")
 
-    # HAVING for TotalSpent min/max
     having_conditions = []
     if total_spent_min:
-        having_conditions.append("COALESCE(SUM(td.Quantity * td.Price), 0) >= ?")
+        having_conditions.append("COALESCE(SUM(st.TotalAmount), 0) >= ?")
         params.append(float(total_spent_min))
     if total_spent_max:
-        having_conditions.append("COALESCE(SUM(td.Quantity * td.Price), 0) <= ?")
+        having_conditions.append("COALESCE(SUM(st.TotalAmount), 0) <= ?")
         params.append(float(total_spent_max))
+    if total_purchases_min:
+        having_conditions.append("COUNT(DISTINCT st.TransactionID) >= ?")
+        params.append(int(total_purchases_min))
+    if total_purchases_max:
+        having_conditions.append("COUNT(DISTINCT st.TransactionID) <= ?")
+        params.append(int(total_purchases_max))
+
     if having_conditions:
         sql_parts.append("HAVING " + " AND ".join(having_conditions))
 
-    # Safe ORDER BY
-    allowed_columns = ["CustomerID","Name","Email","TotalPurchases","TotalSpent","FavoriteProduct","LastPurchaseDate","MemberID"]
+    allowed_columns = ["CustomerID","Name","Email","TotalPurchases","TotalSpent",
+                       "FavoriteProduct","RecentPurchaseDate","LargestSingleOrder","MostPurchasedCategory"]
     if sort_column in allowed_columns:
-        sort_direction = "DESC" if sort_direction == "DESC" else "ASC"  # sanitize
-        sql_parts.append(f"ORDER BY {sort_column} {sort_direction}")
+        direction = "DESC" if sort_direction == "DESC" else "ASC"
+        sql_parts.append(f"ORDER BY {sort_column} {direction}")
     else:
-        sql_parts.append("ORDER BY c.Name ASC")  # default sort
+        sql_parts.append("ORDER BY c.Name ASC")
 
     sql = "\n".join(sql_parts)
     cursor.execute(sql, params)
-    rows = cursor.fetchall()
+    rows = rows_to_dict_list(cursor)
 
-    # Build HTML with N/A for None
     html = ""
     for r in rows:
         html += "<tr>"
-        for val in r:
-            if val is None:
-                html += "<td>N/A</td>"
-            elif isinstance(val, float):
-                html += f"<td>${val:,.2f}</td>"
-            elif isinstance(val, datetime):
-                html += f"<td>{val.strftime('%Y-%m-%d')}</td>"
-            else:
-                html += f"<td>{val}</td>"
+        html += f"<td>{r['CustomerID'] or 'N/A'}</td>"
+        html += f"<td>{r['Name'] or 'N/A'}</td>"
+        html += f"<td>{r['Email'] or 'N/A'}</td>"
+        html += f"<td>{r['TotalPurchases'] or 0}</td>"
+        html += f"<td>${r['TotalSpent']:.2f}</td>"
+        html += f"<td>{r['FavoriteProduct'] or 'N/A'}</td>"
+        html += f"<td>{r['RecentPurchaseDate'] or 'N/A'}</td>"
+        html += f"<td>${r['LargestSingleOrder']:.2f}</td>"
+        html += f"<td>{r['MostPurchasedCategory'] or 'N/A'}</td>"
         html += "</tr>"
 
     return jsonify({"html": html})

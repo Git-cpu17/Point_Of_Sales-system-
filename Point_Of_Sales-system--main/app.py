@@ -152,6 +152,7 @@ def add_product_page(cursor, conn):
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@with_db
 def login():
     if request.method == 'POST':
         data = request.get_json(silent=True) or request.form or {}
@@ -161,7 +162,7 @@ def login():
         if not user_id or not password:
             return jsonify({"success": False, "message": "Missing credentials"}), 400
 
-        @with_db
+        
         def check_credentials(cursor, conn):
             cursor.execute("SELECT * FROM Administrator WHERE Username = ? AND Password = ?", (user_id, password))
             admin = cursor.fetchone()
@@ -181,7 +182,7 @@ def login():
             else:
                 return jsonify({"success": False, "message": "Invalid ID or Password"}), 401
 
-        return check_credentials()
+        return check_credentials(cursor, conn)
 
     return render_template('login.html')
 

@@ -112,7 +112,7 @@ function updateCartTotal() {
 }
 
 // Enhanced add to cart with animation
-function addToCart(productId) {
+function addToCart(productId, productName) {
   ensureProducts().then(() => {
     const product = getProductById(productId);
     if (!product) {
@@ -453,12 +453,22 @@ function setupLoginForm() {
       });
       
       const data = await response.json();
-      
+      console.log('Login response:', data); // 🔹 debug log
+
       if (data && data.success) {
         sessionStorage.setItem('role', data.role || '');
         showNotification('Login successful! Redirecting...', 'success');
+
+        // Ensure redirect URL is absolute if needed
+        let redirectUrl = data.redirectUrl || '/';
+        if (!redirectUrl.startsWith('http')) {
+          // Prepend API_BASE origin if redirectUrl is relative
+          const baseOrigin = window.location.origin; 
+          redirectUrl = `${baseOrigin}${redirectUrl}`;
+        }
+
         setTimeout(() => {
-          window.location.href = data.redirectUrl || '/';
+          window.location.href = redirectUrl;
         }, 1000);
       } else {
         showNotification(data.message || 'Invalid credentials', 'error');
@@ -473,6 +483,7 @@ function setupLoginForm() {
     }
   });
 }
+
 
 // Add CSS animations
 function addAnimationStyles() {

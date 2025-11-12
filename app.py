@@ -2510,7 +2510,86 @@ def checkout(cursor, conn):
         conn.rollback()
         conn.autocommit = autocommit_backup
         return jsonify({"message": f"Database error: {str(e)}"}), 500
-        
+@app.route('/api/notifications')
+@with_db
+def get_notifications(cursor, conn):
+    """Get all pending reorder alerts for admins and employees"""
+    if 'role' not in session or session.get('role') not in ['admin', 'employee']:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    try:
+        cursor.execute("""
+            SELECT AlertID, ProductID, ProductName, CurrentStock, ReorderLevel, AlertDate, AlertStatus
+            FROM Reorder_Alerts
+            WHERE AlertStatus = 'PENDING'
+            ORDER BY AlertDate DESC
+        """)
+        alerts = rows_to_dict_list(cursor)
+
+        # Format the notifications
+        notifications = []
+        for alert in alerts:
+            notifications.append({
+                'id': alert['AlertID'],
+                'type': 'low_stock',
+                'productId': alert['ProductID'],
+                'productName': alert['ProductName'],
+                'currentStock': alert['CurrentStock'],
+                'reorderLevel': alert['ReorderLevel'],
+                'message': f"Low stock alert: {alert['ProductName']} has only {alert['CurrentStock']} units left (reorder at {alert['ReorderLevel']})",
+                'timestamp': alert['AlertDate'].isoformat() if alert['AlertDate'] else None,
+                'status': alert['AlertStatus']
+            })
+
+        return jsonify({'notifications': notifications, 'count': len(notifications)}), 200
+    except Exception as e:
+        print(f"Error fetching notifications: {e}")
+        traceback.print_exc()
+        return jsonify({"message": "Error fetching notifications"}), 500
+
+@app.route('/api/notifications/<int:alert_id>/dismiss', methods=['POST'])
+@with_db
+def dismiss_notification(cursor, conn, alert_id):
+    """Mark a notification as dismissed"""
+    if 'role' not in session or session.get('role') not in ['admin', 'employee']:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    try:
+        cursor.execute("""
+            UPDATE Reorder_Alerts
+            SET AlertStatus = 'DISMISSED'
+            WHERE AlertID = ?
+        """, (alert_id,))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return jsonify({"message": "Notification not found"}), 404
+
+        return jsonify({"message": "Notification dismissed"}), 200
+    except Exception as e:
+        print(f"Error dismissing notification: {e}")
+        return jsonify({"message": "Error dismissing notification"}), 500
+
+@app.route('/api/notifications/dismiss-all', methods=['POST'])
+@with_db
+def dismiss_all_notifications(cursor, conn):
+    """Mark all pending notifications as dismissed"""
+    if 'role' not in session or session.get('role') not in ['admin', 'employee']:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    try:
+        cursor.execute("""
+            UPDATE Reorder_Alerts
+            SET AlertStatus = 'DISMISSED'
+            WHERE AlertStatus = 'PENDING'
+        """)
+        conn.commit()
+
+        return jsonify({"message": f"{cursor.rowcount} notifications dismissed"}), 200
+    except Exception as e:
+        print(f"Error dismissing all notifications: {e}")
+        return jsonify({"message": "Error dismissing notifications"}), 500
+
 @app.route('/logout')
 def logout():
     # Clear all session data

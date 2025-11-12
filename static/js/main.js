@@ -870,6 +870,43 @@
     // Initialize label text when page loads
     updateDeptLabel();
   });
+  // -------------------- Load KPIs --------------------
+  async function loadKPIs() {
+      try {
+          const res = await fetch("/api/product_kpis");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+
+          const topSoldList = document.getElementById("topSoldList");
+          topSoldList.innerHTML = "";
+          data.top_sold.forEach(p => {
+              const li = document.createElement("li");
+              li.textContent = `${p.name} (${p.sales} sales)`;
+              topSoldList.appendChild(li);
+          });
+
+          const slowMovingList = document.getElementById("slowMovingList");
+          slowMovingList.innerHTML = "";
+          data.slow_moving.forEach(p => {
+              const li = document.createElement("li");
+              li.textContent = `${p.name} (${p.sales} sales)`;
+              slowMovingList.appendChild(li);
+          });
+
+          const lowStockList = document.getElementById("lowStockList");
+          lowStockList.innerHTML = "";
+          data.low_stock.forEach(p => {
+              const li = document.createElement("li");
+              li.textContent = `${p.name} (${p.qty} in stock, Reorder: ${p.reorder})`;
+              lowStockList.appendChild(li);
+          });
+      } catch (err) {
+          console.error("Error loading KPIs:", err);
+      }
+  }
+
+  // Load KPIs on page load
+  document.addEventListener('DOMContentLoaded', loadKPIs);
 
   // -------------------- Customer Report Filters --------------------
   document.addEventListener("DOMContentLoaded", () => {
@@ -891,11 +928,13 @@
         date_to: document.getElementById("date_to").value,
         total_spent_min: document.getElementById("total_spent_min").value,
         total_spent_max: document.getElementById("total_spent_max").value,
+        total_purchases_min: document.getElementById("total_purchases_min")?.value,
+        total_purchases_max: document.getElementById("total_purchases_max")?.value,
         sort_column: sortColumn,
         sort_direction: sortDirection
       };
 
-      tableBody.innerHTML = '<tr><td colspan="8">Loading…</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="9">Loading…</td></tr>';
 
       try {
         const res = await fetch("/api/customer_report", {
@@ -907,10 +946,10 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
-        tableBody.innerHTML = data.html || '<tr><td colspan="8">No results found</td></tr>';
+        tableBody.innerHTML = data.html || '<tr><td colspan="9">No results found</td></tr>';
       } catch (err) {
         console.error(err);
-        tableBody.innerHTML = '<tr><td colspan="8">Error loading report</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="9">Error loading report</td></tr>';
       }
     }
 
@@ -944,7 +983,9 @@
         date_from: document.getElementById("date_from").value,
         date_to: document.getElementById("date_to").value,
         total_spent_min: document.getElementById("total_spent_min").value,
-        total_spent_max: document.getElementById("total_spent_max").value
+        total_spent_max: document.getElementById("total_spent_max").value,
+        total_purchases_min: document.getElementById("total_purchases_min")?.value,
+        total_purchases_max: document.getElementById("total_purchases_max")?.value
       });
       window.location.href = `/reports/csv?${params.toString()}`;
     });

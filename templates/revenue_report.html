@@ -19,14 +19,22 @@
 			--shadow: 0 6px 24px rgba(15,20,10,0.06);
 		}
 
-		body {
-			font-family: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
-			background: linear-gradient(180deg, #fbfdfb 0%, var(--bg) 100%);
-			color: #222;
-			margin: 0;
-			padding: 2rem 1rem;
-			-webkit-font-smoothing: antialiased;
-		}
+        body {
+        font-family: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+        background:
+            repeating-linear-gradient(
+            135deg,
+            rgba(30, 60, 40, 0.08),
+            rgba(30, 60, 40, 0.08) 20px,
+            rgba(20, 40, 25, 0.03) 20px,
+            rgba(20, 40, 25, 0.03) 40px
+            );
+        background-color: #f8fbf9;
+        color: #222;
+        margin: 0;
+        padding: 2rem 1rem;
+        -webkit-font-smoothing: antialiased;
+        }
 
 		.page {
 			max-width: 1200px;

@@ -1616,22 +1616,37 @@ def api_list_items_clear(cursor, conn, list_id):
 @with_db
 def api_list_add_to_bag(cursor, conn, list_id):
     cid = _require_customer()
-    if not cid: return jsonify({"message":"Login required"}), 401
+    if not cid:
+        return jsonify({"message": "Login required"}), 401
+
     cursor.execute("SELECT 1 FROM dbo.ShoppingList WHERE ListID=? AND CustomerID=?", (list_id, cid))
-    if not cursor.fetchone(): return jsonify({"message":"Not found"}), 404
-    cursor.execute("SELECT ProductID, Quantity FROM dbo.ShoppingListItem WHERE ListID=?", (list_id,))
-    rows = cursor.fetchall()
-    for pid, qty in rows:
-        cursor.execute("""
-            MERGE dbo.Bag AS t
-            USING (SELECT ? AS CustomerID, ? AS ProductID) AS s
-            ON t.CustomerID=s.CustomerID AND t.ProductID=s.ProductID AND t.EmployeeID IS NULL
-            WHEN MATCHED THEN UPDATE SET Quantity = t.Quantity + ?
-            WHEN NOT MATCHED THEN INSERT(CustomerID, EmployeeID, ProductID, Quantity)
-                                VALUES(s.CustomerID, NULL, s.ProductID, ?);
-        """, (cid, pid, qty, qty))
+    if not cursor.fetchone():
+        return jsonify({"message": "Not found"}), 404
+
+    cursor.execute("SELECT COUNT(*) FROM dbo.ShoppingListItem WHERE ListID=?", (list_id,))
+    if int(cursor.fetchone()[0]) == 0:
+        return jsonify({"message": "List is empty"}), 400
+
+    cursor.execute("""
+    MERGE dbo.Bag AS t
+    USING (
+        SELECT ? AS CustomerID, ProductID, SUM(Quantity) AS Quantity
+        FROM dbo.ShoppingListItem
+        WHERE ListID = ?
+        GROUP BY ProductID
+    ) AS s
+    ON  t.CustomerID = s.CustomerID AND t.ProductID = s.ProductID
+    WHEN MATCHED THEN
+        UPDATE SET t.Quantity = t.Quantity + s.Quantity
+    WHEN NOT MATCHED THEN
+        INSERT (CustomerID, ProductID, Quantity)
+        VALUES (s.CustomerID, s.ProductID, s.Quantity);
+    """, (cid, list_id))
+
+    cursor.execute("DELETE FROM dbo.ShoppingListItem WHERE ListID=?", (list_id,))
+
     conn.commit()
-    return jsonify({"message":"Added to cart"})
+    return jsonify({"message": "Added to cart and cleared list"})
 
 #DATA REPORTS theres three of them
 

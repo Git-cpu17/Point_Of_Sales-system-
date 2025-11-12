@@ -494,6 +494,41 @@ def restock_product(cursor, conn, alert_id):
 
     return jsonify({"message": "Product restocked successfully", "quantity": restock_quantity})
 
+@app.route('/api/reorder_alerts/scan', methods=['POST'])
+@with_db
+def scan_low_stock(cursor, conn):
+    """Scan all products and create alerts for any that are currently low stock but don't have pending alerts"""
+    if 'user_id' not in session or session.get('role') not in ('admin', 'employee'):
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # Find products that are low stock but don't have pending alerts
+    cursor.execute("""
+        INSERT INTO Reorder_Alerts (ProductID, ProductName, CurrentStock, ReorderLevel)
+        SELECT
+            p.ProductID,
+            p.Name,
+            p.QuantityInStock,
+            ISNULL(inv.ReorderLevel, 10) as ReorderLevel
+        FROM Product p
+        LEFT JOIN Inventory inv ON p.ProductID = inv.ProductID
+        WHERE p.QuantityInStock <= ISNULL(inv.ReorderLevel, 10) * 1.2
+        AND p.IsActive = 1
+        AND NOT EXISTS (
+            SELECT 1
+            FROM Reorder_Alerts ra
+            WHERE ra.ProductID = p.ProductID
+            AND ra.AlertStatus = 'PENDING'
+        )
+    """)
+
+    rows_inserted = cursor.rowcount
+    conn.commit()
+
+    return jsonify({
+        "message": f"Scan complete. Created {rows_inserted} new alert(s).",
+        "alerts_created": rows_inserted
+    })
+
 @app.route('/admin/add-product', methods=['GET', 'POST'])
 @with_db
 def add_product(cursor, conn):

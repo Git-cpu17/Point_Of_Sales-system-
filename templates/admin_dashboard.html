@@ -432,6 +432,13 @@
     // Load notification count on page load
     async function loadNotificationCount() {
       try {
+        // First scan for any low stock products
+        await fetch('/api/reorder_alerts/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Then get the count
         const response = await fetch('/api/reorder_alerts/count');
         const data = await response.json();
         const badge = document.getElementById('reorder-badge');
@@ -452,9 +459,16 @@
       const container = document.getElementById('alerts-container');
 
       modal.classList.add('active');
-      container.innerHTML = '<p style="text-align: center; padding: 2rem;">Loading...</p>';
+      container.innerHTML = '<p style="text-align: center; padding: 2rem;">Scanning for low stock products...</p>';
 
       try {
+        // First, scan for any low stock products that don't have alerts yet
+        await fetch('/api/reorder_alerts/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        // Then fetch all alerts
         const response = await fetch('/api/reorder_alerts');
         const alerts = await response.json();
 

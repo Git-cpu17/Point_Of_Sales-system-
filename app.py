@@ -42,7 +42,7 @@ def inject_bag_count(cursor, conn):
 @app.route('/')
 @with_db
 def home(cursor, conn):
-    cursor.execute("SELECT * FROM Product")
+    cursor.execute("SELECT * FROM Product WHERE IsActive = 1")
     products = rows_to_dict_list(cursor)
     cursor.execute("SELECT * FROM Department")
     departments = rows_to_dict_list(cursor)
@@ -80,6 +80,7 @@ def get_products(cursor, conn):
     cursor.execute("""
         SELECT ProductID, Name, Description, Price, QuantityInStock, Barcode, DepartmentID
         FROM Product
+        WHERE IsActive = 1
     """)
     rows = rows_to_dict_list(cursor)
     return jsonify(rows)
@@ -1987,7 +1988,7 @@ def manage_products(cursor, conn):
             p.ImageURL
         FROM Product p
         LEFT JOIN Department d ON p.DepartmentID = d.DepartmentID
-        WHERE 1=1
+        WHERE p.IsActive = 1
     """
     params = []
     

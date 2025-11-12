@@ -465,7 +465,7 @@
         const filtered = selectedCategory === 'all'
           ? allProducts
           : allProducts.filter(p =>
-              (p.DepartmentName || p.Category || '').toLowerCase() === selectedCategory.toLowerCase()
+              (p.DepartmentID || p.Category || '').toLowerCase() === selectedCategory.toLowerCase()
            );
 
         // Re-render product grid

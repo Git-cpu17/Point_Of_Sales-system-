@@ -43,11 +43,19 @@ def inject_bag_count(cursor, conn):
 @app.route('/')
 @with_db
 def home(cursor, conn):
-    cursor.execute("SELECT * FROM Product WHERE IsActive = 1")
+    # Fetch active products including DepartmentID
+    cursor.execute("""
+        SELECT ProductID, Name, Description, Price, QuantityInStock, DepartmentID, ImageURL, OnSale
+        FROM Product
+        WHERE IsActive = 1
+    """)
     products = rows_to_dict_list(cursor)
-    cursor.execute("SELECT * FROM Department")
+
+    # Fetch all departments
+    cursor.execute("SELECT DepartmentID, DepartmentName FROM Department")
     departments = rows_to_dict_list(cursor)
 
+    # Determine user info based on role
     user = None
     role = session.get('role')
 
@@ -69,6 +77,7 @@ def home(cursor, conn):
         if record:
             user = {'Name': record[0], 'role': 'employee'}
 
+    # Pass products and departments to template for JS filtering
     return render_template('index.html', products=products, departments=departments, user=user)
 
 @app.route("/api/status", methods=["GET"])

@@ -962,6 +962,39 @@
     if (!container) return;
   
     let currentListId = null;
+    let currentLists = [];
+
+    async function sl_refreshListsUI() {
+      const select = document.getElementById('listSelect');
+      const delBtn = document.getElementById('deleteListBtn');
+    
+      const r = await fetch('/api/lists', { credentials: 'same-origin' });
+      if (r.status === 401) { window.location.href = '/login'; return; }
+      if (!r.ok) { alert('Failed to load lists'); return; }
+    
+      currentLists = await r.json();
+      if (!currentLists.length) { select.innerHTML = ''; delBtn.disabled = true; return; }
+    
+      if (!currentListId) {
+        const def = currentLists.find(l => l.IsDefault) || currentLists[0];
+        currentListId = def.ListID;
+      } else if (!currentLists.some(l => l.ListID === currentListId)) {
+        currentListId = (currentLists.find(l => l.IsDefault) || currentLists[0]).ListID;
+      }
+    
+      select.innerHTML = currentLists.map(l =>
+        `<option value="${l.ListID}" ${l.ListID === currentListId ? 'selected' : ''}>
+           ${l.Name}${l.IsDefault ? ' (default)' : ''}
+         </option>`).join('');
+    
+      const selected = currentLists.find(l => l.ListID === currentListId);
+      delBtn.disabled = !selected || !!selected.IsDefault;
+    }
+    
+    function sl_selectedIsDefault() {
+      const selected = currentLists.find(l => l.ListID === currentListId);
+      return !!(selected && selected.IsDefault);
+    }
   
     async function sl_getDefaultListId() {
       const r = await fetch('/api/lists', { credentials: 'same-origin' });
@@ -1038,12 +1071,52 @@
             body: JSON.stringify({ quantity: newQty })
           });
         }
+        
         sl_loadItems();
   
       } else if (e.target.classList.contains('remove')) {
         await fetch(`/api/lists/${currentListId}/items/${pid}`, { method: 'DELETE', credentials: 'same-origin' });
         sl_loadItems();
       }
+    });
+
+    document.getElementById('listSelect').addEventListener('change', async (e) => {
+      currentListId = Number(e.target.value);
+      await sl_refreshListsUI(); // updates delete button state
+      await sl_loadItems();
+    });
+    
+    document.getElementById('createListBtn').addEventListener('click', async () => {
+      const name = prompt('Name for the new list:');
+      if (!name || !name.trim()) return;
+      const r = await fetch('/api/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ name: name.trim() })
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        alert(data.message || 'Could not create list.');
+        return;
+      }
+      await sl_refreshListsUI();
+      await sl_loadItems();
+    });
+    
+    document.getElementById('deleteListBtn').addEventListener('click', async () => {
+      if (sl_selectedIsDefault()) { alert('Cannot delete the default list.'); return; }
+      if (!confirm('Delete this list?')) return;
+    
+      const r = await fetch(`/api/lists/${currentListId}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) { alert(data.message || 'Could not delete list.'); return; }
+    
+      await sl_refreshListsUI();
+      await sl_loadItems();
     });
   
     document.getElementById('addListToCartBtn').addEventListener('click', async () => {
@@ -1061,28 +1134,38 @@
     });
   
     (async () => {
-      currentListId = await sl_getDefaultListId();
+      await sl_refreshListsUI();
       await sl_loadItems();
     })();
   });
   
-  // Optional: allow saving from product cards
   async function addToList(productId, qty = 1) {
     const r = await fetch('/api/lists', { credentials: 'same-origin' });
     if (r.status === 401) { window.location.href = '/login'; return; }
     if (!r.ok) { alert('Failed to load lists'); return; }
+  
     const lists = await r.json();
-    const def = lists.find(l => l.IsDefault) || lists[0];
-    if (!def) { alert('No shopping list found'); return; }
-    const res = await fetch(`/api/lists/${def.ListID}/items`, {
+    if (!lists.length) { alert('No shopping lists found.'); return; }
+  
+    const menu = lists.map((l, i) => `${i + 1}. ${l.Name}${l.IsDefault ? ' (default)' : ''}`).join('\n');
+    const choice = prompt(`Add to which list?\n${menu}`);
+    if (choice == null) return;
+    const idx = parseInt(choice, 10) - 1;
+  
+    const target = lists[idx];
+    if (!target) { alert('Invalid selection.'); return; }
+  
+    const res = await fetch(`/api/lists/${target.ListID}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ product_id: productId, quantity: qty })
     });
+  
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       alert(data.message || 'Failed to save to list');
       return;
     }
     alert('Saved to list!');
+  }

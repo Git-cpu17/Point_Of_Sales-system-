@@ -1107,7 +1107,7 @@ def api_lists_create(cursor, conn):
         return jsonify({"message":"Name required"}), 400
     name = str(name).strip()
     _ensure_default_list(cursor, cid)
-    cursor.execute("INSERT INTO dbo.ShoppingList(CustomerID, Name, IsDefault) VALUES(?, ?, 0)", (cid, name))
+    cursor.execute("INSERT INTO dbo.ShoppingList(CustomerID, Name, IsDefault, CreatedAt) VALUES(?, ?, 0, GETDATE())", (cid, name))
     conn.commit()
     return jsonify({"message":"Created"})
 

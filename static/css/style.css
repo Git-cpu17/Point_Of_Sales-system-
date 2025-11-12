@@ -923,3 +923,26 @@ form a:hover {
 .loading, .error { padding: 1rem; }
 .loading { color: var(--text-light); }
 .error { color: #c62828; }
+
+.sl-container { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+.sl-toolbar { display: flex; gap: 12px; align-items: center; margin: 10px 0 18px; }
+.sl-select { min-width: 320px; padding: 6px 8px; }
+.btn { padding: 8px 12px; border-radius: 8px; border: 0; cursor: pointer; }
+.btn-primary { background:#2f8f46; color:#fff; }
+.btn-danger { background:#c23a3a; color:#fff; }
+.btn[disabled] { opacity: .6; cursor: not-allowed; }
+.sl-empty { color:#666; margin-top: 8px; }
+.sl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.sl-item {
+  background:#fff;
+  border:1px solid #e6e6e6;
+  border-radius:12px;
+  padding:12px 14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+}
+.sl-item .sl-top { display:flex; justify-content:space-between; margin-bottom:8px; }
+.sl-item .sl-bottom { display:flex; gap:8px; align-items:center; }

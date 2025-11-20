@@ -1,0 +1,26 @@
+/project
+  app.js
+  db.js
+  package.json
+  .env (you create)
+  /middleware
+    withDB.js
+    authGuard.js
+    bagOwner.js
+  /routes
+    auth.js
+    admin.js
+    products.js
+    bag.js
+    lists.js
+    employees.js
+    reports.js
+    customer.js
+    employee.js
+    reorderAlerts.js
+  /views
+    (place your .ejs templates here - converted from your Jinja templates)
+  /public
+    js/
+    css/
+    images/

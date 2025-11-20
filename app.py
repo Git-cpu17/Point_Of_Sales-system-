@@ -409,11 +409,15 @@ def apply_sales(cursor, conn):
         return jsonify({"error": "Unauthorized"}), 403
 
     try:
-        cursor.execute("EXEC ApplyHolidaySales")
+        cursor.execute("""
+            UPDATE Product
+            SET Price = Price * 0.8
+        """)
         conn.commit()
         return jsonify({"message": "Seasonal sale prices applied!"}), 200
     except Exception as e:
         print("Error executing sale trigger:", e)
+        conn.rollback()
         return jsonify({"error": "Failed to apply sales"}), 500
 
 # Reorder Alerts API endpoints

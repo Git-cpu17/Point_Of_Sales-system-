@@ -1,0 +1,567 @@
+    <!-- extends admin_dashboard.html -->
+    <!-- block content -->
+    <style>
+    :root {
+        --primary: #2ecc71;
+        --secondary: #27ae60;
+        --bg-light: #f9f9f9;
+        --text-dark: #333;
+        --text-muted: #777;
+        --accent-light: #e8f9ee;
+        --radius: 10px;
+        --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Override inherited dashboard layout */
+    .dashboard-container {
+        max-width: none !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    main {
+        max-width: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    body {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8f9ee 100%);
+        min-height: 100vh;
+    }
+
+    .form-container {
+        width: 100%;
+        max-width: 1500px;
+        margin: 2rem auto;
+        padding: 3rem 2rem;
+        animation: slideUp 0.6s ease-out;
+    }
+
+    /* Make the form itself full-width and centered */
+    #editProductForm {
+        width: 100%;
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .page-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .page-header h2 {
+        color: var(--secondary);
+        font-weight: 700;
+        font-size: 2.2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .page-header p {
+        color: var(--text-muted);
+        font-size: 1.05rem;
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(46, 204, 113, 0.1);
+        transition: all 0.3s ease;
+        animation: cardAppear 0.5s ease-out backwards;
+    }
+
+    .form-card:nth-child(2) { animation-delay: 0.1s; }
+    .form-card:nth-child(3) { animation-delay: 0.2s; }
+
+    @keyframes cardAppear {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .form-card:hover {
+        box-shadow: 0 6px 30px rgba(0, 0, 0, 0.12);
+        transform: translateY(-3px);
+    }
+
+    .form-card h4 {
+        color: var(--secondary);
+        font-weight: 600;
+        font-size: 1.3rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--accent-light);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .section-icon {
+        font-size: 1.5rem;
+    }
+
+    .row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .input-group {
+        margin-bottom: 1.5rem;
+    }
+
+    label {
+        display: block;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .required-badge {
+        display: inline-block;
+        background: var(--primary);
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin-left: 0.4rem;
+        vertical-align: middle;
+    }
+
+    .info-badge {
+        display: inline-block;
+        background: #3498db;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        margin-left: 0.4rem;
+        vertical-align: middle;
+    }
+
+    .form-control, .form-select {
+        width: 100%;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .form-control::placeholder {
+        color: #aaa;
+    }
+
+    .form-control:focus, .form-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .form-control:hover:not(:focus), .form-select:hover:not(:focus) {
+        border-color: #999;
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+        font-family: inherit;
+        line-height: 1.6;
+    }
+
+    .char-counter {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 0.4rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .char-counter.warning {
+        color: #f39c12;
+    }
+
+    .char-counter.danger {
+        color: #e74c3c;
+        font-weight: 600;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .submit-btn, .cancel-btn {
+        border: none;
+        border-radius: 10px;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        animation: cardAppear 0.5s ease-out 0.3s backwards;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        min-width: 200px;
+    }
+
+    .submit-btn {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+    }
+
+    .submit-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 25px rgba(46, 204, 113, 0.4);
+        background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+    }
+
+    .submit-btn:active {
+        transform: translateY(-1px);
+    }
+
+    .cancel-btn {
+        background: white;
+        color: var(--text-dark);
+        border: 2px solid #e0e0e0;
+    }
+
+    .cancel-btn:hover {
+        background: var(--bg-light);
+        border-color: #999;
+        transform: translateY(-2px);
+    }
+
+    small.form-text {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        margin-top: 0.3rem;
+        display: block;
+    }
+
+    .btn-icon {
+        font-size: 1.3rem;
+    }
+
+    .product-info {
+        background: var(--accent-light);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .product-info-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .product-info-label {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    .product-info-value {
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+        .form-container {
+            padding: 1.5rem 1rem;
+        }
+        
+        .form-card {
+            padding: 1.5rem;
+        }
+        
+        .page-header h2 {
+            font-size: 1.8rem;
+        }
+        
+        .row {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .submit-btn, .cancel-btn {
+            width: 100%;
+            font-size: 1rem;
+            padding: 0.9rem 1.5rem;
+        }
+    }
+
+    @keyframes gentleFloat {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-5px);
+        }
+    }
+
+    .form-card:hover h4 {
+        animation: gentleFloat 2s ease-in-out infinite;
+    }
+    </style>
+
+    <div class="form-container">
+        <div class="page-header">
+            <h2>✏️ Edit Product</h2>
+            <p>Update the product information below</p>
+        </div>
+
+        <form id="editProductForm" method="POST" action="<%= url_for('edit_product', product_id=product.ProductID) %>">
+            <!-- Product Info Card -->
+            <div class="form-card">
+                <h4><span class="section-icon">📊</span>Product Information</h4>
+                <div class="product-info">
+                    <div class="product-info-item">
+                        <span class="product-info-label">Product ID:</span>
+                        <span class="product-info-value">#<%= product.ProductID %></span>
+                    </div>
+                    <div class="product-info-item">
+                        <span class="product-info-label">Barcode:</span>
+                        <span class="product-info-value"><%= product.Barcode %></span>
+                    </div>
+                    <div class="product-info-item">
+                        <span class="product-info-label">Created:</span>
+                        <span class="product-info-value"><%= product.CreatedDate or 'N/A' %></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Product Details Card -->
+            <div class="form-card">
+                <h4><span class="section-icon">📋</span>Product Details</h4>
+                
+                <div class="row">
+                    <div class="input-group">
+                        <label for="name">
+                            Product Name
+                            <span class="required-badge">REQUIRED</span>
+                        </label>
+                        <input type="text" class="form-control" id="name" name="Name" 
+                            value="<%= product.Name %>" placeholder="Enter product name" required>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="department">
+                            Department
+                            <span class="required-badge">REQUIRED</span>
+                        </label>
+                        <select class="form-control form-select" id="department" name="DepartmentID" required>
+                            <option value="">-- Select Department --</option>
+                            <% for (let dept of departments) { %>
+                                <option value="<%= dept.DepartmentID %>" 
+                                        <% if (dept.DepartmentID == product.DepartmentID) { %>selected<% } %>>
+                                    <%= dept.Name %>
+                                </option>
+                            <% } %>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="description">Product Description</label>
+                    <textarea class="form-control" id="description" name="Description" 
+                            placeholder="Add a brief description (optional)" rows="3" maxlength="250"><%= product.Description %></textarea>
+                    <small class="form-text"><span class="char-counter" id="charCounter">0 / 250 characters</span></small>
+                </div>
+            </div>
+            
+            <!-- Stock & Image Card -->
+            <div class="form-card">
+                <h4><span class="section-icon">📦</span>Stock &amp; Image</h4>
+                
+                <div class="row">
+                    <div class="input-group">
+                        <label for="quantity">
+                            Quantity in Stock
+                            <span class="info-badge">INFO</span>
+                        </label>
+                        <input type="number" min="0" class="form-control" id="quantity" name="QuantityInStock" 
+                            value="<%= product.QuantityInStock %>" placeholder="0" required>
+                        <small class="form-text">Current stock level</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="imageUrl">Image URL (Optional)</label>
+                        <input type="url" class="form-control" id="imageUrl" name="ImageURL" 
+                            value="<%= product.ImageURL %>" 
+                            placeholder="https://example.com/image.jpg" 
+                            onchange="updateImagePreview()">
+                        <small class="form-text">Paste an image URL or use default</small>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 2rem; align-items: center;">
+                    <div>
+                        <label>Current Image Preview</label>
+                        <div id="imagePreview" style="width: 150px; height: 150px; border: 2px dashed #e0e0e0; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; overflow: hidden;">
+                            <% if (product.ImageURL) { %>
+                                <img src="<%= product.ImageURL %>" style="width: 100%; height: 100%; object-fit: cover;">
+                            <% } else { %>
+                                <span style="color: #999;">No image</span>
+                            <% } %>
+                        </div>
+                    </div>
+                    
+                    <div style="flex: 1;">
+                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button type="button" onclick="searchStockImages('unsplash')" 
+                                    style="padding: 0.4rem 0.8rem; background: #e8f5e9; border: 1px solid #4a9b3e; border-radius: 6px; cursor: pointer;">
+                                Search Unsplash
+                            </button>
+                            <button type="button" onclick="searchStockImages('pexels')" 
+                                    style="padding: 0.4rem 0.8rem; background: #e8f5e9; border: 1px solid #4a9b3e; border-radius: 6px; cursor: pointer;">
+                                Search Pexels
+                            </button>
+                            <button type="button" onclick="useDefaultImage()" 
+                                    style="padding: 0.4rem 0.8rem; background: #ffc107; border: 1px solid #ff9800; border-radius: 6px; cursor: pointer;">
+                                Use Default
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pricing & Sale Card -->
+            <div class="form-card">
+                <h4><span class="section-icon">💰</span>Pricing</h4>
+                
+                <div class="row">
+                    <div class="input-group">
+                        <label for="price">
+                            Price (USD)
+                            <span class="required-badge">REQUIRED</span>
+                        </label>
+                        <input type="number" step="0.01" min="0" class="form-control" id="price" name="Price" 
+                            value="<%= product.Price %>" placeholder="0.00" required>
+                        <small class="form-text">Enter the base price in dollars</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Buttons -->
+            <div class="button-group">
+                <a href="/admin/products" class="cancel-btn">
+                    <span class="btn-icon">✕</span>
+                    <span>Cancel</span>
+                </a>
+                <button type="submit" class="submit-btn">
+                    <span class="btn-icon">✓</span>
+                    <span>Update Product</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+
+    // Character counter with color feedback
+    const description = document.getElementById('description');
+    const charCounter = document.getElementById('charCounter');
+
+    function updateCharCounter() {
+        const count = description.value.length;
+        const max = 250;
+        charCounter.textContent = count + ' / ' + max + ' characters';
+        
+        charCounter.classList.remove('warning', 'danger');
+        
+        if (count > 230) {
+            charCounter.classList.add('danger');
+        } else if (count > 200) {
+            charCounter.classList.add('warning');
+        }
+    }
+
+    description.addEventListener('input', updateCharCounter);
+    // Initialize counter on load
+    updateCharCounter();
+
+    // Image functions
+    function updateImagePreview() {
+        const url = document.getElementById('imageUrl').value.trim();
+        const preview = document.getElementById('imagePreview');
+        
+        if (url) {
+            preview.innerHTML = '<img src="' + url + '" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.parentElement.innerHTML=\'<span style=color:#999>Invalid URL</span>\'">';
+        } else {
+            preview.innerHTML = '<span style="color: #999;">No image</span>';
+        }
+    }
+
+    function searchStockImages(site) {
+        const productName = document.getElementById('name').value || 'grocery';
+        const urls = {
+            'unsplash': 'https://unsplash.com/s/photos/' + encodeURIComponent(productName),
+            'pexels': 'https://www.pexels.com/search/' + encodeURIComponent(productName)
+        };
+        window.open(urls[site], '_blank');
+    }
+
+    function useDefaultImage() {
+        const dept = document.getElementById('department').value;
+        const defaults = {
+            '1': 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=400',
+            '2': 'https://images.unsplash.com/photo-1603048297172-c92544798d5a?w=400',
+            '3': 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400',
+            '4': 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400',
+            '5': 'https://images.unsplash.com/photo-1584313234340-712fe7c4c3e3?w=400',
+            '6': 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400'
+        };
+        
+        document.getElementById('imageUrl').value = defaults[dept] || 'https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=400';
+        updateImagePreview();
+    }
+
+    // Form validation
+    document.getElementById('editProductForm').addEventListener('submit', function(e) {
+        const price = parseFloat(document.getElementById('price').value);
+
+    });
+    </script>
+    <!-- endblock -->

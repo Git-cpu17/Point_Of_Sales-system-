@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FreshMart - Your Online Grocery Store</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- Enhanced Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="/" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <div class="search-wrap">
+          <input id="searchInput" type="search" placeholder="Search for products..." aria-label="Search products">
+        </div>
+
+        <% if (typeof user !== 'undefined' && user) { %>
+          <span class="welcome-text">Welcome, <%= user.Name %></span>
+
+          <% if (user.role === 'customer') { %>
+            <a href="/customer" class="nav-link">Dashboard</a>
+            <a href="/shopping-lists" class="nav-link">Shopping Lists</a>
+          <% } else if (user.role === 'admin') { %>
+            <a href="/admin" class="nav-link">Dashboard</a>
+          <% } else if (user.role === 'employee') { %>
+            <a href="/employee" class="nav-link">Dashboard</a>
+          <% } %>
+
+          <!-- Show Cart for all logged-in users -->
+        <% if (user && user.role === 'customer') { %>
+          <a href="/bag" class="bag-link">
+            <span>🛒</span>
+            <span>Cart</span>
+            <span id="bagCount" class="badge"><%= typeof bag_count !== 'undefined' ? bag_count : 0 %></span>
+          </a>
+        <% } %>
+
+          <a href="/logout" class="nav-link">Logout</a>
+        <% } else { %>
+          <a href="/login" class="nav-link">Account</a>
+        <% } %>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="home-container">
+      <!-- Hero Banner -->
+      <section class="hero-banner">
+        <div class="hero-content">
+          <h1>Fresh Groceries Delivered Daily</h1>
+          <p>Get farm-fresh produce, quality meats, and pantry essentials delivered right to your door</p>
+          <div class="promo-badges">
+            <div class="promo-badge"><span>🚚</span><span>Free Delivery on $50+</span></div>
+            <div class="promo-badge"><span>🌱</span><span>100% Organic Options</span></div>
+            <div class="promo-badge"><span>⏰</span><span>Same Day Delivery</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Categories Section -->
+        <%
+          const icon_map = {
+            'produce': '🥬',
+            'meat & seafood': '🥩',
+            'dairy ': '🥛',
+            'bakery': '🥖',
+            'frozen foods': '🧊',
+            'pantry': '🥫',
+            'beverages': '🥤',
+            'snacks & candy': '🍿'
+          };
+        %>
+
+        <section class="categories-section container">
+          <div class="section-header"><h2 class="section-title">Shop by Category</h2></div>
+          <div class="categories-grid">
+            <!-- "All" category -->
+            <div class="category-card active" data-category="all" data-dept-id="all">
+              <div class="category-icon">🌎</div>
+              <div class="category-name">All</div>
+            </div>
+
+            <!-- Dynamic departments -->
+            <% if (typeof departments !== 'undefined' && departments) { %>
+              <% for (let dept of departments) { %>
+                <%
+                  const dept_name_lower = dept.Name.toLowerCase().trim();
+                  const dept_icon = icon_map[dept_name_lower] || '📦';
+                %>
+
+              <div class="category-card"
+                    data-category="<%= dept_name_lower %>"
+                    data-dept-id="<%= dept.DepartmentID %>">
+                <div class="category-icon"><%= dept_icon %></div>
+                <div class="category-name"><%= dept.Name %></div>
+              </div>
+              <% } %>
+            <% } %>
+          </div>
+        </section>
+
+
+
+      <!-- Products Section -->
+      <section id="productsSection" class="container">
+        <div class="section-header"><h2 class="section-title">Featured Products</h2></div>
+          <div id="productGrid" class="product-grid">
+            <% if (typeof products !== 'undefined' && products && products.length > 0) { %>
+              <%
+                const product_emojis = ['🍎', '🥕', '🥦', '🍊', '🥑', '🍇', '🥬', '🫐'];
+                products.forEach((p, index) => {
+                  const stock_class = p.QuantityInStock > 10 ? 'in-stock' : 'low-stock';
+                  const product_emoji = product_emojis[index % 8];
+              %>
+
+        <!-- Updated: use data-dept-id (matches JS filter) -->
+                <div class="product-card"
+                  data-product-id="<%= p.ProductID %>"
+                  data-name="<%= p.Name %>"
+                  data-description="<%= p.Description %>"
+                  data-price="<%= p.Price %>"
+                  data-dept-id="<%= p.DepartmentID %>">
+
+                <div class="product-image">
+                  <% if (p.ImageURL) { %>
+                    <img src="<%= p.ImageURL %>" alt="<%= p.Name %>" style="width: 100%; height: 100%; object-fit: cover;">
+                  <% } else { %>
+                    <%= product_emoji %>
+                  <% } %>
+
+                  <% if (p.OnSale) { %>
+                    <span class="sale-badge">SALE</span>
+                  <% } else if (index % 4 === 0) { %>
+                    <span class="sale-badge">SALE</span>
+                  <% } %>
+                </div>
+
+                <div class="product-details">
+                  <div class="product-header"><h3><%= p.Name %></h3></div>
+                  <p class="product-desc"><%= p.Description || 'Fresh and high quality product' %></p>
+
+                  <div class="product-meta">
+                    <div>
+                      <span class="price">$<%= p.Price.toFixed(2) %></span>
+                      <div class="unit-price">per unit</div>
+                    </div>
+                    <span class="stock <%= stock_class %>">
+                      <% if (p.QuantityInStock > 10) { %>
+                        ✓ In Stock
+                      <% } else { %>
+                        Only <%= p.QuantityInStock %> left
+                      <% } %>
+                    </span>
+                  </div>
+
+                  <button class="add-btn" type="button" onclick="addToCart(<%= p.ProductID %>)">
+                    <span>🛒</span><span>Add to Cart</span>
+                  </button>
+                  <button class="btn secondary" type="button" onclick="addToList(<%= p.ProductID %>)">
+                    <span>📋</span><span>Save to List</span>
+                  </button>
+                </div>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <p style="grid-column: 1/-1; text-align: center; color: var(--text-light);">
+              No products available at the moment. Please check back later!
+            </p>
+          <% } %>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-content">
+        <div class="footer-section"><h3>About FreshMart</h3><ul><li><a href="#">About Us</a></li><li><a href="#">Careers</a></li><li><a href="#">Press</a></li><li><a href="#">Sustainability</a></li></ul></div>
+        <div class="footer-section"><h3>Customer Service</h3><ul><li><a href="#">Contact Us</a></li><li><a href="#">FAQs</a></li><li><a href="#">Shipping Info</a></li><li><a href="#">Returns</a></li></ul></div>
+        <div class="footer-section"><h3>Quick Links</h3><ul><li><a href="#">Weekly Deals</a></li><li><a href="#">Gift Cards</a></li><li><a href="#">Recipes</a></li><li><a href="#">Store Locator</a></li></ul></div>
+        <div class="footer-section"><h3>Connect</h3><ul><li><a href="#">Facebook</a></li><li><a href="#">Twitter</a></li><li><a href="#">Instagram</a></li><li><a href="#">Newsletter</a></li></ul></div>
+      </div>
+      <div class="footer-bottom"><p>&copy; 2024 FreshMart. All rights reserved. | Privacy Policy | Terms of Service</p></div>
+    </footer>
+  </main>
+
+  <!-- Provide products array to client-side JS -->
+  <script>window.PRODUCTS = <%- JSON.stringify(typeof products !== 'undefined' ? products : []) %>;</script>
+  <script>
+    window.CURRENT_USER = <%- JSON.stringify({
+      id: typeof session !== 'undefined' && session ? session.user_id : null,
+      role: typeof session !== 'undefined' && session ? session.role || '' : ''
+    }) %>;
+  </script>
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

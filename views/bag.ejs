@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Cart - FreshMart</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="/" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <div class="search-wrap">
+          <input id="searchInput" type="search" placeholder="Search for products..." aria-label="Search products">
+        </div>
+
+        <% if (typeof user !== 'undefined' && user) { %>
+          <span class="welcome-text">Welcome, <%= user.Name %></span>
+
+          <% if (user.role === 'customer') { %>
+            <a href="/customer" class="nav-link">Dashboard</a>
+          <% } else if (user.role === 'admin') { %>
+            <a href="/admin" class="nav-link">Dashboard</a>
+          <% } else if (user.role === 'employee') { %>
+            <a href="/employee" class="nav-link">Dashboard</a>
+          <% } %>
+
+          <% if (typeof session !== 'undefined' && session && session.role && ['employee', 'admin'].includes(session.role.toLowerCase())) { %>
+            <a href="/reports" class="nav-link">Reports</a>
+          <% } %>
+
+          <a href="/bag" class="bag-link">
+            <span>🛒</span><span>Cart</span><span id="bagCount" class="badge"><%= typeof bag_count !== 'undefined' ? bag_count : 0 %></span>
+          </a>
+          <a href="/logout" class="nav-link">Logout</a>
+        <% } else { %>
+          <a href="/login" class="nav-link">Account</a>
+        <% } %>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+    <div class="cart-container">
+      <h1 class="cart-header">🛒 Your Shopping Cart</h1>
+      <div id="cartContainer">
+        <!-- Cart items will be rendered by JS -->
+      </div>
+    </div>
+
+    <div class="cart-actions" style="max-width: 900px; margin: 0 auto;">
+      <button id="clearCartBtn" class="btn secondary" type="button"><span>🗑️</span><span>Clear Cart</span></button>
+      <button id="checkoutBtn" class="btn primary" type="button"><span>💳</span><span>Proceed to Checkout</span></button>
+    </div>
+
+    <div style="text-align: center; margin-top: 3rem;">
+      <a href="/" class="btn secondary" style="display: inline-flex;"><span>←</span><span>Continue Shopping</span></a>
+    </div>
+  </main>
+
+  <!-- Pass user info to JS for cart identification -->
+  <script>
+    window.CURRENT_USER = {
+      id: <%- JSON.stringify(typeof session !== 'undefined' && session ? session.user_id : null) %>,
+      role: <%- JSON.stringify(typeof session !== 'undefined' && session ? session.role || '' : '') %>
+    };
+  </script>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

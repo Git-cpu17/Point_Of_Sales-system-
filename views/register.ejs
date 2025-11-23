@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - FreshMart</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="auth-container">
+  <form id="registerForm">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <div style="font-size: 3rem;">🥬</div>
+      <h1 style=" background: linear-gradient(135deg, #4a9b3e, #2d5f26); background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent; "> FreshMart </h1>
+    </div>
+
+    <p class="subtitle">Create your account and start shopping!</p>
+
+    <div class="input-group">
+      <input type="text" id="username" placeholder="Choose a Username" required>
+    </div>
+
+    <div class="input-group">
+      <input type="text" id="name" placeholder="Full Name" required>
+    </div>
+
+    <div class="input-group">
+      <input type="email" id="email" placeholder="Email Address" required>
+    </div>
+
+    <div class="input-group">
+      <input type="tel" id="phone" placeholder="Phone Number (optional)">
+    </div>
+
+    <div class="input-group">
+      <input type="password" id="password" placeholder="Create Password" required>
+    </div>
+
+    <button type="submit">Create Account</button>
+
+    <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 1rem; line-height: 1.4;">
+      By creating an account, you agree to our Terms of Service and Privacy Policy
+    </p>
+
+    <p>Already have an account? <a href="/login">Sign in here</a></p>
+  </form>
+
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        username: document.getElementById('username').value,
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      };
+
+      try {
+        const response = await fetch('/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          alert('Registration successful! Redirecting to login...');
+          window.location.href = '/login';
+        } else {
+          alert(result.message || 'Registration failed. Please try again.');
+        }
+      } catch (error) {
+        alert('An error occurred. Please try again.');
+        console.error('Registration error:', error);
+      }
+    });
+  </script>
+</body>
+</html>

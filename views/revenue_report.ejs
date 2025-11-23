@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Revenue Report - FreshMart</title>
+	<link rel="stylesheet" href="/static/css/style.css" />
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+	<style>
+		:root {
+			--primary: #2ecc71;
+			--secondary: #27ae60;
+			--accent: #e8f9ee;
+			--bg: #f7fbf8;
+			--card: #ffffff;
+			--muted: #7a7a7a;
+			--radius: 12px;
+			--shadow: 0 6px 24px rgba(15,20,10,0.06);
+		}
+
+        body {
+        font-family: "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+        background:
+            repeating-linear-gradient(
+            135deg,
+            rgba(30, 60, 40, 0.08),
+            rgba(30, 60, 40, 0.08) 20px,
+            rgba(20, 40, 25, 0.03) 20px,
+            rgba(20, 40, 25, 0.03) 40px
+            );
+        background-color: #f8fbf9;
+        color: #222;
+        margin: 0;
+        padding: 2rem 1rem;
+        -webkit-font-smoothing: antialiased;
+        }
+
+		.page {
+			max-width: 1200px;
+			margin: 0 auto;
+			display: flex;
+			flex-direction: column;
+			gap: 1.5rem;
+		}
+
+		.title {
+			display: flex;
+			align-items: center;
+			gap: 1rem;
+		}
+
+		.brand-pill {
+			background: linear-gradient(135deg, var(--primary), var(--secondary));
+			color: white;
+			padding: 0.55rem 0.8rem;
+			border-radius: 10px;
+			font-weight: 700;
+			box-shadow: 0 6px 18px rgba(46,204,113,0.18);
+			font-size: 0.95rem;
+		}
+
+		h1 {
+			margin: 0;
+			font-size: 1.5rem;
+			color: #1f7a44;
+			letter-spacing: -0.2px;
+		}
+
+		.subtitle {
+			color: var(--muted);
+			font-size: 0.95rem;
+		}
+
+		.muted {
+			color: var(--muted);
+			font-size: 0.9rem;
+		}
+
+		.card {
+			background: var(--card);
+			border-radius: var(--radius);
+			padding: 1rem;
+			box-shadow: var(--shadow);
+			border: 1px solid rgba(15,20,10,0.03);
+		}
+
+		.kpis {
+			display: flex;
+			gap: 0.9rem;
+			flex-wrap: wrap;
+		}
+
+		.kpi {
+			flex: 1;
+			min-width: 160px;
+			background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.6));
+			border-radius: 10px;
+			padding: 0.9rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.35rem;
+			transition: transform .18s ease, box-shadow .18s ease;
+			border: 1px solid rgba(0,0,0,0.03);
+		}
+
+		.kpi:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 12px 30px rgba(15,20,10,0.06);
+		}
+
+		.kpi small {
+			color: var(--muted);
+			font-weight: 600;
+		}
+
+		.kpi .value {
+			font-size: 1.25rem;
+			font-weight: 800;
+			color: #0f5132;
+		}
+
+		.chart-card {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.chart-title {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 1rem;
+		}
+
+		canvas {
+			width: 100% !important;
+			height: 320px !important;
+			border-radius: 8px;
+		}
+
+		.filters {
+			display: flex;
+			flex-direction: column;
+			gap: 0.6rem;
+		}
+
+		.filter-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.6rem;
+			align-items: center;
+		}
+
+		input[type="date"], select {
+			padding: 0.55rem 0.7rem;
+			border-radius: 8px;
+			border: 1px solid #dfe7df;
+			background: white;
+			font-size: 0.95rem;
+		}
+
+		.btn {
+			background: linear-gradient(135deg, var(--primary), var(--secondary));
+			color: white;
+			border: none;
+			padding: 0.6rem 0.9rem;
+			border-radius: 8px;
+			cursor: pointer;
+			font-weight: 700;
+			box-shadow: 0 8px 20px rgba(46,204,113,0.12);
+		}
+
+		.btn:active {
+			transform: translateY(1px);
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 0.95rem;
+		}
+
+		th {
+			background: linear-gradient(180deg, #2b6e3b, #2b6e3b);
+			color: white;
+			padding: 0.75rem;
+			text-align: left;
+		}
+
+		td {
+			padding: 0.7rem;
+			border-bottom: 1px solid #f0f3f0;
+		}
+
+		tr:nth-child(even) {
+			background: #fbfdfb;
+		}
+
+		.amount {
+			font-weight: 700;
+			color: #114b32;
+		}
+
+		.filtered-total {
+			text-align: right;
+			margin-top: 0.5rem;
+			font-weight: 700;
+			color: #0f5132;
+		}
+
+		@media(max-width: 600px) {
+			.kpis {
+				flex-direction: column;
+			}
+			canvas {
+				height: 220px !important;
+			}
+		}
+	</style>
+</head>
+<body>
+	<div class="page">
+		<div class="title" style="justify-content: space-between; align-items: center;">
+			<div style="display: flex; align-items: center; gap: 1rem;">
+				<a href="/admin" class="btn secondary">← Back</a>
+				<div class="brand-pill">FreshMart</div>
+			</div>
+			<div>
+				<h1>Revenue Report</h1>
+				<div class="subtitle">Comprehensive revenue summary for this month — chart and table below.</div>
+			</div>
+		</div>
+
+		<div class="muted">Updated: <span id="updatedAt"></span></div>
+
+		<div class="card">
+			<div class="kpis">
+				<div class="kpi">
+					<small>Total Revenue</small>
+					<div class="value" id="totalRevenue">$0.00</div>
+				</div>
+				<div class="kpi">
+					<small>Total Orders</small>
+					<div class="value" id="totalOrders">0</div>
+				</div>
+				<div class="kpi">
+					<small>Average Order Value</small>
+					<div class="value" id="avgOrderValue">$0.00</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="card chart-card">
+			<div class="chart-title">
+				<strong>Revenue Over Time</strong>
+				<div class="muted">By department — start of month → today</div>
+			</div>
+			<canvas id="revenueChart"></canvas>
+		</div>
+
+		<div class="card">
+			<strong>Filters (table only)</strong>
+			<div class="filters" style="margin-top:0.6rem;">
+				<div class="filter-row">
+					<input id="filterStartDate" type="date" />
+					<input id="filterEndDate" type="date" />
+					<select id="filterPaymentMethod">
+						<option value="">All Payment Methods</option>
+						<% for (let method of payment_methods) { %>
+							<option value="<%= method %>"><%= method %></option>
+						<% } %>
+					</select>
+					<select id="filterOrderStatus">
+						<option value="">All Statuses</option>
+						<% for (let status of order_statuses) { %>
+							<option value="<%= status %>"><%= status %></option>
+						<% } %>
+					</select>
+					<button id="applyFilters" class="btn">Apply Filters</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="card">
+			<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+				<strong>Revenue Breakdown</strong>
+				<div class="muted" id="tableSummary">0 rows</div>
+			</div>
+
+			<table class="revenue">
+				<thead>
+					<tr>
+						<th>Transaction ID</th>
+						<th>Date</th>
+						<th>Customer</th>
+						<th>Payment Method</th>
+						<th>Status</th>
+						<th style="text-align:right">Total Amount</th>
+					</tr>
+				</thead>
+				<tbody id="revenueTableBody"></tbody>
+				<tfoot>
+					<tr>
+						<td colspan="5" style="text-align:right; font-weight:bold;">Filtered Total:</td>
+						<td id="filteredTotal" style="text-align:right; font-weight:bold;">$0.00</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+
+    <script>
+        const initialTransactions = <%- JSON.stringify(transactions) %>;
+
+        function toYMD(dateInput) {
+            const dt = new Date(dateInput);
+            if (!isNaN(dt)) return dt.toISOString().split('T')[0];
+            return dateInput;
+        }
+
+        function populateKPIs(transactions) {
+            let totalRevenue = 0;
+            transactions.forEach(t => totalRevenue += parseFloat(t.TotalAmount) || 0);
+            const totalOrders = transactions.length;
+            const avg = totalOrders ? (totalRevenue / totalOrders) : 0;
+
+            document.getElementById('totalRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+            document.getElementById('totalOrders').textContent = totalOrders;
+            document.getElementById('avgOrderValue').textContent = `$${avg.toFixed(2)}`;
+        }
+
+        function populateRevenueData(transactions) {
+            const tbody = document.getElementById('revenueTableBody');
+            tbody.innerHTML = '';
+            let totalFiltered = 0;
+
+            transactions.forEach(t => {
+                const amt = parseFloat(t.TotalAmount) || 0;
+                totalFiltered += amt;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${t.TransactionID ?? ''}</td>
+                    <td>${toYMD(t.TransactionDate)}</td>
+                    <td>${t.CustomerName ?? ''}</td>
+                    <td>${t.PaymentMethod ?? ''}</td>
+                    <td>${t.OrderStatus ?? ''}</td>
+                    <td style="text-align:right" class="amount">$${amt.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('tableSummary').textContent = `${transactions.length} rows`;
+            document.getElementById('filteredTotal').textContent = `$${totalFiltered.toFixed(2)}`;
+        }
+
+        populateKPIs(initialTransactions || []);
+        populateRevenueData(initialTransactions || []);
+        document.getElementById('updatedAt').textContent = new Date().toISOString().split('T')[0];
+
+        document.getElementById('applyFilters').addEventListener('click', async () => {
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+            const payment = document.getElementById('filterPaymentMethod').value;
+            const status = document.getElementById('filterOrderStatus').value;
+            const adjustedEnd = endDate || null;
+
+            const res = await fetch("/api/revenue_report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    start_date: startDate || null,
+                    end_date: adjustedEnd || null,
+                    payment_method: payment || null,
+                    order_status: status || null
+                })
+            });
+            const data = await res.json();
+            populateRevenueData(data.transactions || []);
+        });
+
+        let revenueChart;
+
+        function fillMissingDates(labels, datasets) {
+            // Create full date range from first of month to today
+            const start = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+            const end = new Date();
+            const fullDates = [];
+            for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+                fullDates.push(dt.toISOString().split('T')[0]);
+            }
+
+            // For each dataset, fill 0 where date missing
+            datasets.forEach(ds => {
+                const newData = fullDates.map(date => {
+                const index = labels.indexOf(date);
+                return index >= 0 ? ds.data[index] : 0;
+                });
+                ds.data = newData;
+            });
+
+            return fullDates;
+        }
+
+        async function fetchChartData() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const res = await fetch("/api/revenue_report_chart", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                start_date: start.toISOString().split('T')[0],
+                end_date: now.toISOString().split('T')[0],
+                departments: []
+                })
+            });
+            const json = await res.json();
+            const fullLabels = fillMissingDates(json.labels, json.datasets);
+            renderChart(fullLabels, json.datasets);
+        }
+
+        function renderChart(labels, datasets) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (revenueChart) revenueChart.destroy();
+            const chartColors = ['#2ecc71','#e74c3c','#3498db','#f1c40f','#9b59b6','#1abc9c','#e67e22'];
+            revenueChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: datasets.map((d,i) => ({
+                        label: d.department,
+                        data: d.data,
+                        borderColor: chartColors[i % chartColors.length],
+                        fill: false,
+                        tension: 0.2
+                    }))
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Revenue ($)' } },
+                        x: { title: { display: true, text: 'Date' } }
+                    }
+                }
+            });
+        }
+
+        fetchChartData();
+    </script>
+</body>
+</html>

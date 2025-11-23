@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Account - FreshMart</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .account-container {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+
+    .account-header {
+      background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+      color: white;
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .loyalty-card {
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .points-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .account-grid {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 2rem;
+    }
+
+    .sidebar {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
+      height: fit-content;
+    }
+
+    .sidebar-item {
+      padding: 0.75rem 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .sidebar-item:hover {
+      background: var(--bg-light);
+    }
+
+    .sidebar-item.active {
+      background: var(--light-green);
+      color: var(--primary-green);
+      font-weight: 600;
+    }
+
+    .content-area {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .order-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .order-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .order-status {
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .status-delivered {
+      background: var(--light-green);
+      color: var(--primary-green);
+    }
+
+    .status-processing {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    .status-shipped {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .favorite-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .favorite-item {
+      text-align: center;
+      padding: 1rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .favorite-item:hover {
+      border-color: var(--primary-green);
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .favorite-emoji {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .promo-banner {
+      background: linear-gradient(135deg, #ff6b35, #ff8f65);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .savings-tracker {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .savings-card {
+      background: var(--bg-light);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .savings-amount {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--primary-green);
+    }
+
+    .address-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .address-card.default {
+      border-color: var(--primary-green);
+      background: var(--light-green);
+    }
+
+    .default-badge {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background: var(--primary-green);
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="/" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <a href="/" class="nav-link">Shop</a>
+        <a href="/customer/orders" class="nav-link">Orders</a>
+        <% if (typeof session !== 'undefined' && session && session.role && ['employee', 'admin'].includes(session.role.toLowerCase())) { %>
+          <a href="/reports" class="nav-link">Reports</a>
+        <% } %>
+        <a href="/bag" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge"><%= typeof bag_count !== 'undefined' ? bag_count : 0 %></span>
+        </a>
+        <a href="/logout" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="account-container">
+      <!-- Account Header -->
+      <div class="account-header">
+        <div>
+          <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">Welcome back, <%= typeof customer !== 'undefined' && customer ? (customer.Name || 'Customer') : 'Customer' %>!</h1>
+          <p style="opacity: 0.9;">Member since <%= typeof customer !== 'undefined' && customer && customer.member_since ? customer.member_since : '2024' %></p>
+        </div>
+        <div class="loyalty-card">
+          <div class="points-value">2,450</div>
+          <div>Reward Points</div>
+          <small style="opacity: 0.9;">$24.50 value</small>
+        </div>
+      </div>
+
+      <!-- Special Offers Banner -->
+      <div class="promo-banner">
+        <div>
+          <h3 style="margin-bottom: 0.25rem;">🎉 Exclusive Member Offer!</h3>
+          <p>Get 20% off your next order of $75 or more</p>
+        </div>
+        <button class="btn" style="background: white; color: #ff6b35;">Use Offer</button>
+      </div>
+
+      <!-- Main Content Grid -->
+      <div class="account-grid">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="sidebar-item active">
+            <span>📊</span> Dashboard
+          </div>
+          <a href="/customer/orders" class="sidebar-item">
+            <span>📦</span> Orders
+          </a>
+          <a href="/shopping-lists" class="sidebar-item">
+            <span>📋</span> Shopping Lists
+          </a>
+          <div class="sidebar-item">
+            <span>🏠</span> Addresses
+          </div>
+          <div class="sidebar-item">
+            <span>💳</span> Payment Methods
+          </div>
+          <div class="sidebar-item">
+            <span>🎁</span> Rewards
+          </div>
+          <div class="sidebar-item">
+            <span>⚙️</span> Settings
+          </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+          <!-- Quick Stats -->
+          <h2 style="margin-bottom: 1.5rem;">Your Shopping Overview</h2>
+          <div class="savings-tracker">
+            <div class="savings-card">
+              <div class="savings-amount">$<%= typeof total_saved !== 'undefined' ? total_saved.toFixed(2) : '0.00' %></div>
+              <div style="color: var(--text-light); font-size: 0.9rem;">Total Saved This Month</div>
+            </div>
+            <div class="savings-card">
+              <div class="savings-amount"><%= typeof total_orders !== 'undefined' ? total_orders : 0 %></div>
+              <div style="color: var(--text-light); font-size: 0.9rem;">Orders This Year</div>
+            </div>
+          </div>
+
+          <!-- Recent Orders -->
+          <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Recent Orders</h3>
+          <% if (typeof orders !== 'undefined' && orders && orders.length > 0) { %>
+            <% for (let order of orders) { %>
+            <div class="order-card">
+              <div class="order-header">
+                <div>
+                  <strong>Order #<%= order.TransactionID %></strong>
+                  <p style="color: var(--text-light); font-size: 0.9rem;">
+                    Placed on <%= order.TransactionDate ? new Date(order.TransactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '' %>
+                  </p>
+                </div>
+                <span class="order-status status-<%= order.OrderStatus ? order.OrderStatus.toLowerCase() : 'processing' %>">
+                  <%= order.OrderStatus || 'Processing' %>
+                </span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <p style="color: var(--text-light);">
+                    <%= order.ItemCount || 0 %> items • $<%= order.TotalAmount ? order.TotalAmount.toFixed(2) : '0.00' %>
+                  </p>
+                </div>
+                <div>
+                  <button class="btn secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem; margin-right: 0.5rem;">View Details</button>
+                  <button class="btn primary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Reorder</button>
+                </div>
+              </div>
+            </div>
+            <% } %>
+          <% } else { %>
+            <p>You haven't placed any orders yet.</p>
+          <% } %>
+
+          <!-- Shopping Lists -->
+          <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Your Shopping Lists</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 1rem; cursor: pointer; transition: all 0.3s ease;">
+              <h4>Weekly Groceries</h4>
+              <p style="color: var(--text-light); font-size: 0.9rem; margin-top: 0.5rem;">18 items</p>
+              <button class="btn primary" style="width: 100%; margin-top: 1rem; padding: 0.5rem; font-size: 0.9rem;">Add to Cart</button>
+            </div>
+            <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 1rem; cursor: pointer; transition: all 0.3s ease;">
+              <h4>Party Supplies</h4>
+              <p style="color: var(--text-light); font-size: 0.9rem; margin-top: 0.5rem;">12 items</p>
+              <button class="btn secondary" style="width: 100%; margin-top: 1rem; padding: 0.5rem; font-size: 0.9rem;">View List</button>
+            </div>
+            <div style="border: 2px dashed #e0e0e0; border-radius: 12px; padding: 1rem; cursor: pointer; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+              <div style="font-size: 2rem; color: var(--text-light);">➕</div>
+              <p style="color: var(--text-light); margin-top: 0.5rem;">Create New List</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

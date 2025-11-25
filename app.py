@@ -2706,134 +2706,105 @@ def dismiss_all_notifications(cursor, conn):
 @app.route('/receipts_report')
 @with_db
 def receipts_report(cursor, conn):
-    """
-    Admin-only receipts data report.
-
-    Business meaning:
-      - Show every receipt (SalesTransaction) in a given date range.
-      - Include who rang it up (Employee), who it belongs to (Customer),
-        and basic line-item summary (from Transaction_Details).
-      - This report references AT LEAST 3 tables:
-        SalesTransaction, Transaction_Details, Customer, Employee.
-    """
-    role = session.get('role')
-    if role != 'admin':
+    if session.get('role') != 'admin':
         return redirect(url_for('login'))
 
     start_date = request.args.get('date_from') or None
-    end_date   = request.args.get('date_to') or None
-    payment_method = (request.args.get('payment_method') or "").strip()
-    order_status   = (request.args.get('order_status') or "").strip()
-    employee_id    = (request.args.get('employee_id') or "").strip()
+    end_date = request.args.get('date_to') or None
+    payment_method = request.args.get('payment_method') or None
+    order_status = request.args.get('order_status') or None
+    employee_id = request.args.get('employee_id') or None
 
-    sql_parts = [
-        "SELECT",
-        "  st.TransactionID,",
-        "  st.TransactionDate,",
-        "  COALESCE(c.Name, 'Guest / In-store') AS CustomerName,",
-        "  COALESCE(e.Name, 'N/A')              AS EmployeeName,",
-        "  COALESCE(st.PaymentMethod, '')       AS PaymentMethod,",
-        "  COALESCE(st.OrderStatus, '')         AS OrderStatus,",
-        "  COALESCE(st.OrderDiscount, 0)        AS OrderDiscount,",
-        "  COALESCE(st.TotalAmount, 0)          AS TotalAmount,",
-        "  COUNT(DISTINCT td.ProductID)         AS DistinctItems,",
-        "  COALESCE(SUM(td.Quantity), 0)        AS TotalUnits",
-        "FROM SalesTransaction      st",
-        "LEFT JOIN Customer         c  ON c.CustomerID   = st.CustomerID",
-        "LEFT JOIN Employee         e  ON e.EmployeeID   = st.EmployeeID",
-        "LEFT JOIN Transaction_Details td ON td.TransactionID = st.TransactionID",
-        "WHERE 1=1"
-    ]
+    sql = """
+        SELECT
+            st.TransactionID,
+            st.TransactionDate,
+            COALESCE(c.Name, 'Guest / In-store') AS CustomerName,
+            COALESCE(e.Name, 'N/A') AS EmployeeName,
+            COALESCE(st.PaymentMethod, '') AS PaymentMethod,
+            COALESCE(st.OrderStatus, '') AS OrderStatus,
+            COALESCE(st.OrderDiscount, 0) AS OrderDiscount,
+            COALESCE(st.TotalAmount, 0) AS TotalAmount,
+
+            -- Line item summary
+            COUNT(DISTINCT td.ProductID) AS DistinctItems,
+            COALESCE(SUM(td.Quantity), 0) AS TotalUnits
+        FROM dbo.SalesTransaction st
+        LEFT JOIN dbo.Customer c ON c.CustomerID = st.CustomerID
+        LEFT JOIN dbo.Employee e ON e.EmployeeID = (
+            SELECT TOP 1 EmployeeID 
+            FROM dbo.Transaction_Details 
+            WHERE TransactionID = st.TransactionID
+        )
+        LEFT JOIN dbo.Transaction_Details td ON td.TransactionID = st.TransactionID
+        WHERE 1 = 1
+    """
+
     params = []
 
     if start_date:
-        sql_parts.append("AND st.TransactionDate >= ?")
+        sql += " AND st.TransactionDate >= ?"
         params.append(start_date)
 
     if end_date:
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-        sql_parts.append("AND st.TransactionDate < ?")
-        params.append(end_dt.strftime("%Y-%m-%d"))
+        sql += " AND st.TransactionDate < DATEADD(day,1,?)"
+        params.append(end_date)
 
-    if payment_method and payment_method.lower() != "all":
-        sql_parts.append("AND st.PaymentMethod = ?")
+    if payment_method:
+        sql += " AND st.PaymentMethod = ?"
         params.append(payment_method)
 
-    if order_status and order_status.lower() != "all":
-        sql_parts.append("AND st.OrderStatus = ?")
+    if order_status:
+        sql += " AND st.OrderStatus = ?"
         params.append(order_status)
 
-    if employee_id and employee_id.lower() != "all":
-        try:
-            emp_id_val = int(employee_id)
-            sql_parts.append("AND st.EmployeeID = ?")
-            params.append(emp_id_val)
-        except ValueError:
-            pass
+    if employee_id:
+        sql += " AND e.EmployeeID = ?"
+        params.append(employee_id)
 
-    sql_parts.append("""
+    sql += """
         GROUP BY
-          st.TransactionID,
-          st.TransactionDate,
-          c.Name,
-          e.Name,
-          st.PaymentMethod,
-          st.OrderStatus,
-          st.OrderDiscount,
-          st.TotalAmount
-    """)
-    sql_parts.append("ORDER BY st.TransactionDate DESC, st.TransactionID DESC")
-
-    sql = "\n".join(sql_parts)
+            st.TransactionID,
+            st.TransactionDate,
+            c.Name,
+            e.Name,
+            st.PaymentMethod,
+            st.OrderStatus,
+            st.OrderDiscount,
+            st.TotalAmount
+        ORDER BY st.TransactionDate DESC
+    """
 
     cursor.execute(sql, tuple(params))
     rows = cursor.fetchall()
 
     receipts = []
     for r in rows:
-        transaction_date = r[1]
-        if isinstance(transaction_date, str):
-            date_str = transaction_date.split("T")[0]
-        else:
-            try:
-                date_str = transaction_date.strftime("%Y-%m-%d")
-            except Exception:
-                date_str = str(transaction_date)
-
         receipts.append({
             "TransactionID": r[0],
-            "TransactionDate": date_str,
+            "TransactionDate": r[1].strftime("%Y-%m-%d"),
             "CustomerName": r[2],
             "EmployeeName": r[3],
             "PaymentMethod": r[4],
             "OrderStatus": r[5],
-            "OrderDiscount": float(r[6] or 0),
-            "TotalAmount": float(r[7] or 0),
-            "DistinctItems": int(r[8] or 0),
-            "TotalUnits": int(r[9] or 0),
+            "OrderDiscount": float(r[6]),
+            "TotalAmount": float(r[7]),
+            "DistinctItems": int(r[8]),
+            "TotalUnits": int(r[9])
         })
 
-    total_revenue = sum(x["TotalAmount"] for x in receipts)
+    total_revenue = sum(r["TotalAmount"] for r in receipts)
     total_receipts = len(receipts)
     avg_receipt = total_revenue / total_receipts if total_receipts else 0
 
-    cursor.execute("SELECT DISTINCT PaymentMethod FROM SalesTransaction WHERE PaymentMethod IS NOT NULL")
+    cursor.execute("SELECT DISTINCT PaymentMethod FROM dbo.SalesTransaction WHERE PaymentMethod IS NOT NULL")
     payment_methods = [row[0] for row in cursor.fetchall()]
 
-    cursor.execute("SELECT DISTINCT OrderStatus FROM SalesTransaction WHERE OrderStatus IS NOT NULL")
+    cursor.execute("SELECT DISTINCT OrderStatus FROM dbo.SalesTransaction WHERE OrderStatus IS NOT NULL")
     order_statuses = [row[0] for row in cursor.fetchall()]
 
-    cursor.execute("""
-        SELECT 
-            EmployeeID,
-            COALESCE(NULLIF(LTRIM(RTRIM(Name)), ''), Username) AS Name
-        FROM Employee
-        ORDER BY Name
-    """)
-    employees = [
-        {"EmployeeID": str(row[0]), "Name": row[1]}
-        for row in cursor.fetchall()
-    ]
+    cursor.execute("SELECT EmployeeID, Name FROM dbo.Employee WHERE IsActive = 1 ORDER BY Name")
+    employees = [{"EmployeeID": row[0], "Name": row[1]} for row in cursor.fetchall()]
 
     return render_template(
         'receipts_report.html',

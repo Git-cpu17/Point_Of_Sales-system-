@@ -449,11 +449,16 @@
 </div>
 
 <script>
-function deleteProduct(productId, productName) {
-  if (!confirm(`Are you sure you want to delete "${productName}"?\n\nThis action cannot be undone.`)) {
+async function deleteProduct(productId, productName) {
+  const confirmed = await showConfirm(`Are you sure you want to delete "${productName}"?\n\nThis action cannot be undone.`, {
+    title: 'Delete Product',
+    confirmText: 'Delete',
+    confirmStyle: 'danger'
+  });
+  if (!confirmed) {
     return;
   }
-  
+
   fetch(`/api/products/${productId}`, {
     method: 'DELETE',
     headers: {
@@ -499,9 +504,9 @@ function showNotification(message, type = 'info') {
     animation: slideIn 0.3s ease;
   `;
   notification.textContent = message;
-  
+
   document.body.appendChild(notification);
-  
+
   // Remove notification after 3 seconds
   setTimeout(() => {
     notification.style.animation = 'slideOut 0.3s ease';
@@ -509,6 +514,70 @@ function showNotification(message, type = 'info') {
       document.body.removeChild(notification);
     }, 300);
   }, 3000);
+}
+
+function showConfirm(message, options = {}) {
+  return new Promise((resolve) => {
+    const {
+      title = 'Confirm',
+      confirmText = 'Confirm',
+      cancelText = 'Cancel',
+      confirmStyle = 'primary'
+    } = options;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+
+    const escapeHtml = (text) => {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
+    modal.innerHTML = `
+      <div class="custom-modal-header">
+        <h3 class="custom-modal-title">${escapeHtml(title)}</h3>
+      </div>
+      <div class="custom-modal-body">
+        ${escapeHtml(message).replace(/\n/g, '<br>')}
+      </div>
+      <div class="custom-modal-footer">
+        <button class="custom-modal-btn custom-modal-btn-secondary" data-action="cancel">
+          ${escapeHtml(cancelText)}
+        </button>
+        <button class="custom-modal-btn custom-modal-btn-${confirmStyle}" data-action="confirm">
+          ${escapeHtml(confirmText)}
+        </button>
+      </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const handleClick = (e) => {
+      const action = e.target.dataset.action;
+      if (action === 'confirm' || action === 'cancel') {
+        overlay.remove();
+        resolve(action === 'confirm');
+      }
+    };
+
+    modal.addEventListener('click', handleClick);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+        resolve(false);
+      }
+    });
+
+    setTimeout(() => {
+      const confirmBtn = modal.querySelector('[data-action="confirm"]');
+      if (confirmBtn) confirmBtn.focus();
+    }, 100);
+  });
 }
 
 // Add animation styles

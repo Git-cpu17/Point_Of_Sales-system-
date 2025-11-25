@@ -200,7 +200,12 @@
   }
 
   async function clearCart() {
-    if (!confirm('Are you sure you want to clear your entire bag?')) return;
+    const confirmed = await showConfirm('Are you sure you want to clear your entire bag?', {
+      title: 'Clear Cart',
+      confirmText: 'Clear',
+      confirmStyle: 'danger'
+    });
+    if (!confirmed) return;
     const res = await fetch('/api/bag', { method: 'DELETE', credentials: 'same-origin' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -231,9 +236,14 @@
     const summary =
       'Order Summary:\n\n' +
       cart.map(it => `${it.name} x${it.quantity} - ${formatCurrency((Number(it.price)||0)*(Number(it.quantity)||0))}`).join('\n') +
-      `\n\n(Actual total will be computed server-side)\nProceed with checkout?`;
+      `\n\n(Actual total will be computed server-side)`;
 
-    if (!confirm(summary)) return;
+    const confirmed = await showConfirm(summary, {
+      title: 'Proceed with Checkout?',
+      confirmText: 'Checkout',
+      confirmStyle: 'primary'
+    });
+    if (!confirmed) return;
 
     try {
       showNotification('Processing your order...', 'success');
@@ -392,6 +402,140 @@
       notification.style.animation = 'slideOut 0.3s ease';
       setTimeout(() => notification.remove(), 300);
     }, 3000);
+  }
+
+  // -------------------- Custom Modals --------------------
+  function showConfirm(message, options = {}) {
+    return new Promise((resolve) => {
+      const {
+        title = 'Confirm',
+        confirmText = 'Confirm',
+        cancelText = 'Cancel',
+        confirmStyle = 'primary'
+      } = options;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-modal-overlay';
+
+      const modal = document.createElement('div');
+      modal.className = 'custom-modal';
+
+      modal.innerHTML = `
+        <div class="custom-modal-header">
+          <h3 class="custom-modal-title">${escapeHtml(title)}</h3>
+        </div>
+        <div class="custom-modal-body">
+          ${escapeHtml(message).replace(/\n/g, '<br>')}
+        </div>
+        <div class="custom-modal-footer">
+          <button class="custom-modal-btn custom-modal-btn-secondary" data-action="cancel">
+            ${escapeHtml(cancelText)}
+          </button>
+          <button class="custom-modal-btn custom-modal-btn-${confirmStyle}" data-action="confirm">
+            ${escapeHtml(confirmText)}
+          </button>
+        </div>
+      `;
+
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      const handleClick = (e) => {
+        const action = e.target.dataset.action;
+        if (action === 'confirm' || action === 'cancel') {
+          overlay.remove();
+          resolve(action === 'confirm');
+        }
+      };
+
+      modal.addEventListener('click', handleClick);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+          resolve(false);
+        }
+      });
+
+      // Focus confirm button
+      setTimeout(() => {
+        const confirmBtn = modal.querySelector('[data-action="confirm"]');
+        if (confirmBtn) confirmBtn.focus();
+      }, 100);
+    });
+  }
+
+  function showPrompt(message, defaultValue = '', options = {}) {
+    return new Promise((resolve) => {
+      const {
+        title = 'Input Required',
+        confirmText = 'OK',
+        cancelText = 'Cancel',
+        placeholder = ''
+      } = options;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-modal-overlay';
+
+      const modal = document.createElement('div');
+      modal.className = 'custom-modal';
+
+      modal.innerHTML = `
+        <div class="custom-modal-header">
+          <h3 class="custom-modal-title">${escapeHtml(title)}</h3>
+        </div>
+        <div class="custom-modal-body">
+          ${escapeHtml(message).replace(/\n/g, '<br>')}
+          <input type="text" class="custom-modal-input" value="${escapeHtml(defaultValue)}" placeholder="${escapeHtml(placeholder)}">
+        </div>
+        <div class="custom-modal-footer">
+          <button class="custom-modal-btn custom-modal-btn-secondary" data-action="cancel">
+            ${escapeHtml(cancelText)}
+          </button>
+          <button class="custom-modal-btn custom-modal-btn-primary" data-action="confirm">
+            ${escapeHtml(confirmText)}
+          </button>
+        </div>
+      `;
+
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      const input = modal.querySelector('.custom-modal-input');
+
+      const handleConfirm = () => {
+        const value = input.value.trim();
+        overlay.remove();
+        resolve(value || null);
+      };
+
+      const handleCancel = () => {
+        overlay.remove();
+        resolve(null);
+      };
+
+      modal.querySelector('[data-action="confirm"]').addEventListener('click', handleConfirm);
+      modal.querySelector('[data-action="cancel"]').addEventListener('click', handleCancel);
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          handleCancel();
+        }
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          handleConfirm();
+        } else if (e.key === 'Escape') {
+          handleCancel();
+        }
+      });
+
+      // Focus input and select text
+      setTimeout(() => {
+        input.focus();
+        input.select();
+      }, 100);
+    });
   }
 
   // -------------------- Search --------------------
@@ -1108,7 +1252,7 @@
     
       const r = await fetch('/api/lists', { credentials: 'same-origin' });
       if (r.status === 401) { window.location.href = '/login'; return; }
-      if (!r.ok) { alert('Failed to load lists'); return; }
+      if (!r.ok) { showNotification('Failed to load lists', 'error'); return; }
     
       currentLists = await r.json();
       if (!currentLists.length) { select.innerHTML = ''; delBtn.disabled = true; return; }
@@ -1228,8 +1372,11 @@
     });
     
     document.getElementById('newListBtn').addEventListener('click', async () => {
-      const name = prompt('Name for the new list:');
-      if (!name || !name.trim()) return;
+      const name = await showPrompt('Enter a name for the new shopping list:', '', {
+        title: 'Create New List',
+        placeholder: 'My Shopping List'
+      });
+      if (!name) return;
       const r = await fetch('/api/lists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1238,7 +1385,7 @@
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
-        alert(data.message || 'Could not create list.');
+        showNotification(data.message || 'Could not create list.', 'error');
         return;
       }
       await sl_refreshListsUI();
@@ -1246,15 +1393,20 @@
     });
     
     document.getElementById('deleteListBtn').addEventListener('click', async () => {
-      if (sl_selectedIsDefault()) { alert('Cannot delete the default list.'); return; }
-      if (!confirm('Delete this list?')) return;
+      if (sl_selectedIsDefault()) { showNotification('Cannot delete the default list.', 'warning'); return; }
+      const confirmed = await showConfirm('Delete this list?', {
+        title: 'Delete Shopping List',
+        confirmText: 'Delete',
+        confirmStyle: 'danger'
+      });
+      if (!confirmed) return;
     
       const r = await fetch(`/api/lists/${currentListId}`, {
         method: 'DELETE',
         credentials: 'same-origin'
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) { alert(data.message || 'Could not delete list.'); return; }
+      if (!r.ok) { showNotification(data.message || 'Could not delete list.', 'error'); return; }
     
       await sl_refreshListsUI();
       await sl_loadItems();
@@ -1276,7 +1428,12 @@
     const clearListBtn = document.getElementById('clearListBtn');
     if (clearListBtn) {
       clearListBtn.addEventListener('click', async () => {
-        if (!confirm('Clear your list?')) return;
+        const confirmed = await showConfirm('Clear all items from this list?', {
+          title: 'Clear Shopping List',
+          confirmText: 'Clear',
+          confirmStyle: 'danger'
+        });
+        if (!confirmed) return;
         await fetch(`/api/lists/${currentListId}/items`, { method: 'DELETE', credentials: 'same-origin' });
         sl_loadItems();
       });
@@ -1291,32 +1448,35 @@
   async function addToList(productId, qty = 1) {
     const r = await fetch('/api/lists', { credentials: 'same-origin' });
     if (r.status === 401) { window.location.href = '/login'; return; }
-    if (!r.ok) { alert('Failed to load lists'); return; }
-  
+    if (!r.ok) { showNotification('Failed to load lists', 'error'); return; }
+
     const lists = await r.json();
-    if (!lists.length) { alert('No shopping lists found.'); return; }
+    if (!lists.length) { showNotification('No shopping lists found.', 'warning'); return; }
   
     const menu = lists.map((l, i) => `${i + 1}. ${l.Name}${l.IsDefault ? ' (default)' : ''}`).join('\n');
-    const choice = prompt(`Add to which list?\n${menu}`);
-    if (choice == null) return;
+    const choice = await showPrompt(`Select a list by entering its number:\n\n${menu}`, '', {
+      title: 'Add to Shopping List',
+      placeholder: 'Enter number (1, 2, 3...)'
+    });
+    if (!choice) return;
     const idx = parseInt(choice, 10) - 1;
   
     const target = lists[idx];
-    if (!target) { alert('Invalid selection.'); return; }
-  
+    if (!target) { showNotification('Invalid selection.', 'error'); return; }
+
     const res = await fetch(`/api/lists/${target.ListID}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ product_id: productId, quantity: qty })
     });
-  
+
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert(data.message || 'Failed to save to list');
+      showNotification(data.message || 'Failed to save to list', 'error');
       return;
     }
-    alert('Saved to list!');
+    showNotification('Saved to list!', 'success');
   }
   window.addToList = addToList;
   document.addEventListener('DOMContentLoaded', () => {
@@ -1328,22 +1488,22 @@
           const data = await res.json();
   
           if (!res.ok || !Array.isArray(data)) {
-            alert('Error fetching low-stock items.');
+            showNotification('Error fetching low-stock items.', 'error');
             return;
           }
-  
+
           if (data.length === 0) {
-            alert('All stocks are sufficient.');
+            showNotification('All stocks are sufficient.', 'success');
             return;
           }
-  
-          const list = data.map(i => 
+
+          const list = data.map(i =>
             `${i.Name} — Stock: ${i.QuantityInStock}`
-          ).join('\n');
-          alert('⚠️ Low Stock Items:\n\n' + list);
+          ).join(', ');
+          showNotification(`⚠️ Low Stock: ${list}`, 'warning');
         } catch (err) {
           console.error(err);
-          alert('Failed to load low-stock list.');
+          showNotification('Failed to load low-stock list.', 'error');
         }
       });
     }
@@ -1352,10 +1512,15 @@
     const saleBtn = document.getElementById('applySalesBtn');
     if (saleBtn) {
       saleBtn.addEventListener('click', async () => {
-        if (!confirm('Apply seasonal sale prices now?')) return;
+        const confirmed = await showConfirm('Apply seasonal sale prices now?', {
+          title: 'Apply Sales',
+          confirmText: 'Apply',
+          confirmStyle: 'primary'
+        });
+        if (!confirmed) return;
         const res = await fetch('/apply_sales', { method: 'POST' });
         const data = await res.json();
-        alert(data.message || 'Operation completed');
+        showNotification(data.message || 'Operation completed', 'success');
       });
     }
   });

@@ -65,16 +65,19 @@
         const result = await response.json();
         
         if (result.success) {
-          alert('Registration successful! Redirecting to login...');
-          window.location.href = '{{ url_for("login") }}';
+          showNotification('Registration successful! Redirecting to login...', 'success');
+          setTimeout(() => {
+            window.location.href = '{{ url_for("login") }}';
+          }, 1500);
         } else {
-          alert(result.message || 'Registration failed. Please try again.');
+          showNotification(result.message || 'Registration failed. Please try again.', 'error');
         }
       } catch (error) {
-        alert('An error occurred. Please try again.');
+        showNotification('An error occurred. Please try again.', 'error');
         console.error('Registration error:', error);
       }
     });
   </script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

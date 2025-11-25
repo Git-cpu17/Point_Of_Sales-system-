@@ -2817,6 +2817,68 @@ def receipts_report(cursor, conn):
         employees=employees
     )
 
+@app.route('/api/receipts/<int:transaction_id>')
+@with_db
+def api_receipt_details(cursor, conn, transaction_id):
+    """Return detailed breakdown of a given receipt for admin view."""
+    if session.get('role') != 'admin':
+        return jsonify({"error": "Unauthorized"}), 403
+
+    cursor.execute("""
+        SELECT
+            st.TransactionID,
+            st.TransactionDate,
+            COALESCE(c.Name, 'Guest / In-store') AS CustomerName,
+            COALESCE(st.PaymentMethod, '') AS PaymentMethod,
+            COALESCE(st.OrderStatus, '') AS OrderStatus,
+            COALESCE(st.OrderDiscount, 0) AS OrderDiscount,
+            COALESCE(st.TotalAmount, 0) AS TotalAmount,
+            COALESCE(st.ShippingAddress, '') AS ShippingAddress
+        FROM dbo.SalesTransaction st
+        LEFT JOIN dbo.Customer c ON c.CustomerID = st.CustomerID
+        WHERE st.TransactionID = ?
+    """, (transaction_id,))
+    header_row = cursor.fetchone()
+    if not header_row:
+        return jsonify({"error": "Receipt not found"}), 404
+
+    header_cols = [col[0] for col in cursor.description]
+    header = dict(zip(header_cols, header_row))
+
+    cursor.execute("""
+        SELECT
+            td.ProductID,
+            p.Name AS ProductName,
+            td.Quantity,
+            td.Price,
+            COALESCE(td.Discount, 0) AS Discount,
+            COALESCE(td.Subtotal, td.Price * td.Quantity) AS Subtotal,
+            COALESCE(e.Name, 'N/A') AS EmployeeName
+        FROM dbo.Transaction_Details td
+        JOIN dbo.Product p ON p.ProductID = td.ProductID
+        LEFT JOIN dbo.Employee e ON e.EmployeeID = td.EmployeeID
+        WHERE td.TransactionID = ?
+        ORDER BY p.Name
+    """, (transaction_id,))
+    cols = [col[0] for col in cursor.description]
+    items = [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+    total_items = len(items)
+    total_units = sum(i["Quantity"] for i in items)
+    total_discount = sum(i["Discount"] for i in items)
+    subtotal_sum = sum(i["Subtotal"] for i in items)
+
+    return jsonify({
+        "header": header,
+        "items": items,
+        "totals": {
+            "total_items": total_items,
+            "total_units": total_units,
+            "total_discount": total_discount,
+            "subtotal_sum": subtotal_sum
+        }
+    })
+
 @app.route('/logout')
 def logout():
     # Clear all session data

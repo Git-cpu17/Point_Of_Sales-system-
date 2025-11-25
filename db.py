@@ -21,7 +21,7 @@ def get_db_connection():
     try:
         print(f"Connecting to DB at {DB_HOST} as {DB_USER}, database {DB_NAME}...")
         conn_str = (
-            "Driver={ODBC Driver 18 for SQL Server};"
+            "Driver={ODBC Driver 17 for SQL Server};"
             f"Server=tcp:{DB_HOST},1433;"
             f"Database={DB_NAME};"
             f"Uid={DB_USER};"

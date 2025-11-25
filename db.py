@@ -1,4 +1,5 @@
 import os
+import sys
 import pyodbc
 import traceback
 from functools import wraps
@@ -29,7 +30,9 @@ def get_db_connection():
 
     # Get available drivers
     available_drivers = pyodbc.drivers()
-    print(f"Available ODBC drivers: {available_drivers}")
+    print(f"Available ODBC drivers: {available_drivers}", flush=True)
+    sys.stderr.write(f"Available ODBC drivers: {available_drivers}\n")
+    sys.stderr.flush()
 
     # Find the first available driver from our preferred list
     driver_to_use = None
@@ -39,13 +42,17 @@ def get_db_connection():
             break
 
     if not driver_to_use:
-        print(f"ERROR: No compatible SQL Server ODBC driver found!")
-        print(f"Available drivers: {available_drivers}")
+        msg = f"ERROR: No compatible SQL Server ODBC driver found! Available: {available_drivers}"
+        print(msg, flush=True)
+        sys.stderr.write(msg + "\n")
+        sys.stderr.flush()
         return None
 
     try:
-        print(f"Connecting to DB at {DB_HOST} as {DB_USER}, database {DB_NAME}...")
-        print(f"Using driver: {driver_to_use}")
+        msg = f"Connecting to DB at {DB_HOST} as {DB_USER}, database {DB_NAME} using driver: {driver_to_use}"
+        print(msg, flush=True)
+        sys.stderr.write(msg + "\n")
+        sys.stderr.flush()
 
         conn_str = (
             f"Driver={{{driver_to_use}}};"
@@ -58,13 +65,16 @@ def get_db_connection():
             "Connection Timeout=30;"
         )
         conn = pyodbc.connect(conn_str)
-        print("Connection successful!")
+        print("Connection successful!", flush=True)
+        sys.stderr.write("Connection successful!\n")
+        sys.stderr.flush()
         return conn
     except Exception as e:
-        print(f"ERROR: Failed to connect to SQL Server")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        traceback.print_exc()
+        msg = f"ERROR: Failed to connect to SQL Server - {type(e).__name__}: {str(e)}"
+        print(msg, flush=True)
+        sys.stderr.write(msg + "\n")
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
         return None
 
 def rows_to_dict_list(cursor):
@@ -79,13 +89,19 @@ def with_db(f):
         try:
             conn = get_db_connection()
             if conn is None:
-                print("ERROR: Failed to establish database connection")
+                msg = "ERROR: Failed to establish database connection"
+                print(msg, flush=True)
+                sys.stderr.write(msg + "\n")
+                sys.stderr.flush()
                 return jsonify({"message": "Database connection failed"}), 500
             cursor = conn.cursor()
             return f(cursor, conn, *args, **kwargs)
         except Exception as e:
-            print("DB error:", e)
-            traceback.print_exc()
+            msg = f"DB error: {e}"
+            print(msg, flush=True)
+            sys.stderr.write(msg + "\n")
+            traceback.print_exc(file=sys.stderr)
+            sys.stderr.flush()
             return jsonify({"message": "Database error"}), 500
         finally:
             if cursor:

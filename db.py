@@ -18,10 +18,37 @@ if not all([DB_HOST, DB_USER, DB_PASSWORD, DB_NAME]):
 # -----------------------------
 
 def get_db_connection():
+    # List of ODBC drivers to try, in order of preference
+    drivers = [
+        'ODBC Driver 18 for SQL Server',
+        'ODBC Driver 17 for SQL Server',
+        'ODBC Driver 13 for SQL Server',
+        'ODBC Driver 11 for SQL Server',
+        'FreeTDS',
+    ]
+
+    # Get available drivers
+    available_drivers = pyodbc.drivers()
+    print(f"Available ODBC drivers: {available_drivers}")
+
+    # Find the first available driver from our preferred list
+    driver_to_use = None
+    for driver in drivers:
+        if driver in available_drivers:
+            driver_to_use = driver
+            break
+
+    if not driver_to_use:
+        print(f"ERROR: No compatible SQL Server ODBC driver found!")
+        print(f"Available drivers: {available_drivers}")
+        return None
+
     try:
         print(f"Connecting to DB at {DB_HOST} as {DB_USER}, database {DB_NAME}...")
+        print(f"Using driver: {driver_to_use}")
+
         conn_str = (
-            "Driver={ODBC Driver 17 for SQL Server};"
+            f"Driver={{{driver_to_use}}};"
             f"Server=tcp:{DB_HOST},1433;"
             f"Database={DB_NAME};"
             f"Uid={DB_USER};"

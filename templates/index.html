@@ -61,13 +61,13 @@
         </div>
       </section>
 
-      <!-- Seasonal Sale Banner -->
+      <!-- Holiday Sale Banner -->
       {% if sale_info %}
       <section class="seasonal-sale-banner">
         <div class="sale-banner-content">
           <div class="sale-icon">🎉</div>
           <div class="sale-details">
-            <h2>Seasonal Sale - {{ sale_info.DiscountPercent|int }}% OFF!</h2>
+            <h2>{{ sale_info.SaleName }} - {{ sale_info.DiscountPercent|int }}% OFF!</h2>
             <p>Save big on selected items! Sale ends {{ sale_info.EndDate.strftime('%B %d, %Y') }}</p>
           </div>
           <div class="sale-badge-large">{{ sale_info.DiscountPercent|int }}% OFF</div>

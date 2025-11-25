@@ -51,34 +51,39 @@ def home(cursor, conn):
     """)
     products = rows_to_dict_list(cursor)
 
-    # Fetch active seasonal sale
+    # Fetch active holiday sale
     cursor.execute("""
-        SELECT SaleID, StartDate, EndDate, DiscountPercent, IsActive
-        FROM SeasonalSale
+        SELECT SaleID, SaleName, StartDate, EndDate, DiscountPercent, DepartmentID, IsActive
+        FROM Holiday_Sales
         WHERE IsActive = 1
         AND GETDATE() BETWEEN StartDate AND EndDate
     """)
-    seasonal_sale = cursor.fetchone()
+    holiday_sale = cursor.fetchone()
 
     sale_info = None
-    if seasonal_sale:
+    if holiday_sale:
         sale_info = {
-            'SaleID': seasonal_sale[0],
-            'StartDate': seasonal_sale[1],
-            'EndDate': seasonal_sale[2],
-            'DiscountPercent': seasonal_sale[3],
-            'IsActive': seasonal_sale[4]
+            'SaleID': holiday_sale[0],
+            'SaleName': holiday_sale[1],
+            'StartDate': holiday_sale[2],
+            'EndDate': holiday_sale[3],
+            'DiscountPercent': holiday_sale[4],
+            'DepartmentID': holiday_sale[5],
+            'IsActive': holiday_sale[6]
         }
 
         # Calculate sale prices for products marked OnSale
+        # If DepartmentID is set, only apply to that department
         for product in products:
             if product.get('OnSale'):
-                original_price = product['Price']
-                discount = sale_info['DiscountPercent']
-                sale_price = original_price * (1 - discount / 100)
-                product['SalePrice'] = round(sale_price, 2)
-                product['OriginalPrice'] = original_price
-                product['Savings'] = round(original_price - sale_price, 2)
+                # Check if sale applies to this product's department
+                if sale_info['DepartmentID'] is None or product['DepartmentID'] == sale_info['DepartmentID']:
+                    original_price = product['Price']
+                    discount = sale_info['DiscountPercent']
+                    sale_price = original_price * (1 - discount / 100)
+                    product['SalePrice'] = round(sale_price, 2)
+                    product['OriginalPrice'] = original_price
+                    product['Savings'] = round(original_price - sale_price, 2)
 
     # Fetch all departments
     cursor.execute("SELECT DepartmentID,Name FROM Department")

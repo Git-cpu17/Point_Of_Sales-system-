@@ -18,24 +18,20 @@ if not all([DB_HOST, DB_USER, DB_PASSWORD, DB_NAME]):
 # -----------------------------
 
 def get_db_connection():
-    try:
-        print(f"Attempting to connect to DB at {DB_HOST}...")
-        conn_str = (
-            "Driver={ODBC Driver 18 for SQL Server};"
-            f"Server=tcp:{DB_HOST},1433;"
-            f"Database={DB_NAME};"
-            f"Uid={DB_USER};"
-            f"Pwd={DB_PASSWORD};"
-            "Encrypt=yes;"
-            "TrustServerCertificate=yes;"
-            "Connection Timeout=30;"
-        )
-        conn = pyodbc.connect(conn_str)
-        print("Connection successful!")
-        return conn
-    except Exception as e:
-        print(f"Error while connecting to SQL Server: {str(e)}")
-        return None
+    print(f"Connecting to DB at {DB_HOST} as {DB_USER}, database {DB_NAME}...")
+    conn_str = (
+        "Driver={ODBC Driver 18 for SQL Server};"
+        f"Server=tcp:{DB_HOST},1433;"
+        f"Database={DB_NAME};"
+        f"Uid={DB_USER};"
+        f"Pwd={DB_PASSWORD};"
+        "Encrypt=yes;"
+        "TrustServerCertificate=yes;"
+        "Connection Timeout=30;"
+    )
+    conn = pyodbc.connect(conn_str)
+    print("Connection successful!")
+    return conn
 
 def rows_to_dict_list(cursor):
     columns = [col[0] for col in cursor.description]

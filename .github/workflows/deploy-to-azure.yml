@@ -23,17 +23,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Show current directory and files
+
+      - name: Create and activate virtual environment
         run: |
-          pwd
-          ls -la
-         
-     # ✅ Install dependencies directly (optional if Oryx handles it)
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+          python -m venv antenv
+          source antenv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-
-      # 📦 Upload everything except unnecessary files
+      # 📦 Upload everything including virtual environment
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
@@ -43,7 +41,7 @@ jobs:
             !**/__pycache__/
             !**/*.pyc
             !.venv/
-            !antenv/
+            !.git/
 
 
   deploy:

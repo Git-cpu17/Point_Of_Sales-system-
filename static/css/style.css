@@ -189,6 +189,75 @@ body {
   gap: 0.5rem;
 }
 
+/* Seasonal Sale Banner */
+.seasonal-sale-banner {
+  background: linear-gradient(135deg, var(--accent-orange), #ff8c42);
+  color: var(--white);
+  padding: 2rem;
+  margin: 0 auto 2rem;
+  max-width: 1400px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 107, 53, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(255, 107, 53, 0.6); }
+}
+
+.sale-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sale-icon {
+  font-size: 4rem;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.sale-details h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  font-weight: 800;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.sale-details p {
+  font-size: 1.1rem;
+  opacity: 0.95;
+}
+
+.sale-badge-large {
+  background: var(--white);
+  color: var(--accent-orange);
+  padding: 1.5rem 2rem;
+  border-radius: 50%;
+  font-size: 1.8rem;
+  font-weight: 900;
+  min-width: 120px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  animation: rotate-badge 3s ease-in-out infinite;
+}
+
+@keyframes rotate-badge {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
 /* Main Content */
 main {
   width: 100%;
@@ -336,6 +405,43 @@ main {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--primary-green);
+}
+
+.price-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.price-original {
+  font-size: 1.1rem;
+  color: var(--text-light);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+.sale-price {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--accent-orange);
+  animation: price-pulse 2s ease-in-out infinite;
+}
+
+@keyframes price-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.savings-badge {
+  display: inline-block;
+  background: var(--warm-yellow);
+  color: var(--text-dark);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+  width: fit-content;
 }
 
 .unit-price {

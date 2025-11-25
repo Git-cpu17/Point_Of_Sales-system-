@@ -61,6 +61,20 @@
         </div>
       </section>
 
+      <!-- Seasonal Sale Banner -->
+      {% if sale_info %}
+      <section class="seasonal-sale-banner">
+        <div class="sale-banner-content">
+          <div class="sale-icon">🎉</div>
+          <div class="sale-details">
+            <h2>Seasonal Sale - {{ sale_info.DiscountPercent|int }}% OFF!</h2>
+            <p>Save big on selected items! Sale ends {{ sale_info.EndDate.strftime('%B %d, %Y') }}</p>
+          </div>
+          <div class="sale-badge-large">{{ sale_info.DiscountPercent|int }}% OFF</div>
+        </div>
+      </section>
+      {% endif %}
+
       <!-- Categories Section -->
         {% set icon_map = {
           'produce': '🥬',
@@ -136,7 +150,15 @@
 
                   <div class="product-meta">
                     <div>
-                      <span class="price">${{ '%.2f'|format(p.Price) }}</span>
+                      {% if p.get('SalePrice') %}
+                        <div class="price-container">
+                          <span class="price-original">${{ '%.2f'|format(p.OriginalPrice) }}</span>
+                          <span class="price sale-price">${{ '%.2f'|format(p.SalePrice) }}</span>
+                        </div>
+                        <div class="savings-badge">Save ${{ '%.2f'|format(p.Savings) }}</div>
+                      {% else %}
+                        <span class="price">${{ '%.2f'|format(p.Price) }}</span>
+                      {% endif %}
                       <div class="unit-price">per unit</div>
                     </div>
                     <span class="stock {{ stock_class }}">

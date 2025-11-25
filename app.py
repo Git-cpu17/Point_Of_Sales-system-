@@ -51,6 +51,35 @@ def home(cursor, conn):
     """)
     products = rows_to_dict_list(cursor)
 
+    # Fetch active seasonal sale
+    cursor.execute("""
+        SELECT SaleID, StartDate, EndDate, DiscountPercent, IsActive
+        FROM SeasonalSale
+        WHERE IsActive = 1
+        AND GETDATE() BETWEEN StartDate AND EndDate
+    """)
+    seasonal_sale = cursor.fetchone()
+
+    sale_info = None
+    if seasonal_sale:
+        sale_info = {
+            'SaleID': seasonal_sale[0],
+            'StartDate': seasonal_sale[1],
+            'EndDate': seasonal_sale[2],
+            'DiscountPercent': seasonal_sale[3],
+            'IsActive': seasonal_sale[4]
+        }
+
+        # Calculate sale prices for products marked OnSale
+        for product in products:
+            if product.get('OnSale'):
+                original_price = product['Price']
+                discount = sale_info['DiscountPercent']
+                sale_price = original_price * (1 - discount / 100)
+                product['SalePrice'] = round(sale_price, 2)
+                product['OriginalPrice'] = original_price
+                product['Savings'] = round(original_price - sale_price, 2)
+
     # Fetch all departments
     cursor.execute("SELECT DepartmentID,Name FROM Department")
     departments = rows_to_dict_list(cursor)
@@ -77,8 +106,8 @@ def home(cursor, conn):
         if record:
             user = {'Name': record[0], 'role': 'employee'}
 
-    # Pass products and departments to template for JS filtering
-    return render_template('index.html', products=products, departments=departments, user=user)
+    # Pass products, departments, and sale info to template
+    return render_template('index.html', products=products, departments=departments, user=user, sale_info=sale_info)
 
 @app.route("/api/status", methods=["GET"])
 def status():

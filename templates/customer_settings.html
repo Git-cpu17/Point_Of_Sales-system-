@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Settings - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    .settings-container {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+
+    .settings-header {
+      background: linear-gradient(135deg, var(--primary-green), var(--dark-green));
+      color: white;
+      padding: 2rem;
+      border-radius: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .settings-card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: var(--shadow-md);
+      margin-bottom: 2rem;
+    }
+
+    .form-section {
+      margin-bottom: 2rem;
+    }
+
+    .form-section h3 {
+      color: var(--text-dark);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--light-green);
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: var(--text-dark);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary-green);
+      box-shadow: 0 0 0 3px rgba(74, 155, 62, 0.1);
+    }
+
+    .form-group input:disabled {
+      background: var(--bg-light);
+      cursor: not-allowed;
+    }
+
+    .form-group small {
+      display: block;
+      margin-top: 0.25rem;
+      color: var(--text-light);
+      font-size: 0.85rem;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
+      margin-top: 2rem;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    .alert.success {
+      background: var(--light-green);
+      color: var(--primary-green);
+      border: 1px solid var(--primary-green);
+    }
+
+    .alert.error {
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #ef5350;
+    }
+
+    .alert.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
+        <a href="{{ url_for('customer_dashboard') }}" class="nav-link">Dashboard</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">{{ bag_count }}</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="settings-container">
+      <!-- Header -->
+      <div class="settings-header">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">⚙️ Account Settings</h1>
+        <p style="opacity: 0.9;">Manage your personal information and preferences</p>
+      </div>
+
+      <!-- Alert Messages -->
+      <div id="alertMessage" class="alert"></div>
+
+      <!-- Settings Form -->
+      <form id="settingsForm">
+        <!-- Personal Information -->
+        <div class="settings-card">
+          <div class="form-section">
+            <h3>Personal Information</h3>
+
+            <div class="form-group">
+              <label for="username">Username</label>
+              <input type="text" id="username" name="username" value="{{ customer.username }}" disabled>
+              <small>Username cannot be changed</small>
+            </div>
+
+            <div class="form-group">
+              <label for="name">Full Name *</label>
+              <input type="text" id="name" name="name" value="{{ customer.Name }}" required>
+            </div>
+
+            <div class="form-group">
+              <label for="email">Email Address *</label>
+              <input type="email" id="email" name="email" value="{{ customer.Email }}" required>
+            </div>
+
+            <div class="form-group">
+              <label for="phone">Phone Number</label>
+              <input type="tel" id="phone" name="phone" value="{{ customer.Phone or '' }}" placeholder="(555) 123-4567">
+            </div>
+          </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="settings-card">
+          <div class="form-section">
+            <h3>Change Password</h3>
+            <p style="color: var(--text-light); margin-bottom: 1rem;">Leave blank if you don't want to change your password</p>
+
+            <div class="form-group">
+              <label for="current_password">Current Password</label>
+              <input type="password" id="current_password" name="current_password" placeholder="Enter current password">
+            </div>
+
+            <div class="form-group">
+              <label for="new_password">New Password</label>
+              <input type="password" id="new_password" name="new_password" placeholder="Enter new password">
+            </div>
+
+            <div class="form-group">
+              <label for="confirm_password">Confirm New Password</label>
+              <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm new password">
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="button-group">
+          <a href="{{ url_for('customer_dashboard') }}" class="btn secondary">Cancel</a>
+          <button type="submit" class="btn primary">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    document.getElementById('settingsForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const alertDiv = document.getElementById('alertMessage');
+      const formData = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        current_password: document.getElementById('current_password').value,
+        new_password: document.getElementById('new_password').value
+      };
+
+      // Validate password confirmation
+      const confirmPassword = document.getElementById('confirm_password').value;
+      if (formData.new_password && formData.new_password !== confirmPassword) {
+        alertDiv.className = 'alert error show';
+        alertDiv.textContent = 'New passwords do not match!';
+        return;
+      }
+
+      // Validate current password if changing password
+      if (formData.new_password && !formData.current_password) {
+        alertDiv.className = 'alert error show';
+        alertDiv.textContent = 'Please enter your current password to change it.';
+        return;
+      }
+
+      try {
+        const response = await fetch('{{ url_for("customer_settings") }}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          alertDiv.className = 'alert success show';
+          alertDiv.textContent = data.message;
+
+          // Clear password fields
+          document.getElementById('current_password').value = '';
+          document.getElementById('new_password').value = '';
+          document.getElementById('confirm_password').value = '';
+
+          // Scroll to top to show message
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          alertDiv.className = 'alert error show';
+          alertDiv.textContent = data.message;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch (error) {
+        alertDiv.className = 'alert error show';
+        alertDiv.textContent = 'An error occurred. Please try again.';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    });
+  </script>
+</body>
+</html>

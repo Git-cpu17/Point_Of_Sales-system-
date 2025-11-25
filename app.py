@@ -1028,6 +1028,72 @@ def customer_dashboard(cursor, conn):
         print("Error fetching customer dashboard:", e)
         return render_template('error.html', message="Error loading dashboard")
 
+@app.route('/customer/settings', methods=['GET', 'POST'])
+@with_db
+def customer_settings(cursor, conn):
+    # Require customer login
+    if 'user_id' not in session or session.get('role') != 'customer':
+        return redirect(url_for('login'))
+
+    customer_id = session['user_id']
+
+    if request.method == 'POST':
+        # Handle settings update
+        data = request.get_json() or request.form or {}
+        name = data.get('name')
+        email = data.get('email')
+        phone = data.get('phone')
+        current_password = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not name or not email:
+            return jsonify({"success": False, "message": "Name and email are required"}), 400
+
+        # Verify current customer
+        cursor.execute("SELECT password FROM Customer WHERE CustomerID = ?", (customer_id,))
+        record = cursor.fetchone()
+        if not record:
+            return jsonify({"success": False, "message": "Customer not found"}), 404
+
+        # Check if email is already used by another customer
+        cursor.execute("SELECT CustomerID FROM Customer WHERE Email = ? AND CustomerID != ?", (email, customer_id))
+        if cursor.fetchone():
+            return jsonify({"success": False, "message": "Email already in use by another account"}), 409
+
+        # Update customer information
+        if new_password and current_password:
+            # Verify current password
+            if record[0] != current_password:
+                return jsonify({"success": False, "message": "Current password is incorrect"}), 401
+
+            # Update with new password
+            cursor.execute("""
+                UPDATE Customer
+                SET Name = ?, Email = ?, Phone = ?, password = ?
+                WHERE CustomerID = ?
+            """, (name, email, phone, new_password, customer_id))
+        else:
+            # Update without changing password
+            cursor.execute("""
+                UPDATE Customer
+                SET Name = ?, Email = ?, Phone = ?
+                WHERE CustomerID = ?
+            """, (name, email, phone, customer_id))
+
+        conn.commit()
+        return jsonify({"success": True, "message": "Settings updated successfully!"}), 200
+
+    # GET request - fetch customer info
+    cursor.execute("SELECT CustomerID, username, Name, Email, Phone FROM Customer WHERE CustomerID = ?", (customer_id,))
+    record = cursor.fetchone()
+    if not record:
+        return redirect(url_for('login'))
+
+    columns = [col[0] for col in cursor.description]
+    customer = dict(zip(columns, record))
+
+    return render_template('customer_settings.html', customer=customer)
+
 @app.route('/customer/orders')
 @with_db
 def customer_orders(cursor, conn):

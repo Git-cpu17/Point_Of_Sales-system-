@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Receipts Report - FreshMart</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <style>
+    :root {
+      --primary: #2ecc71;
+      --secondary: #27ae60;
+      --bg-light: #f9f9f9;
+      --text-dark: #333;
+      --text-muted: #777;
+      --accent-light: #e8f9ee;
+      --radius: 10px;
+      --shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #e8f9ee 100%);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      color: var(--text-dark);
+    }
+
+    .account-container {
+      max-width: 1400px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .page-subtitle {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 1.5rem;
+    }
+
+    .sidebar {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .sidebar-header {
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      font-size: 1.05rem;
+    }
+
+    .sidebar-item {
+      padding: 0.65rem 0.75rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-decoration: none;
+      color: var(--text-dark);
+      font-weight: 500;
+      transition: background 0.25s ease, transform 0.25s ease;
+    }
+
+    .sidebar-item span.icon {
+      font-size: 1.2rem;
+    }
+
+    .sidebar-item:hover {
+      background: var(--accent-light);
+      transform: translateX(3px);
+    }
+
+    .sidebar-item.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .content-card {
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.5rem;
+    }
+
+    .filters-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      align-items: flex-end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 180px;
+    }
+
+    .field label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .field input,
+    .field select {
+      padding: 0.5rem 0.6rem;
+      border-radius: 6px;
+      border: 1px solid #dfe6e9;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 0.5rem 1.3rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .btn-primary:hover {
+      background: var(--secondary);
+    }
+
+    .kpi-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .kpi-card {
+      flex: 1;
+      min-width: 180px;
+      border-radius: var(--radius);
+      padding: 0.9rem 1rem;
+      background: #f7fbf8;
+      border: 1px solid rgba(15, 20, 10, 0.03);
+    }
+
+    .kpi-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-value {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid #e1e8e5;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    thead {
+      background: #e8f9ee;
+    }
+
+    th, td {
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #f0f3f0;
+    }
+
+    th {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #2c3e50;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #fbfdfb;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .badge-status.completed {
+      background: #e8f9ee;
+      color: #1e7a3b;
+    }
+
+    .badge-status.pending {
+      background: #fff4e6;
+      color: #d35400;
+    }
+
+    .badge-status.cancelled,
+    .badge-status.refunded {
+      background: #fdecea;
+      color: #c0392b;
+    }
+
+    .amount {
+      font-weight: 600;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="nav-container">
+      <a href="{{ url_for('home') }}" class="logo">FreshMart</a>
+
+      <div class="nav-right">
+        <a href="{{ url_for('home') }}" class="nav-link">Shop</a>
+        <a href="{{ url_for('customer_orders') }}" class="nav-link">Orders</a>
+        <a href="{{ url_for('shopping_lists') }}" class="nav-link">Shopping Lists</a>
+        {% if session.get('role','').lower() in ['employee','admin'] %}
+          <a href="{{ url_for('reports') }}" class="nav-link">Reports</a>
+        {% endif %}
+        <a href="{{ url_for('bag_page') }}" class="bag-link">
+          <span>🛒</span>
+          <span>Cart</span>
+          <span id="bagCount" class="badge">{{ bag_count }}</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="nav-link">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="account-container">
+    <h1 class="page-title">Receipts Report</h1>
+    <p class="page-subtitle">
+      Admin view of all receipts including customer, employee, payment method, and transaction totals.
+    </p>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-header">Admin</div>
+        <a href="{{ url_for('admin_dashboard') }}" class="sidebar-item">
+          <span class="icon">🏠</span>
+          <span>Dashboard</span>
+        </a>
+        <div class="sidebar-item active">
+          <span class="icon">🧾</span>
+          <span>Receipts Report</span>
+        </div>
+      </aside>
+
+      <section>
+        <div class="content-card">
+          <form method="get" class="filters-row">
+            <div class="field">
+              <label for="date_from">Date from</label>
+              <input id="date_from" name="date_from" type="date"
+                     value="{{ request.args.get('date_from','') }}">
+            </div>
+
+            <div class="field">
+              <label for="date_to">Date to</label>
+              <input id="date_to" name="date_to" type="date"
+                     value="{{ request.args.get('date_to','') }}">
+            </div>
+
+            <div class="field">
+              <label for="payment_method">Payment method</label>
+              <select id="payment_method" name="payment_method">
+                <option value="">All</option>
+                {% for pm in payment_methods %}
+                  <option value="{{ pm }}"
+                    {% if request.args.get('payment_method','') == pm %}selected{% endif %}>
+                    {{ pm }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="order_status">Order status</label>
+              <select id="order_status" name="order_status">
+                <option value="">All</option>
+                {% for st in order_statuses %}
+                  <option value="{{ st }}"
+                    {% if request.args.get('order_status','') == st %}selected{% endif %}>
+                    {{ st }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="employee_id">Employee</label>
+              <select id="employee_id" name="employee_id">
+                <option value="">All</option>
+                {% for e in employees %}
+                  <option value="{{ e.EmployeeID }}"
+                    {% if request.args.get('employee_id','') == e.EmployeeID %}selected{% endif %}>
+                    {{ e.Name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <button type="submit" class="btn-primary">
+                🔍 Run report
+              </button>
+            </div>
+          </form>
+
+          <div class="kpi-row">
+            <div class="kpi-card">
+              <div class="kpi-label">Total receipts</div>
+              <div class="kpi-value">{{ total_receipts }}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Total revenue</div>
+              <div class="kpi-value">
+                ${{ "%.2f"|format(total_revenue or 0) }}
+              </div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Average receipt value</div>
+              <div class="kpi-value">
+                ${{ "%.2f"|format(avg_receipt or 0) }}
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Receipt #</th>
+                  <th>Customer</th>
+                  <th>Employee</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th>Units / Items</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if receipts %}
+                  {% for r in receipts %}
+                    <tr>
+                      <td>{{ r.TransactionDate }}</td>
+                      <td>#{{ r.TransactionID }}</td>
+                      <td>{{ r.CustomerName }}</td>
+                      <td>{{ r.EmployeeName }}</td>
+                      <td>{{ r.PaymentMethod }}</td>
+                      <td>
+                        <span class="badge-status {{ r.OrderStatus|lower }}">
+                          {{ r.OrderStatus }}
+                        </span>
+                      </td>
+                      <td>{{ r.TotalUnits }} units / {{ r.DistinctItems }} items</td>
+                      <td class="amount">${{ "%.2f"|format(r.TotalAmount) }}</td>
+                    </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="8">No receipts found for the selected filters.</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    window.CURRENT_USER = {
+      id: {{ session.get('user_id') | tojson }},
+      role: {{ session.get('role','') | tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

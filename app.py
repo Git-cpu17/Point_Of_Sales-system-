@@ -78,8 +78,8 @@ def home(cursor, conn):
             if product.get('OnSale'):
                 # Check if sale applies to this product's department
                 if sale_info['DepartmentID'] is None or product['DepartmentID'] == sale_info['DepartmentID']:
-                    original_price = product['Price']
-                    discount = sale_info['DiscountPercent']
+                    original_price = float(product['Price'])
+                    discount = float(sale_info['DiscountPercent'])
                     sale_price = original_price * (1 - discount / 100)
                     product['SalePrice'] = round(sale_price, 2)
                     product['OriginalPrice'] = original_price

@@ -795,14 +795,19 @@ document.getElementById("addEmployeeForm").addEventListener("submit", async (e) 
 
 // Delete Employee
 async function deleteEmployee(id){
-    if(!confirm("Are you sure you want to delete this employee?")) return;
+    const confirmed = await showConfirm("Are you sure you want to delete this employee?", {
+        title: 'Delete Employee',
+        confirmText: 'Delete',
+        confirmStyle: 'danger'
+    });
+    if(!confirmed) return;
     try {
         const res = await fetch(`/api/employees/delete/${id}`, {method:"DELETE"});
         const data = await res.json();
-        alert(data.message);
-        if(res.ok) location.reload();
+        showNotification(data.message, res.ok ? 'success' : 'error');
+        if(res.ok) setTimeout(() => location.reload(), 1000);
     } catch(err) {
-        alert("Error deleting employee");
+        showNotification("Error deleting employee", 'error');
         console.error(err);
     }
 }
@@ -811,7 +816,10 @@ async function deleteEmployee(id){
 async function editEmployee(empID){
     try{
         const res = await fetch(`/api/employees/${empID}`);
-        if(!res.ok) return alert("Failed to fetch employee data");
+        if(!res.ok) {
+            showNotification("Failed to fetch employee data", 'error');
+            return;
+        }
         const emp = await res.json();
         document.getElementById("editEmployeeID").value = emp.EmployeeID;
         document.getElementById("editName").value = emp.Name || '';
@@ -825,7 +833,7 @@ async function editEmployee(empID){
         document.getElementById("editEmployeeModal").style.display = "block";
     } catch(err){
         console.error(err);
-        alert("Error fetching employee data");
+        showNotification("Error fetching employee data", 'error');
     }
 }
 
@@ -844,10 +852,10 @@ document.getElementById("editEmployeeForm").addEventListener("submit", async (e)
             body: JSON.stringify(formData)
         });
         const data = await res.json();
-        alert(data.message);
-        if(res.ok) location.reload();
+        showNotification(data.message, res.ok ? 'success' : 'error');
+        if(res.ok) setTimeout(() => location.reload(), 1000);
     } catch(err) {
-        alert("Error updating employee");
+        showNotification("Error updating employee", 'error');
         console.error(err);
     } finally {
         submitBtn.classList.remove('loading');
@@ -866,4 +874,5 @@ window.onclick = function(event) {
     }
 }
 </script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% endblock %}

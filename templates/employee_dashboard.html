@@ -434,7 +434,7 @@
       const quantity = parseInt(qtyInput.value);
 
       if (!quantity || quantity <= 0) {
-        alert('Please enter a valid quantity');
+        showNotification('Please enter a valid quantity', 'error');
         return;
       }
 
@@ -479,15 +479,15 @@
             loadNotificationCount();
           }, 300);
 
-          alert(`Successfully restocked with ${quantity} units!`);
+          showNotification(`Successfully restocked with ${quantity} units!`, 'success');
         } else {
-          alert(data.error || 'Failed to restock product');
+          showNotification(data.error || 'Failed to restock product', 'error');
           btn.disabled = false;
           btn.textContent = 'Restock';
         }
       } catch (error) {
         console.error('Error restocking product:', error);
-        alert('Error processing restock request');
+        showNotification('Error processing restock request', 'error');
         btn.disabled = false;
         btn.textContent = 'Restock';
       }

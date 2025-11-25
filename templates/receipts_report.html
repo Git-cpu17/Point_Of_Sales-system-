@@ -238,6 +238,25 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .receipt-row { cursor: pointer; transition: background 0.2s; }
+    .receipt-row:hover { background: #f5faf7; }
+    .receipt-details.hidden { display: none; }
+    .details-cell {
+      background: #fafdfb;
+      border-top: 1px solid #dfe6e2;
+      padding: 0.8rem 1.2rem;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .details-table th, .details-table td {
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .details-loading { color: #777; font-style: italic; }
   </style>
 </head>
 <body>
@@ -376,29 +395,28 @@
                   <th>Total</th>
                 </tr>
               </thead>
-              <tbody>
-                {% if receipts %}
-                  {% for r in receipts %}
-                    <tr>
-                      <td>{{ r.TransactionDate }}</td>
-                      <td>#{{ r.TransactionID }}</td>
-                      <td>{{ r.CustomerName }}</td>
-                      <td>{{ r.EmployeeName }}</td>
-                      <td>{{ r.PaymentMethod }}</td>
-                      <td>
-                        <span class="badge-status {{ r.OrderStatus|lower }}">
-                          {{ r.OrderStatus }}
-                        </span>
-                      </td>
-                      <td>{{ r.TotalUnits }} units / {{ r.DistinctItems }} items</td>
-                      <td class="amount">${{ "%.2f"|format(r.TotalAmount) }}</td>
-                    </tr>
-                  {% endfor %}
-                {% else %}
-                  <tr>
-                    <td colspan="8">No receipts found for the selected filters.</td>
-                  </tr>
-                {% endif %}
+              <tbody id="receiptsTableBody">
+                {% for r in receipts %}
+                <tr class="receipt-row" data-transaction-id="{{ r.TransactionID }}">
+                  <td>{{ r.TransactionDate }}</td>
+                  <td>#{{ r.TransactionID }}</td>
+                  <td>{{ r.CustomerName }}</td>
+                  <td>{{ r.EmployeeName }}</td>
+                  <td>{{ r.PaymentMethod }}</td>
+                  <td>
+                    <span class="badge-status {{ r.OrderStatus|lower }}">
+                      {{ r.OrderStatus }}
+                    </span>
+                  </td>
+                  <td>{{ r.TotalUnits }} units / {{ r.DistinctItems }} items</td>
+                  <td class="amount">${{ "%.2f"|format(r.TotalAmount) }}</td>
+                </tr>
+                <tr class="receipt-details hidden" id="details-{{ r.TransactionID }}">
+                  <td colspan="8" class="details-cell">
+                    <div class="details-loading">Loading details...</div>
+                  </td>
+                </tr>
+                {% endfor %}
               </tbody>
             </table>
           </div>

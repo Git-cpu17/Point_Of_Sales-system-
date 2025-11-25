@@ -1524,3 +1524,83 @@
       });
     }
   });
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const tableBody = document.getElementById('receiptsTableBody');
+    if (!tableBody) return;
+  
+    tableBody.addEventListener('click', async (e) => {
+      const row = e.target.closest('.receipt-row');
+      if (!row) return;
+  
+      const id = row.dataset.transactionId;
+      const detailsRow = document.getElementById(`details-${id}`);
+  
+      if (!detailsRow) return;
+  
+      // Toggle visibility
+      if (!detailsRow.classList.contains('hidden')) {
+        detailsRow.classList.add('hidden');
+        detailsRow.querySelector('.details-cell').innerHTML = '';
+        return;
+      }
+  
+      // Show loading indicator
+      detailsRow.classList.remove('hidden');
+      detailsRow.querySelector('.details-cell').innerHTML =
+        '<div class="details-loading">Loading details...</div>';
+  
+      try {
+        const resp = await fetch(`/api/receipts/${id}`, { credentials: 'same-origin' });
+        if (!resp.ok) throw new Error('Failed to load');
+        const data = await resp.json();
+  
+        const { header, items, totals } = data;
+        const html = `
+          <div>
+            <p><strong>Customer:</strong> ${header.CustomerName}</p>
+            <p><strong>Payment:</strong> ${header.PaymentMethod}</p>
+            <p><strong>Status:</strong> ${header.OrderStatus}</p>
+            <p><strong>Shipping Address:</strong> ${header.ShippingAddress || 'N/A'}</p>
+  
+            <table class="details-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th>Discount</th>
+                  <th>Subtotal</th>
+                  <th>Employee</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(it => `
+                  <tr>
+                    <td>${it.ProductName}</td>
+                    <td>${it.Quantity}</td>
+                    <td>$${it.Price.toFixed(2)}</td>
+                    <td>$${it.Discount.toFixed(2)}</td>
+                    <td>$${it.Subtotal.toFixed(2)}</td>
+                    <td>${it.EmployeeName}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+  
+            <p style="margin-top:0.8rem; font-size:0.85rem; color:#555;">
+              <strong>Total Units:</strong> ${totals.total_units} |
+              <strong>Total Items:</strong> ${totals.total_items} |
+              <strong>Total Discounts:</strong> $${totals.total_discount.toFixed(2)} |
+              <strong>Subtotal Sum:</strong> $${totals.subtotal_sum.toFixed(2)}
+            </p>
+          </div>
+        `;
+  
+        detailsRow.querySelector('.details-cell').innerHTML = html;
+      } catch (err) {
+        detailsRow.querySelector('.details-cell').innerHTML =
+          '<div class="details-loading">Error loading details.</div>';
+        console.error(err);
+      }
+    });
+  });
